@@ -1,0 +1,11 @@
+## Adding a new module
+When adding a new module, eg. 'test_module', add it to lib.rs as it orchetrates all files for the /src folder. 
+It can then be used in other modules (files). Internally inside of /src as 'use crate::test_module' or externally as 'use gc_machine::test_module', like in the integration tests. 
+
+## Adding a new unit test
+To add a new unit test, add it to mod.rs as it orchetrates all files for the submodule of unit tests. Compiler uses mod.rs to know which files to use when compiling.
+
+## Run tests
+Use `cargo test``
+This will run both integration tests in /tests and unit_tests. It looks for [#tests] and runs them.
+

@@ -1,0 +1,1 @@
+pub const BIT_LENGTH: u32 = 128;
