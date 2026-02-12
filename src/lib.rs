@@ -2,6 +2,7 @@
 // File to declare all modules
 
 pub mod crypto_utils;
+pub mod gates;
 
 #[cfg(test)] // Only compile when testing
 mod unit_tests; // Finds unit tests folder
