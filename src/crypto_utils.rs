@@ -13,6 +13,22 @@ pub fn gc_kdf(left: &BigUint, right: &BigUint, gate_id: &BigUint) -> BigUint {
     BigUint::from_bytes_be(&bit_result)
 }
 
+pub fn gc_kdf_128(left: &BigUint, right: &BigUint, gate_id: &BigUint) -> BigUint {
+    let bit_result = gc_kdf(left, right, gate_id);
+    bit_result >> 128
+}
+
+pub fn generate_label_lsb(lsb: bool) -> BigUint {
+    let mut bytes = [0u8; 16];
+    thread_rng().fill(&mut bytes);
+    if lsb {
+        bytes[15] |= 1;  // LSB = 1
+    } else {
+        bytes[15] &= !1; // LSB = 0
+    }
+    BigUint::from_bytes_be(&bytes)
+}
+
 pub fn generate_label() -> BigUint {
     generate_128_bit_number()
 }
