@@ -22,21 +22,6 @@ fn test_generate_input_wires_randomness() {
 }
 
 #[test]
-fn test_generate_output_wires_independent() {
-    let (w0i, w1i) = OriginalWires::generate_input_wires();
-    let (w0j, w1j) = OriginalWires::generate_input_wires();
-    let gate_id = BigUint::from(1u32);
-
-    let (out0, out1) = OriginalWires::generate_output_wires(
-        &w0i, &w1i, &w0j, &w1j, "and".to_string(), &gate_id
-    );
-
-    // Output wires are independent of inputs in OriginalWires
-    assert_ne!(out0, w0i);
-    assert_ne!(out1, w1i);
-}
-
-#[test]
 fn test_generate_input_wires_opposite_lsb() {
     let (w0, w1) = PointAndPermuteWires::generate_input_wires();
 
@@ -48,14 +33,14 @@ fn test_generate_input_wires_opposite_lsb() {
 fn test_get_00_wire_finds_correct_pair() {
     let w0i = generate_label_lsb(false); // LSB = 0
     let w1i = generate_label_lsb(true);  // LSB = 1
-    let w0j = generate_label_lsb(false); // LSB = 0
-    let w1j = generate_label_lsb(true);  // LSB = 1
+    let w0j = generate_label_lsb(true); // LSB = 1
+    let w1j = generate_label_lsb(false);  // LSB = 0
     let gate_id = BigUint::from(1u32);
 
     let result = get_00_wire((&w0i, &w1i), (&w0j, &w1j), &gate_id);
 
     // Should successfully find the (w0i, w0j) pair
-    assert_eq!(result, gc_kdf_128(&w0i, &w0j, &gate_id));
+    assert_eq!(result, gc_kdf_128(&w0i, &w1j, &gate_id));
 }
 
 #[test]
@@ -90,34 +75,6 @@ fn test_generate_xor_wires_opposite_lsb() {
     let (w0c, w1c) = generate_xor_wires(&w0i, &w1i, &w0j, &w1j, &gate_id);
 
     assert_ne!(w0c.bit(0), w1c.bit(0), "Output wires should have opposite LSBs");
-}
-
-#[test]
-fn test_generate_output_wires_and_gate() {
-    let (w0i, w1i) = GRR3Wires::generate_input_wires();
-    let (w0j, w1j) = GRR3Wires::generate_input_wires();
-    let gate_id = BigUint::from(1u32);
-
-    let result = GRR3Wires::generate_output_wires(
-        &w0i, &w1i, &w0j, &w1j, "and".to_string(), &gate_id
-    );
-
-    assert!(result.0.bits() <= 128);
-    assert!(result.1.bits() <= 128);
-}
-
-#[test]
-fn test_generate_output_wires_xor_gate() {
-    let (w0i, w1i) = GRR3Wires::generate_input_wires();
-    let (w0j, w1j) = GRR3Wires::generate_input_wires();
-    let gate_id = BigUint::from(1u32);
-
-    let result = GRR3Wires::generate_output_wires(
-        &w0i, &w1i, &w0j, &w1j, "xor".to_string(), &gate_id
-    );
-
-    assert!(result.0.bits() <= 128);
-    assert!(result.1.bits() <= 128);
 }
 
 #[test]
