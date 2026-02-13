@@ -1,5 +1,5 @@
 use crate::crypto_utils;
-use num_bigint::BigUint;
+use num_bigint::{BigUint};
 
 #[test] 
 fn label_is_128_bits() {
@@ -7,7 +7,7 @@ fn label_is_128_bits() {
     assert!(label.to_bytes_be().len() == 16)
 }
 #[test] 
-fn label_is_deterministic() {
+fn label_is_non_deterministic() {
     let label1 = crypto_utils::generate_label();
     let label2 = crypto_utils::generate_label();
     assert_ne!(label1, label2)
@@ -23,7 +23,7 @@ fn kdf_is_deterministic() {
     assert_eq!(key1, key2, "KDF must be deterministic!");
 }
 #[test]
-fn kdf_is_256_bits() {
+fn kdf_output_is_256_bits() {
     let l1 = crypto_utils::generate_label();
     let l2 = crypto_utils::generate_label();
     let gate_id = BigUint::ZERO;
