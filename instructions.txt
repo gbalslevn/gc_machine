@@ -6,6 +6,9 @@ It can then be used in other modules (files). Internally inside of /src as 'use 
 To add a new unit test, add it to mod.rs as it orchetrates all files for the submodule of unit tests. Compiler uses mod.rs to know which files to use when compiling.
 
 ## Run tests
-Use `cargo test``
+Use `cargo test`
 This will run both integration tests in /tests and unit_tests. It looks for [#tests] and runs them.
+
+## To clean build
+`cargo clean`
 

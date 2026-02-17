@@ -3,9 +3,8 @@ use futures_util::{StreamExt, stream::SplitSink, stream::SplitStream};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream, accept_async, client_async_tls,
-};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, accept_async, client_async_tls};
+use std::collections::VecDeque;
 
 // Websocket using tokio-tungstenite
 // https://crates.io/crates/tokio-tungstenite
@@ -14,6 +13,9 @@ use tokio_tungstenite::{
 pub enum SocketCommand {
     GetRxMsgCount(futures_channel::oneshot::Sender<usize>),
     SendMessage(Message),
+    HandleMessage(Message),
+    Listen(futures_channel::oneshot::Sender<Message>),
+    GetLastMsg(futures_channel::oneshot::Sender<Message>)
 }
 
 pub struct SocketClient {
@@ -22,7 +24,7 @@ pub struct SocketClient {
 
 // Contains method for interacting with the socket. It recognizes commands as enum of SocketCommand
 impl SocketClient {
-    pub fn new(tx: mpsc::Sender<SocketCommand>) -> Self { 
+    pub fn new(tx: mpsc::Sender<SocketCommand>) -> Self {
         Self { tx }
     }
     pub async fn get_rx_msg_count(&self) -> usize {
@@ -42,21 +44,49 @@ impl SocketClient {
             .await
             .expect("Socket task died");
     }
+    // Listens for the next message and returns it
+    pub async fn listen_for_next_msg(&self) -> Message {
+        let (reply_tx, reply_rx) = futures_channel::oneshot::channel();
+        self.tx
+            .send(SocketCommand::Listen(reply_tx))
+            .await
+            .expect("Socket task died");
+        let result = reply_rx.await.expect("Socket dropped the reply channel");
+        result
+    }
+    pub async fn get_last_msg(&self) -> Message {
+        let (reply_tx, reply_rx) = futures_channel::oneshot::channel(); // A channel to send a single value async from one thread to another
+
+        self.tx
+            .send(SocketCommand::GetLastMsg(reply_tx))
+            .await
+            .expect("Socket task died");
+
+        let result = reply_rx.await.expect("Socket dropped the reply channel");
+        result
+    }
 }
 
-// Starts websocket on provided address and returns a SocketClient which can be used to communicate with the socket. 
+// Starts websocket on provided address and returns a SocketClient which can be used to communicate with the socket.
 pub async fn run(address: String) -> SocketClient {
     let (internal_tx, mut internal_rx) = mpsc::channel::<SocketCommand>(32);
     let async_socket_logic = async move {
         let (mut socket_tx, mut socket_rx) = connect(address).await; // Tries to connect to the socket address. If no channel exists, it starts its own socket and listens for connections. 
         let mut msg_counter = 0;
+        let mut message_queue = VecDeque::<Message>::new();
+        let mut listening_channel: Option<futures_channel::oneshot::Sender<Message>> = None;
         loop {
             tokio::select! { // Waits on multiple concurrent branches
                 // Listens for messages from the socket
                 Some(Ok(msg)) = socket_rx.next() => {
                     msg_counter += 1;
-                    // internal_tx.send(msg).await.unwrap(); // Forward message to handle it
-                    println!("Received network message: {:?}", msg);
+                    if let Some(channel) = listening_channel.take() { // For now we only have oneshot listening. Maybe we should also have listening where you can get multiple messages
+                        let _ = channel.send(msg);
+                    } else {
+                        println!("Received message but no one was listening: {:?}", &msg);
+                        // internal_tx.send(SocketCommand::HandleMessage(msg)).await.unwrap();
+                        message_queue.push_back(msg.clone());
+                    }
                 }
                 // Forwards messages from internal_rx. The internal channel for the Socket itself.
                 Some(cmd) = internal_rx.recv() => {
@@ -68,6 +98,16 @@ pub async fn run(address: String) -> SocketClient {
                         SocketCommand::SendMessage(msg) => { // sends message to other party
                             socket_tx.send(msg).await.unwrap();
                         }
+                        SocketCommand::HandleMessage(msg) => {
+                            message_queue.push_back(msg.clone());
+                        }
+                        SocketCommand::Listen(reply_channel) => {
+                            listening_channel = Some(reply_channel);
+                        }
+                        SocketCommand::GetLastMsg(reply_channel) => {
+                            println!("Got a last message command");
+                            let _ = reply_channel.send(message_queue.pop_back().expect("Could not get the latest message from queue"));
+                        }
                     }
                 }
             }
@@ -78,12 +118,17 @@ pub async fn run(address: String) -> SocketClient {
 }
 
 // Tries to connect to a Socket on the given address. If unsuccesfull it starts its own Socket on the address and listens for connections
-async fn connect(address: String) -> (SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>, SplitStream<WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>) {
+async fn connect(
+    address: String,
+) -> (
+    SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
+    SplitStream<WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
+) {
     let (socket_tx, socket_rx);
     // Try to connect to the address, if address does not exist, create own Socket. P2P paradigm
     match TcpStream::connect(&address).await {
         Ok(tcp) => {
-            // A Socket existed and we connect to it 
+            // A Socket existed and we connect to it
             let url = format!("ws://{}", address);
             let (stream, _) = client_async_tls(&url, tcp)
                 .await
@@ -93,7 +138,7 @@ async fn connect(address: String) -> (SplitSink<WebSocketStream<MaybeTlsStream<T
         }
         Err(_) => {
             // We need to create our own Socket which listens for a connection
-            let listener = TcpListener::bind(&address).await.unwrap();
+            let listener = TcpListener::bind(&address).await.expect("Could not start new socket. Perhaps address is invalid or another peer is in process of starting on the same address.");
             let (connection, _) = listener.accept().await.expect("No connections to accept");
             let maybe_tls = MaybeTlsStream::Plain(connection);
             let stream = accept_async(maybe_tls).await;
