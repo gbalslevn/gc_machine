@@ -1,5 +1,7 @@
 use std::ops::Shr;
-use gc_machine::{crypto_utils, gates};
+use gc_machine::crypto_utils;
+use gc_machine::gates::gates::Gates;
+use gc_machine::gates::original_gates::OriginalGates;
 use num_bigint::BigUint;
 
 #[test]
@@ -18,9 +20,9 @@ fn can_compare_a_bit_using_std_yao() {
     let w1j = crypto_utils::generate_label();
     let w0c = crypto_utils::generate_label();
     let w1c = crypto_utils::generate_label();
-    let tt = gates::get_xor_tt(&w0i, &w1i, &w0j, &w1j, &w0c, &w1c);
+    let tt = OriginalGates::get_xor_tt(&w0i, &w1i, &w0j, &w1j, &w0c, &w1c);
     let gate_id = BigUint::ZERO;
-    let xor_gate = gates::get_garbled_gate(&tt, &gate_id);
+    let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id);
     
     // 2. Evaluator receives circuit and chooses which bit-label he wants using oblivious transfer. 
     // * OT MAGIC *
