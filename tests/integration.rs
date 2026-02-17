@@ -1,6 +1,7 @@
 use std::ops::Shr;
-use gc_machine::{crypto_utils, gates};
+use gc_machine::{crypto_utils, gates, websocket};
 use num_bigint::BigUint;
+use tokio_tungstenite::tungstenite::Message;
 
 #[test]
 // Sanity test
@@ -40,3 +41,20 @@ fn can_compare_a_bit_using_std_yao() {
     // Garbler has sent a lookup table which evaluator now uses to see the result. Here we know the result should be 1, as 0 ^ 1 = 1
     assert_eq!(decrypted_output_label_no_padding, w1c);
 } 
+
+#[tokio::test]
+// Alice and Bob can connect to each other through a websocket and send 10 messages. 
+async fn websocket_can_tx_and_rx_10_msg() {
+    let socket_addr = "127.0.0.1:12346".to_string();
+    let alice_socket_client = websocket::run(socket_addr.clone()).await; 
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await; // Give server time to start
+    let bob_socket_client = websocket::run(socket_addr.clone()).await; 
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await; // Give server time to start
+    
+    // Alice sends 10 messages to Bob
+    for i in 0..10 {
+        alice_socket_client.send_message(Message::text(format!("{}", i))).await; // should implement error messages in socket
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(1000)).await; // Wait for messages to propogate
+    assert_eq!(bob_socket_client.get_rx_msg_count().await, 10);
+}

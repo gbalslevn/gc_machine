@@ -3,6 +3,7 @@
 
 pub mod crypto_utils;
 pub mod gates;
+pub mod websocket;
 
 #[cfg(test)] // Only compile when testing
 mod unit_tests; // Finds unit tests folder
