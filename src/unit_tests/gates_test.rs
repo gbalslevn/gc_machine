@@ -1,8 +1,13 @@
 use std::ops::{Shr};
 use crate::{crypto_utils};
 use num_bigint::{BigUint, ToBigUint};
+use crate::crypto_utils::gc_kdf_128;
 use crate::gates::gates::Gates;
+use crate::wires::wires::Wires;
 use crate::gates::original_gates::OriginalGates;
+use crate::wires::original_wires::OriginalWires;
+use crate::gates::point_and_permute_gates::{PointAndPermuteGates, get_position};
+use crate::wires::point_and_permute_wires::PointAndPermuteWires;
 
 #[test]
 // Gets all possible keys from two input wires and for each key, ensures 1 of the 4 output labels can be decrypted. Could also just do it for one key.
@@ -85,8 +90,8 @@ fn xor_tt_gen_is_correct() {
 
 #[test]
 fn and_tt_gen_is_correct() {
-    let zero_bit = 1.to_biguint().unwrap();
-    let one_bit = 0.to_biguint().unwrap();
+    let zero_bit = 0.to_biguint().unwrap();
+    let one_bit = 1.to_biguint().unwrap();
     let tt = OriginalGates::get_and_tt(&zero_bit, &one_bit, &zero_bit, &one_bit, &zero_bit, &one_bit);
     for (il, ir, out) in tt {
         if il == zero_bit && ir == zero_bit {
@@ -101,5 +106,39 @@ fn and_tt_gen_is_correct() {
         if il == one_bit && ir == one_bit {
             assert!(out == one_bit)
         }
+    }
+}
+
+#[test]
+fn and_gate_uses_point_and_permute_order() {
+    let wi = PointAndPermuteWires::generate_input_wires();
+    let wj = PointAndPermuteWires::generate_input_wires();
+    let gate_type = "and";
+    let gate_id = 0.to_biguint().unwrap();
+    let wo = PointAndPermuteWires::generate_output_wires(&wi.0, &wi.1, &wj.0, &wj.1, gate_type.to_string(), &gate_id);
+    let tt = PointAndPermuteGates::get_and_tt(&wi.0, &wi.1, &wj.0, &wj.1, &wo.0, &wo.1);
+    let gt = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id);
+    for (il, ir, out) in tt {
+        let pos = get_position(&il, &ir);
+        let key = gc_kdf_128(&il, &ir, &gate_id);
+        let dec = &key ^ &gt[pos];
+        assert_eq!(out, dec);
+    }
+}
+
+#[test]
+fn xor_gate_uses_point_and_permute_order() {
+    let wi = PointAndPermuteWires::generate_input_wires();
+    let wj = PointAndPermuteWires::generate_input_wires();
+    let gate_type = "xor";
+    let gate_id = 0.to_biguint().unwrap();
+    let wo = PointAndPermuteWires::generate_output_wires(&wi.0, &wi.1, &wj.0, &wj.1, gate_type.to_string(), &gate_id);
+    let tt = PointAndPermuteGates::get_xor_tt(&wi.0, &wi.1, &wj.0, &wj.1, &wo.0, &wo.1);
+    let gt = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id);
+    for (il, ir, out) in tt {
+        let pos = get_position(&il, &ir);
+        let key = gc_kdf_128(&il, &ir, &gate_id);
+        let dec = &key ^ &gt[pos];
+        assert_eq!(out, dec);
     }
 }
