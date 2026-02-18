@@ -10,7 +10,7 @@ impl Evaluator for GRR3Evaluator {
         if pos == 0 {
             key.clone()
         } else {
-            &gate[pos] ^ &key
+            &gate[pos-1] ^ &key
         }
     }
 
