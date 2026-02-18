@@ -1,4 +1,3 @@
-use std::ops::{BitXor, Shl};
 use num_bigint::BigUint;
 use crate::crypto_utils;
 use rand::{thread_rng};
@@ -13,8 +12,8 @@ impl Gates for OriginalGates {
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
         for (il, ir, out) in tt {
             let key = crypto_utils::gc_kdf(il, ir, gate_id);
-            let zero_padded_out = out.shl(128);
-            let ct = key.bitxor(zero_padded_out);
+            let zero_padded_out = out << 128;
+            let ct = key ^ zero_padded_out;
             table.push(ct);
         }
         table.shuffle(&mut thread_rng());

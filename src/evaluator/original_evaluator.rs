@@ -4,7 +4,7 @@ use num_bigint::{BigUint};
 pub struct OriginalEvaluator;
 
 impl Evaluator for OriginalEvaluator {
-    fn evaluate_and_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: Vec<BigUint>) -> BigUint {
+    fn evaluate_and_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: &Vec<BigUint>) -> BigUint {
         let key = gc_kdf(wi, wj, gate_id);
         for entry in gate {
             let dec = &key ^ entry;
@@ -16,7 +16,7 @@ impl Evaluator for OriginalEvaluator {
     }
 
     // No difference between evaluation of AND gate and XOR gate
-    fn evaluate_xor_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: Vec<BigUint>) -> BigUint {
+    fn evaluate_xor_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: &Vec<BigUint>) -> BigUint {
         Self::evaluate_and_gate(wi, wj, gate_id, gate)
     }
 }

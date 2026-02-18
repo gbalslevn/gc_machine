@@ -37,7 +37,7 @@ fn test_get_00_wire_finds_correct_pair() {
     let w1j = generate_label_lsb(false);  // LSB = 0
     let gate_id = BigUint::from(1u32);
 
-    let result = get_00_wire((&w0i, &w1i), (&w0j, &w1j), &gate_id);
+    let result = get_00_wire(&(w0i.clone(), w1i.clone()), &(w0j.clone(), w1j.clone()), &gate_id);
 
     // Should successfully find the (w0i, w0j) pair
     assert_eq!(result, gc_kdf_128(&w0i, &w1j, &gate_id));
@@ -52,27 +52,27 @@ fn test_get_00_wire_panics_when_no_pair() {
     let w1j = generate_label_lsb(true);  // LSB = 1
     let gate_id = BigUint::from(1u32);
 
-    get_00_wire((&w0i, &w1i), (&w0j, &w1j), &gate_id);
+    get_00_wire(&(w0i, w1i), &(w0j, w1j), &gate_id);
 }
 
 #[test]
 fn test_generate_and_wires_opposite_lsb() {
-    let (w0i, w1i) = GRR3Wires::generate_input_wires();
-    let (w0j, w1j) = GRR3Wires::generate_input_wires();
+    let wi = GRR3Wires::generate_input_wires();
+    let wj = GRR3Wires::generate_input_wires();
     let gate_id = BigUint::from(1u32);
 
-    let (w0c, w1c) = generate_and_wires(&w0i, &w1i, &w0j, &w1j, &gate_id);
+    let (w0c, w1c) = generate_and_wires(&wi, &wj, &gate_id);
 
     assert_ne!(w0c.bit(0), w1c.bit(0), "Output wires should have opposite LSBs");
 }
 
 #[test]
 fn test_generate_xor_wires_opposite_lsb() {
-    let (w0i, w1i) = GRR3Wires::generate_input_wires();
-    let (w0j, w1j) = GRR3Wires::generate_input_wires();
+    let wi = GRR3Wires::generate_input_wires();
+    let wj = GRR3Wires::generate_input_wires();
     let gate_id = BigUint::from(1u32);
 
-    let (w0c, w1c) = generate_xor_wires(&w0i, &w1i, &w0j, &w1j, &gate_id);
+    let (w0c, w1c) = generate_xor_wires(&wi, &wj, &gate_id);
 
     assert_ne!(w0c.bit(0), w1c.bit(0), "Output wires should have opposite LSBs");
 }
@@ -80,11 +80,11 @@ fn test_generate_xor_wires_opposite_lsb() {
 #[test]
 #[should_panic(expected = "Unknown gate")]
 fn test_generate_output_wires_unknown_gate() {
-    let (w0i, w1i) = GRR3Wires::generate_input_wires();
-    let (w0j, w1j) = GRR3Wires::generate_input_wires();
+    let wi = GRR3Wires::generate_input_wires();
+    let wj = GRR3Wires::generate_input_wires();
     let gate_id = BigUint::from(1u32);
 
     GRR3Wires::generate_output_wires(
-        &w0i, &w1i, &w0j, &w1j, "or".to_string(), &gate_id
+        &wi, &wj, "or".to_string(), &gate_id
     );
 }

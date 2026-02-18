@@ -14,7 +14,7 @@ impl Wires for PointAndPermuteWires {
         (w0, w1)
     }
 
-    fn generate_output_wires(_w0i: &BigUint, _w1i: &BigUint, _w0j: &BigUint, _w1j: &BigUint, _gate: String, _gate_id: &BigUint) -> (BigUint, BigUint) {
+    fn generate_output_wires(_wi: &(BigUint, BigUint), _wj: &(BigUint, BigUint), _gate: String, _gate_id: &BigUint) -> (BigUint, BigUint) {
         Self::generate_input_wires()
     }
 }

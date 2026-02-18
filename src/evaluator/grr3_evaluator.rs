@@ -4,7 +4,7 @@ use num_bigint::{BigUint};
 pub struct GRR3Evaluator;
 
 impl Evaluator for GRR3Evaluator {
-    fn evaluate_and_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: Vec<BigUint>) -> BigUint {
+    fn evaluate_and_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: &Vec<BigUint>) -> BigUint {
         let key = gc_kdf_128(wi, wj, gate_id);
         let pos = get_position(wi, wj);
         if pos == 0 {
@@ -15,7 +15,7 @@ impl Evaluator for GRR3Evaluator {
     }
 
     // No difference between evaluation of AND gate and XOR gate
-    fn evaluate_xor_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: Vec<BigUint>) -> BigUint {
+    fn evaluate_xor_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: &Vec<BigUint>) -> BigUint {
         Self::evaluate_and_gate(wi, wj, gate_id, gate)
     }
 }

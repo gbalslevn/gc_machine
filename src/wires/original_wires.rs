@@ -15,7 +15,7 @@ impl Wires for OriginalWires {
         (BigUint::from_bytes_be(&bytes0), BigUint::from_bytes_be(&bytes1))
     }
 
-    fn generate_output_wires(_w0i: &BigUint, _w1i: &BigUint, _w0j: &BigUint, _w1j: &BigUint, _gate: String, _gate_id: &BigUint) -> (BigUint, BigUint) {
+    fn generate_output_wires(_wi: &(BigUint, BigUint), _wj: &(BigUint, BigUint), _gate: String, _gate_id: &BigUint) -> (BigUint, BigUint) {
         Self::generate_input_wires()
     }
 }

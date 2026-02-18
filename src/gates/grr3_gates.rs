@@ -1,4 +1,3 @@
-use std::ops::{BitXor};
 use num_bigint::BigUint;
 use crate::crypto_utils;
 use crate::gates::gates::Gates;
@@ -11,7 +10,7 @@ impl Gates for GRR3Gates {
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
         for (il, ir, out) in tt {
             let key = crypto_utils::gc_kdf_128(il, ir, gate_id);
-            let ct = key.bitxor(out);
+            let ct = key ^ out;
             let pos = get_position(il, ir);
             if pos != 0 {
                 table[pos-1] = ct;
