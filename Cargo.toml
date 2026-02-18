@@ -9,6 +9,8 @@ futures-util = "0.3.32"
 num-bigint = { version = "0.4", features = ["rand"] }
 rand = "0.8"
 rand_chacha = "0.10.0"
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
 sha2 = "0.10.9"
 tokio = { version = "1.49.0", features = ["full"] }
 tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
+uuid = {version = "1.21.0", features = ["v4"] }

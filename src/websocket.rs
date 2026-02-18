@@ -1,10 +1,11 @@
 use futures_util::SinkExt;
 use futures_util::{StreamExt, stream::SplitSink, stream::SplitStream};
+use std::collections::VecDeque;
+use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, accept_async, client_async_tls};
-use std::collections::VecDeque;
 
 // Websocket using tokio-tungstenite
 // https://crates.io/crates/tokio-tungstenite
@@ -15,7 +16,30 @@ pub enum SocketCommand {
     SendMessage(Message),
     HandleMessage(Message),
     Listen(futures_channel::oneshot::Sender<Message>),
-    GetLastMsg(futures_channel::oneshot::Sender<Message>)
+    GetLastMsg(futures_channel::oneshot::Sender<Message>),
+}
+#[derive(Clone)]
+pub struct SocketConfig {
+    address: String,
+    force_client_connection: bool,
+}
+
+impl SocketConfig {
+    pub fn new(address: String) -> Self {
+        // if address.parse::<SocketAddr>().is_err() {
+        //     panic!("Invalid socket address");
+        // } 
+        Self {
+            address,
+            force_client_connection: false,
+        }
+    }
+    // Ensures socket connects to a listening socket and does not create its own.
+    pub fn as_client(mut self) -> Self {
+        self.force_client_connection = true;
+        self
+    }
+    // webpki uses certs from web. Can also use native certs, which is certs on the users machine. Could run into problems if no cert is on the machine. 
 }
 
 pub struct SocketClient {
@@ -68,10 +92,11 @@ impl SocketClient {
 }
 
 // Starts websocket on provided address and returns a SocketClient which can be used to communicate with the socket.
-pub async fn run(address: String) -> SocketClient {
+pub async fn run(config: &SocketConfig) -> SocketClient {
     let (internal_tx, mut internal_rx) = mpsc::channel::<SocketCommand>(32);
+    let config = config.clone();
     let async_socket_logic = async move {
-        let (mut socket_tx, mut socket_rx) = connect(address).await; // Tries to connect to the socket address. If no channel exists, it starts its own socket and listens for connections. 
+        let (mut socket_tx, mut socket_rx) = connect(config.address, config.force_client_connection).await; // Tries to connect to the socket address. If no channel exists, it starts its own socket and listens for connections. 
         let mut msg_counter = 0;
         let mut message_queue = VecDeque::<Message>::new();
         let mut listening_channel: Option<futures_channel::oneshot::Sender<Message>> = None;
@@ -83,7 +108,6 @@ pub async fn run(address: String) -> SocketClient {
                     if let Some(channel) = listening_channel.take() { // For now we only have oneshot listening. Maybe we should also have listening where you can get multiple messages
                         let _ = channel.send(msg);
                     } else {
-                        println!("Received message but no one was listening: {:?}", &msg);
                         // internal_tx.send(SocketCommand::HandleMessage(msg)).await.unwrap();
                         message_queue.push_back(msg.clone());
                     }
@@ -102,10 +126,10 @@ pub async fn run(address: String) -> SocketClient {
                             message_queue.push_back(msg.clone());
                         }
                         SocketCommand::Listen(reply_channel) => {
+                            println!("Started listening");
                             listening_channel = Some(reply_channel);
                         }
                         SocketCommand::GetLastMsg(reply_channel) => {
-                            println!("Got a last message command");
                             let _ = reply_channel.send(message_queue.pop_back().expect("Could not get the latest message from queue"));
                         }
                     }
@@ -120,6 +144,7 @@ pub async fn run(address: String) -> SocketClient {
 // Tries to connect to a Socket on the given address. If unsuccesfull it starts its own Socket on the address and listens for connections
 async fn connect(
     address: String,
+    connect_with_force: bool,
 ) -> (
     SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     SplitStream<WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
@@ -129,7 +154,7 @@ async fn connect(
     match TcpStream::connect(&address).await {
         Ok(tcp) => {
             // A Socket existed and we connect to it
-            let url = format!("ws://{}", address);
+            let url = format!("ws://{}", address); // use wss:// if we want tls
             let (stream, _) = client_async_tls(&url, tcp)
                 .await
                 .expect(&format!("Client failed to connect on {}", &url));
@@ -137,6 +162,9 @@ async fn connect(
             (socket_tx, socket_rx) = stream.split();
         }
         Err(_) => {
+            if connect_with_force {
+                panic!("Could not connect to socket on {}", address);
+            }
             // We need to create our own Socket which listens for a connection
             let listener = TcpListener::bind(&address).await.expect("Could not start new socket. Perhaps address is invalid or another peer is in process of starting on the same address.");
             let (connection, _) = listener.accept().await.expect("No connections to accept");
@@ -153,3 +181,7 @@ async fn connect(
     }
     (socket_tx, socket_rx)
 }
+
+
+// Great discusssion on tls 
+// https://github.com/snapview/tungstenite-rs/issues/127

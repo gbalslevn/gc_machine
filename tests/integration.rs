@@ -1,5 +1,5 @@
 use std::ops::Shr;
-use gc_machine::{crypto_utils, gates, websocket};
+use gc_machine::{crypto_utils, gates, websocket::{self, SocketConfig}};
 use num_bigint::BigUint;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -46,9 +46,10 @@ fn can_compare_a_bit_using_std_yao() {
 // Alice and Bob can connect to each other through a websocket and send 10 messages. 
 async fn websocket_can_tx_and_rx_10_msg() {
     let socket_addr = "127.0.0.1:12346".to_string();
-    let alice_socket_client = websocket::run(socket_addr.clone()).await; 
+    let config = SocketConfig::new(socket_addr);
+    let alice_socket_client = websocket::run(&config).await; 
     tokio::time::sleep(std::time::Duration::from_millis(50)).await; // Give server time to start
-    let bob_socket_client = websocket::run(socket_addr.clone()).await; 
+    let bob_socket_client = websocket::run(&config).await; 
     tokio::time::sleep(std::time::Duration::from_millis(50)).await; // Give server time to start
     
     // Alice sends 10 messages to Bob

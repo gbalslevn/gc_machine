@@ -1,8 +1,5 @@
-use num_bigint::{BigUint, ToBigUint};
-
 
 fn main() {
     println!("Hello, world :)");
-    let p = 1.to_biguint().unwrap();
-    let q = p.clone();
+    rustls::crypto::aws_lc_rs::default_provider().install_default().expect("Failed to install rustls crypto provider"); // Init for tls
 }
