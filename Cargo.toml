@@ -8,3 +8,10 @@ num-bigint = { version = "0.4", features = ["rand"] }
 rand = "0.10.0"
 rand_chacha = "0.10.0"
 sha2 = "0.10.9"
+criterion = "0.3"
+stats_alloc = "0.1.10"
+
+[[bench]]
+name = "bench"
+harness = false
+
