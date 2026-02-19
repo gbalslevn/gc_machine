@@ -13,11 +13,12 @@ use crate::wires::point_and_permute_wires::PointAndPermuteWires;
 #[test]
 // Gets all possible keys from two input wires and for each key, ensures 1 of the 4 output labels can be decrypted. Could also just do it for one key.
 fn can_decrypt_std_yao_gate_labels() {
-    let wi = OriginalWires::generate_input_wires();
-    let wj = OriginalWires::generate_input_wires();
+    let wires = OriginalWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = 0.to_biguint().unwrap();
     let gate = "xor";
-    let wo = OriginalWires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt= OriginalGates::get_tt(&wi, &wj, &wo, gate.to_string());
     let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id);
     for i in 0..4 {
@@ -37,11 +38,12 @@ fn can_decrypt_std_yao_gate_labels() {
 
 #[test]
 fn output_labels_is_zero_padded_in_std_yao() {
-    let wi = OriginalWires::generate_input_wires();
-    let wj = OriginalWires::generate_input_wires();
+    let wires = OriginalWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = 0.to_biguint().unwrap();
     let gate = "xor";
-    let wo = OriginalWires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt= OriginalGates::get_tt(&wi, &wj, &wo, gate.to_string());
     let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id);
     for i in 0..4 {
@@ -114,11 +116,12 @@ fn and_tt_gen_is_correct() {
 
 #[test]
 fn and_gate_uses_point_and_permute_order() {
-    let wi = PointAndPermuteWires::generate_input_wires();
-    let wj = PointAndPermuteWires::generate_input_wires();
-    let gate = "and";
+    let wires = PointAndPermuteWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = 0.to_biguint().unwrap();
-    let wo = PointAndPermuteWires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let gate = "and";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = PointAndPermuteGates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gt = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id);
     for (il, ir, out) in tt {
@@ -131,11 +134,12 @@ fn and_gate_uses_point_and_permute_order() {
 
 #[test]
 fn xor_gate_uses_point_and_permute_order() {
-    let wi = PointAndPermuteWires::generate_input_wires();
-    let wj = PointAndPermuteWires::generate_input_wires();
-    let gate = "xor";
+    let wires = PointAndPermuteWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = 0.to_biguint().unwrap();
-    let wo = PointAndPermuteWires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let gate = "xor";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = PointAndPermuteGates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gt = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id);
     for (il, ir, out) in tt {
@@ -148,11 +152,12 @@ fn xor_gate_uses_point_and_permute_order() {
 
 #[test]
 fn gate_only_3_entries_grr3() {
-    let wi = GRR3Wires::generate_input_wires();
-    let wj = GRR3Wires::generate_input_wires();
-    let gate = "and";
+    let wires = GRR3Wires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = 0.to_biguint().unwrap();
-    let wo = GRR3Wires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let gate = "xor";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = GRR3Gates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id);
     assert_eq!(gt.len(), 3);
@@ -160,21 +165,21 @@ fn gate_only_3_entries_grr3() {
 
 #[test]
 fn are_and_output_labels_correct_grr3() {
-    let wi = GRR3Wires::generate_input_wires();
-    let wj = GRR3Wires::generate_input_wires();
-    let gate_type = "and";
+    let wires = GRR3Wires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = 0.to_biguint().unwrap();
-    let wo = GRR3Wires::generate_output_wires(&wi, &wj, gate_type.to_string(), &gate_id);
-    let tt = GRR3Gates::get_and_tt(&wi, &wj, &wo);
+    let gate = "and";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt = GRR3Gates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id);
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
+        let key = gc_kdf_128(&il, &ir, &gate_id);
         if pos != 0 {
-            let key = gc_kdf_128(&il, &ir, &gate_id);
             let dec = &key ^ &gt[pos-1];
             assert_eq!(out, dec);
         } else {
-            let key = gc_kdf_128(&il, &ir, &gate_id);
             assert_eq!(out, key);
         }
     }
@@ -182,11 +187,12 @@ fn are_and_output_labels_correct_grr3() {
 
 #[test]
 fn are_xor_output_labels_correct_grr3() {
-    let wi = GRR3Wires::generate_input_wires();
-    let wj = GRR3Wires::generate_input_wires();
-    let gate_type = "xor";
+    let wires = GRR3Wires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = 0.to_biguint().unwrap();
-    let wo = GRR3Wires::generate_output_wires(&wi, &wj, gate_type.to_string(), &gate_id);
+    let gate = "xor";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = GRR3Gates::get_xor_tt(&wi, &wj, &wo);
     let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id);
     for (il, ir, out) in tt {

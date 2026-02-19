@@ -6,14 +6,14 @@ use crate::crypto_utils::{gc_kdf_128, generate_label_lsb};
 pub struct GRR3Wires;
 
 impl Wires for GRR3Wires {
-    fn generate_input_wires() -> (BigUint, BigUint) {
+    fn generate_input_wires(&self) -> (BigUint, BigUint) {
         let mut rng = thread_rng();
         let choice = rng.gen_bool(1.0 / 2.0);
         let w0 = generate_label_lsb(choice);
         let w1 = generate_label_lsb(!choice);
         (w0, w1)
     }
-    fn generate_output_wires(wi: &(BigUint, BigUint), wj: &(BigUint, BigUint), gate: String, gate_id: &BigUint) -> (BigUint, BigUint) {
+    fn generate_output_wires(&self, wi: &(BigUint, BigUint), wj: &(BigUint, BigUint), gate: String, gate_id: &BigUint) -> (BigUint, BigUint) {
         match gate.as_str() {
             "and"=>generate_and_wires(wi, wj, gate_id),
             "xor"=>generate_xor_wires(wi, wj, gate_id),
@@ -26,7 +26,7 @@ pub fn generate_and_wires(wi: &(BigUint, BigUint), wj: &(BigUint, BigUint), gate
     let w0c;
     let w1c;
     let w00 = get_00_wire(&wi, &wj, gate_id);
-    if wi.1.bit(0) && wj.1.bit(0) {
+    if !wi.1.bit(0) && !wj.1.bit(0) {
         w0c = generate_label_lsb(!w00.bit(0));
         w1c = w00;
     } else {
@@ -40,7 +40,7 @@ pub fn generate_xor_wires(wi: &(BigUint, BigUint), wj: &(BigUint, BigUint), gate
     let w0c;
     let w1c;
     let w00 = get_00_wire(&wi, &wj, gate_id);
-    if (wi.0.bit(0) && wj.1.bit(0)) || (wi.1.bit(0) && wj.0.bit(0)) {
+    if (!wi.0.bit(0) && !wj.1.bit(0)) || (!wi.1.bit(0) && !wj.0.bit(0)) {
         w0c = generate_label_lsb(!w00.bit(0));
         w1c = w00;
     } else {
