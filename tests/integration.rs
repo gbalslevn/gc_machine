@@ -7,10 +7,6 @@ use gc_machine::wires::original_wires::OriginalWires;
 use gc_machine::wires::wires::Wires;
 
 #[test]
-// Sanity test
-fn one_plus_one_is_two() {
-    assert_eq!(1 + 1, 2);
-} 
 
 #[test]
 // Garbler and Evaluator each provides a bit and can compare them using the standard yao garbled circuit. 
