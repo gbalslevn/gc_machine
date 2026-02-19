@@ -38,7 +38,7 @@ fn g_should_be_generator_of_order_q_subgroup_of_p() {
 fn oblivious_key_element_h_should_be_in_multiplicative_subgroup() {
     let pp = setup();
     let oblivious_key = ot::ObliviousKeyPair::new(&pp);
-    let h = oblivious_key.get_public_key().get_h();
+    let h = oblivious_key.get_public_key().get_h().clone();
     assert_eq!(h.modpow(pp.get_q(), &pp.get_p()), 1.to_biguint().unwrap());
 }
 

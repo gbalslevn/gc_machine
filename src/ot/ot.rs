@@ -140,8 +140,8 @@ impl ObliviousKeyPair {
             public_key : Self::public_key_generator(&pp)
         }
     }
-    pub fn get_public_key(&self) -> &PublicKey {
-        &self.public_key
+    pub fn get_public_key(&self) -> PublicKey {
+        self.public_key.clone()
     }
 
     fn public_key_generator(pp: &PublicParameters) -> PublicKey {
