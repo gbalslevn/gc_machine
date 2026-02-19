@@ -15,11 +15,12 @@ fn one_plus_one_is_two() {
 #[test]
 // Garbler and Evaluator each provides a bit and can compare them using the standard yao garbled circuit. 
 fn can_compare_a_bit_using_std_yao() {
+    let wires = OriginalWires;
     // 1. Garbler creates circuit, a single XOR gate, and sends to evaluator
-    let wi = OriginalWires::generate_input_wires();
-    let wj = OriginalWires::generate_input_wires();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = BigUint::ZERO;
-    let wo = OriginalWires::generate_output_wires(&wi, &wj, "xor".to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, "xor".to_string(), &gate_id);
     let tt = OriginalGates::get_xor_tt(&wi, &wj, &wo);
     let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id);
     

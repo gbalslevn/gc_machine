@@ -17,11 +17,12 @@ use crate::evaluator::grr3_evaluator::GRR3Evaluator;
 
 #[test]
 fn will_correctly_decrypt_xor_original() {
-    let wi = OriginalWires::generate_input_wires();
-    let wj = OriginalWires::generate_input_wires();
+    let wires = OriginalWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate = "xor";
     let gate_id = 0.to_biguint().unwrap();
-    let wo = OriginalWires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = OriginalGates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gc = OriginalGates::get_garbled_gate(&tt, &gate_id);
     // Evaluator has wi.0 and wj.1
@@ -31,11 +32,12 @@ fn will_correctly_decrypt_xor_original() {
 
 #[test]
 fn will_correctly_decrypt_and_original() {
-    let wi = OriginalWires::generate_input_wires();
-    let wj = OriginalWires::generate_input_wires();
+    let wires = OriginalWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate = "and";
     let gate_id = 0.to_biguint().unwrap();
-    let wo = OriginalWires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = OriginalGates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gc = OriginalGates::get_garbled_gate(&tt, &gate_id);
     // Evaluator has wi.0 and wj.1
@@ -46,25 +48,27 @@ fn will_correctly_decrypt_and_original() {
 #[test]
 #[should_panic(expected = "No output with correct padding found!")]
 fn will_panic_with_wrong_wires_original() {
-    let wi = OriginalWires::generate_input_wires();
-    let wj = OriginalWires::generate_input_wires();
+    let wires = OriginalWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_type = "xor";
     let gate_id = 0.to_biguint().unwrap();
-    let wo = OriginalWires::generate_output_wires(&wi, &wj, gate_type.to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, gate_type.to_string(), &gate_id);
     let tt = OriginalGates::get_xor_tt(&wi, &wj, &wo);
     let gc = OriginalGates::get_garbled_gate(&tt, &gate_id);
     // Evaluator has dummy wires
-    let dummy_wires = OriginalWires::generate_input_wires();
+    let dummy_wires = wires.generate_input_wires();
     OriginalEvaluator::evaluate_gate(&dummy_wires.0, &dummy_wires.1, &gate_id, gate_type.to_string(), &gc);
 }
 
 #[test]
 fn will_correctly_decrypt_xor_point_and_permute() {
-    let wi = PointAndPermuteWires::generate_input_wires();
-    let wj = PointAndPermuteWires::generate_input_wires();
+    let wires = PointAndPermuteWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate = "xor";
     let gate_id = 0.to_biguint().unwrap();
-    let wo = PointAndPermuteWires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = PointAndPermuteGates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gc = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id);
     // Evaluator has wi.0 and wj.1
@@ -74,11 +78,12 @@ fn will_correctly_decrypt_xor_point_and_permute() {
 
 #[test]
 fn will_correctly_decrypt_and_point_and_permute() {
-    let wi = PointAndPermuteWires::generate_input_wires();
-    let wj = PointAndPermuteWires::generate_input_wires();
+    let wires = PointAndPermuteWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate = "and";
     let gate_id = 0.to_biguint().unwrap();
-    let wo = PointAndPermuteWires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = PointAndPermuteGates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gc = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id);
     // Evaluator has wi.0 and wj.1
@@ -88,11 +93,12 @@ fn will_correctly_decrypt_and_point_and_permute() {
 
 #[test]
 fn will_correctly_decrypt_xor_grr3() {
-    let wi = GRR3Wires::generate_input_wires();
-    let wj = GRR3Wires::generate_input_wires();
+    let wires = GRR3Wires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate = "xor";
     let gate_id = 0.to_biguint().unwrap();
-    let wo = GRR3Wires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = GRR3Gates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gc = GRR3Gates::get_garbled_gate(&tt, &gate_id);
     // Evaluator has wi.0 and wj.1
@@ -102,11 +108,12 @@ fn will_correctly_decrypt_xor_grr3() {
 
 #[test]
 fn will_correctly_decrypt_and_grr3() {
-    let wi = GRR3Wires::generate_input_wires();
-    let wj = GRR3Wires::generate_input_wires();
+    let wires = GRR3Wires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate = "and";
     let gate_id = 0.to_biguint().unwrap();
-    let wo = GRR3Wires::generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = GRR3Gates::get_tt(&wi, &wj, &wo, gate.to_string());
     let gc = GRR3Gates::get_garbled_gate(&tt, &gate_id);
     // Evaluator has wi.0 and wj.1
