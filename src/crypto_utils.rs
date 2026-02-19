@@ -1,7 +1,8 @@
-use num_bigint::{BigUint, ToBigUint}; 
+use num_bigint::{BigUint, ToBigUint};
 use rand::{Rng, thread_rng};
 // https://docs.rs/num-bigint/latest/num_bigint/
 use sha2::{Digest, Sha256};
+
 
 // Derives a key from the two input labels and the gate_id in the gc
 pub fn gc_kdf(left: &BigUint, right: &BigUint, gate_id: &BigUint) -> BigUint {

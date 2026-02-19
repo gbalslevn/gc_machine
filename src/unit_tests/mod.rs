@@ -4,3 +4,4 @@ mod crypto_utils_test;
 mod gates_test;
 mod wires_test;
 mod evaluator_test;
+mod ot_test;

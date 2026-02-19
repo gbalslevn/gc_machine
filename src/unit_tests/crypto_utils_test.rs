@@ -1,12 +1,12 @@
 use crate::crypto_utils;
 use num_bigint::{BigUint};
 
-#[test] 
+#[test]
 fn label_is_128_bits() {
     let label = crypto_utils::generate_label();
     assert!(label.to_bytes_be().len() == 16)
 }
-#[test] 
+#[test]
 fn label_is_non_deterministic() {
     let label1 = crypto_utils::generate_label();
     let label2 = crypto_utils::generate_label();
