@@ -1,3 +1,4 @@
 
 // Keeps track of all files in the unit_tests module
 mod crypto_utils_test;
+mod ot_test;
