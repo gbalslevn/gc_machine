@@ -2,6 +2,9 @@
 // File to declare all modules
 
 pub mod crypto_utils;
+pub mod gates;
+pub mod wires;
+pub mod evaluator;
 pub mod ot;
 
 #[cfg(test)] // Only compile when testing
