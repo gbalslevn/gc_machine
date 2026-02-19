@@ -7,15 +7,17 @@ use crate::wires::wires::Wires;
 
 #[test]
 fn test_generate_input_wires_returns_two_wires() {
-    let (w0, w1) = OriginalWires::generate_input_wires();
+    let wires = OriginalWires;
+    let (w0, w1) = wires.generate_input_wires();
     assert!(w0.bits() <= 128);
     assert!(w1.bits() <= 128);
 }
 
 #[test]
 fn test_generate_input_wires_randomness() {
-    let (w0_1, w1_1) = OriginalWires::generate_input_wires();
-    let (w0_2, w1_2) = OriginalWires::generate_input_wires();
+    let wires = OriginalWires;
+    let (w0_1, w1_1) = wires.generate_input_wires();
+    let (w0_2, w1_2) = wires.generate_input_wires();
 
     // Very unlikely to generate same wires twice
     assert!(w0_1 != w0_2 || w1_1 != w1_2);
@@ -23,7 +25,8 @@ fn test_generate_input_wires_randomness() {
 
 #[test]
 fn test_generate_input_wires_opposite_lsb() {
-    let (w0, w1) = PointAndPermuteWires::generate_input_wires();
+    let wires = PointAndPermuteWires;
+    let (w0, w1) = wires.generate_input_wires();
 
     // One should have LSB=0, the other LSB=1
     assert_ne!(w0.bit(0), w1.bit(0), "Wire LSBs should be opposite");
@@ -57,8 +60,9 @@ fn test_get_00_wire_panics_when_no_pair() {
 
 #[test]
 fn test_generate_and_wires_opposite_lsb() {
-    let wi = GRR3Wires::generate_input_wires();
-    let wj = GRR3Wires::generate_input_wires();
+    let wires = GRR3Wires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = BigUint::from(1u32);
 
     let (w0c, w1c) = generate_and_wires(&wi, &wj, &gate_id);
@@ -68,8 +72,9 @@ fn test_generate_and_wires_opposite_lsb() {
 
 #[test]
 fn test_generate_xor_wires_opposite_lsb() {
-    let wi = GRR3Wires::generate_input_wires();
-    let wj = GRR3Wires::generate_input_wires();
+    let wires = GRR3Wires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = BigUint::from(1u32);
 
     let (w0c, w1c) = generate_xor_wires(&wi, &wj, &gate_id);
@@ -80,11 +85,12 @@ fn test_generate_xor_wires_opposite_lsb() {
 #[test]
 #[should_panic(expected = "Unknown gate")]
 fn test_generate_output_wires_unknown_gate() {
-    let wi = GRR3Wires::generate_input_wires();
-    let wj = GRR3Wires::generate_input_wires();
+    let wires = GRR3Wires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
     let gate_id = BigUint::from(1u32);
 
-    GRR3Wires::generate_output_wires(
+    wires.generate_output_wires(
         &wi, &wj, "or".to_string(), &gate_id
     );
 }
