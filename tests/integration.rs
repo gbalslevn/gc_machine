@@ -20,9 +20,10 @@ fn can_compare_a_bit_using_std_yao() {
     let wi = wires.generate_input_wires();
     let wj = wires.generate_input_wires();
     let gate_id = BigUint::ZERO;
-    let wo = wires.generate_output_wires(&wi, &wj, "xor".to_string(), &gate_id);
+    let gate = "xor";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = OriginalGates::get_xor_tt(&wi, &wj, &wo);
-    let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id);
+    let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
     
     // 2. Evaluator receives circuit and chooses which bit-label he wants using oblivious transfer. 
     // * OT MAGIC *
@@ -31,7 +32,7 @@ fn can_compare_a_bit_using_std_yao() {
     let e_label = wj.1;
     let mut decrypted_output_label =  BigUint::ZERO;
     let key = crypto_utils::gc_kdf(&g_label, &e_label, &gate_id);
-    for ct in xor_gate {
+    for ct in xor_gate.0 {
         let label = ct ^ &key;
         if label.trailing_zeros().unwrap() >= 128 {
             decrypted_output_label = label;

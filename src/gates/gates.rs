@@ -1,7 +1,7 @@
 use num_bigint::{BigUint};
 
 pub trait Gates {
-    fn get_garbled_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint) -> Vec<BigUint>;
+    fn get_garbled_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint, gate: String) -> (Vec<BigUint>, BigUint, String);
     
     fn get_tt(wi: &(BigUint, BigUint), wj: &(BigUint, BigUint), wo: &(BigUint, BigUint), gate: String) -> [(BigUint, BigUint, BigUint); 4] {
         match gate.as_str() {
