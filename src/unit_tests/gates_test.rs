@@ -1,12 +1,14 @@
 use crate::{crypto_utils};
 use num_bigint::{BigUint, ToBigUint};
 use crate::crypto_utils::gc_kdf_128;
+use crate::gates::free_xor_gates::FreeXORGates;
 use crate::gates::gates::Gates;
 use crate::gates::grr3_gates::GRR3Gates;
 use crate::wires::wires::Wires;
 use crate::gates::original_gates::OriginalGates;
 use crate::wires::original_wires::OriginalWires;
 use crate::gates::point_and_permute_gates::{PointAndPermuteGates, get_position};
+use crate::wires::free_xor_wires::FreeXORWires;
 use crate::wires::grr3_wires::GRR3Wires;
 use crate::wires::point_and_permute_wires::PointAndPermuteWires;
 
@@ -206,4 +208,30 @@ fn are_xor_output_labels_correct_grr3() {
             assert_eq!(out, key);
         }
     }
+}
+
+#[test]
+fn no_entries_in_xor_gate_free_xor() {
+    let wires = FreeXORWires::new();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate_id = 0.to_biguint().unwrap();
+    let gate = "xor";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt = FreeXORGates::get_tt(&wi, &wj, &wo, gate.to_string());
+    let gt = FreeXORGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    assert_eq!(gt.0.len(), 0);
+}
+
+#[test]
+fn three_entries_in_and_gate_free_xor() {
+    let wires = FreeXORWires::new();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate_id = 0.to_biguint().unwrap();
+    let gate = "and";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt = FreeXORGates::get_tt(&wi, &wj, &wo, gate.to_string());
+    let gt = FreeXORGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    assert_eq!(gt.0.len(), 3);
 }

@@ -12,7 +12,6 @@ impl FreeXORWires {
             delta: generate_label_lsb(true), // to ensure point & permute holds
         }
     }
-
     pub fn delta(&self) -> &BigUint {
         &self.delta
     }

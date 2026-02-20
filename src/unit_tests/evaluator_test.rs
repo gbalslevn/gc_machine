@@ -15,6 +15,10 @@ use crate::wires::grr3_wires::GRR3Wires;
 use crate::gates::grr3_gates::GRR3Gates;
 use crate::evaluator::grr3_evaluator::GRR3Evaluator;
 
+use crate::gates::free_xor_gates::FreeXORGates;
+use crate::wires::free_xor_wires::FreeXORWires;
+use crate::evaluator::free_xor_evaluator::FreeXOREvaluator;
+
 #[test]
 fn will_correctly_decrypt_xor_original() {
     let wires = OriginalWires;
@@ -118,5 +122,35 @@ fn will_correctly_decrypt_and_grr3() {
     let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id, gate.to_string());
     // Evaluator has wi.0 and wj.1
     let dec = GRR3Evaluator::evaluate_gate(&wi.0, &wj.1, &gate_id, gate.to_string(), &gt.0);
+    assert_eq!(dec, wo.0)
+}
+
+#[test]
+fn will_correctly_decrypt_xor_free_xor() {
+    let wires = FreeXORWires::new();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate = "xor";
+    let gate_id = 0.to_biguint().unwrap();
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt = FreeXORGates::get_tt(&wi, &wj, &wo, gate.to_string());
+    let gt = FreeXORGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    // Evaluator has wi.0 and wj.1
+    let dec = FreeXOREvaluator::evaluate_gate(&wi.0, &wj.1, &gate_id, gate.to_string(), &gt.0);
+    assert_eq!(dec, wo.1)
+}
+
+#[test]
+fn will_correctly_decrypt_and_free_xor() {
+    let wires = FreeXORWires::new();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate = "and";
+    let gate_id = 0.to_biguint().unwrap();
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt = FreeXORGates::get_tt(&wi, &wj, &wo, gate.to_string());
+    let gt = FreeXORGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    // Evaluator has wi.0 and wj.1
+    let dec = FreeXOREvaluator::evaluate_gate(&wi.0, &wj.1, &gate_id, gate.to_string(), &gt.0);
     assert_eq!(dec, wo.0)
 }
