@@ -7,7 +7,7 @@ use crate::gates::gates::Gates;
 pub struct OriginalGates;
 
 impl Gates for OriginalGates {
-    fn get_garbled_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint) -> Vec<BigUint> {
+    fn get_garbled_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint, gate: String) -> (Vec<BigUint>, BigUint, String) {
         let mut table = Vec::new();
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
         for (il, ir, out) in tt {
@@ -17,7 +17,7 @@ impl Gates for OriginalGates {
             table.push(ct);
         }
         table.shuffle(&mut thread_rng());
-        table
+        (table, gate_id.clone(), gate)
     }
 }
 

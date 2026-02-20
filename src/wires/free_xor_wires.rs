@@ -12,6 +12,9 @@ impl FreeXORWires {
             delta: generate_label_lsb(true), // to ensure point & permute holds
         }
     }
+    pub fn delta(&self) -> &BigUint {
+        &self.delta
+    }
 }
 
 impl Wires for FreeXORWires {
@@ -30,12 +33,20 @@ impl Wires for FreeXORWires {
 }
 
 pub fn generate_and_wires(delta: &BigUint, wi: &(BigUint, BigUint), wj: &(BigUint, BigUint), gate_id: &BigUint) -> (BigUint, BigUint) {
-    let w0c = &wi.0 ^ &wj.0;
-    let w1c = &w0c ^ delta;
+    let w0c;
+    let w1c;
+    let w00 = get_00_wire(&wi, &wj, gate_id);
+    if !wi.1.bit(0) && !wj.1.bit(0) {
+        w0c = &w00 ^ delta;
+        w1c = w00;
+    } else {
+        w1c = &w00 ^ delta;
+        w0c = w00;
+    }
     (w0c, w1c)
 }
 
-pub fn generate_xor_wires(delta: &BigUint, wi: &(BigUint, BigUint), wj: &(BigUint, BigUint), gate_id: &BigUint) -> (BigUint, BigUint) {
+pub fn generate_xor_wires(delta: &BigUint, wi: &(BigUint, BigUint), wj: &(BigUint, BigUint), _gate_id: &BigUint) -> (BigUint, BigUint) {
     let w0c = &wi.0 ^ &wj.0;
     let w1c = &w0c ^ delta;
     (w0c, w1c)

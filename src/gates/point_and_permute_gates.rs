@@ -5,7 +5,7 @@ use crate::gates::gates::Gates;
 pub struct PointAndPermuteGates;
 
 impl Gates for PointAndPermuteGates {
-    fn get_garbled_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint) -> Vec<BigUint> {
+    fn get_garbled_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint, gate: String) -> (Vec<BigUint>, BigUint, String) {
         let mut table = vec![BigUint::from(0u8); 4];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
         for (il, ir, out) in tt {
@@ -14,7 +14,7 @@ impl Gates for PointAndPermuteGates {
             let pos = get_position(il, ir);
             table[pos]= ct;
         }
-        table
+        (table, gate_id.clone(), gate)
     }
 }
 

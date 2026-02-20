@@ -1,12 +1,14 @@
 use crate::{crypto_utils};
 use num_bigint::{BigUint, ToBigUint};
 use crate::crypto_utils::gc_kdf_128;
+use crate::gates::free_xor_gates::FreeXORGates;
 use crate::gates::gates::Gates;
 use crate::gates::grr3_gates::GRR3Gates;
 use crate::wires::wires::Wires;
 use crate::gates::original_gates::OriginalGates;
 use crate::wires::original_wires::OriginalWires;
 use crate::gates::point_and_permute_gates::{PointAndPermuteGates, get_position};
+use crate::wires::free_xor_wires::FreeXORWires;
 use crate::wires::grr3_wires::GRR3Wires;
 use crate::wires::point_and_permute_wires::PointAndPermuteWires;
 
@@ -20,11 +22,11 @@ fn can_decrypt_std_yao_gate_labels() {
     let gate = "xor";
     let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt= OriginalGates::get_tt(&wi, &wj, &wo, gate.to_string());
-    let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id);
+    let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
     for i in 0..4 {
         let mut has_decrypted = false;
         let key = crypto_utils::gc_kdf(&tt[i].0, &tt[i].1, &gate_id);
-        for output_label in &xor_gate {
+        for output_label in &xor_gate.0 {
             let decrypted_label = &key ^ output_label;
             let decrypted_label_no_padding: BigUint = decrypted_label >> 128;
             let key_decrypts_correctly = decrypted_label_no_padding == wo.0 || decrypted_label_no_padding == wo.1;
@@ -45,10 +47,10 @@ fn output_labels_is_zero_padded_in_std_yao() {
     let gate = "xor";
     let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt= OriginalGates::get_tt(&wi, &wj, &wo, gate.to_string());
-    let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id);
+    let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
     for i in 0..4 {
         let key = crypto_utils::gc_kdf(&tt[i].0, &tt[i].1, &gate_id);
-        for output_label in &xor_gate {
+        for output_label in &xor_gate.0 {
             let decrypted_label = &key ^ output_label;
             let decrypted_label_no_padding: BigUint = (&key ^ output_label) >> 128;
             let key_decrypts_correctly = decrypted_label_no_padding == wo.0 || decrypted_label_no_padding == wo.1;
@@ -123,11 +125,11 @@ fn and_gate_uses_point_and_permute_order() {
     let gate = "and";
     let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = PointAndPermuteGates::get_tt(&wi, &wj, &wo, gate.to_string());
-    let gt = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id);
+    let gt = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
         let key = gc_kdf_128(&il, &ir, &gate_id);
-        let dec = &key ^ &gt[pos];
+        let dec = &key ^ &gt.0[pos];
         assert_eq!(out, dec);
     }
 }
@@ -141,11 +143,11 @@ fn xor_gate_uses_point_and_permute_order() {
     let gate = "xor";
     let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = PointAndPermuteGates::get_tt(&wi, &wj, &wo, gate.to_string());
-    let gt = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id);
+    let gt = PointAndPermuteGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
         let key = gc_kdf_128(&il, &ir, &gate_id);
-        let dec = &key ^ &gt[pos];
+        let dec = &key ^ &gt.0[pos];
         assert_eq!(out, dec);
     }
 }
@@ -159,8 +161,8 @@ fn gate_only_3_entries_grr3() {
     let gate = "xor";
     let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = GRR3Gates::get_tt(&wi, &wj, &wo, gate.to_string());
-    let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id);
-    assert_eq!(gt.len(), 3);
+    let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    assert_eq!(gt.0.len(), 3);
 }
 
 #[test]
@@ -172,12 +174,12 @@ fn are_and_output_labels_correct_grr3() {
     let gate = "and";
     let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = GRR3Gates::get_tt(&wi, &wj, &wo, gate.to_string());
-    let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id);
+    let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id, gate.to_string());
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
         let key = gc_kdf_128(&il, &ir, &gate_id);
         if pos != 0 {
-            let dec = &key ^ &gt[pos-1];
+            let dec = &key ^ &gt.0[pos-1];
             assert_eq!(out, dec);
         } else {
             assert_eq!(out, key);
@@ -194,16 +196,42 @@ fn are_xor_output_labels_correct_grr3() {
     let gate = "xor";
     let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
     let tt = GRR3Gates::get_xor_tt(&wi, &wj, &wo);
-    let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id);
+    let gt = GRR3Gates::get_garbled_gate(&tt, &gate_id, gate.to_string());
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
         if pos != 0 {
             let key = gc_kdf_128(&il, &ir, &gate_id);
-            let dec = &key ^ &gt[pos-1];
+            let dec = &key ^ &gt.0[pos-1];
             assert_eq!(out, dec);
         } else {
             let key = gc_kdf_128(&il, &ir, &gate_id);
             assert_eq!(out, key);
         }
     }
+}
+
+#[test]
+fn no_entries_in_xor_gate_free_xor() {
+    let wires = FreeXORWires::new();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate_id = 0.to_biguint().unwrap();
+    let gate = "xor";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt = FreeXORGates::get_tt(&wi, &wj, &wo, gate.to_string());
+    let gt = FreeXORGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    assert_eq!(gt.0.len(), 0);
+}
+
+#[test]
+fn three_entries_in_and_gate_free_xor() {
+    let wires = FreeXORWires::new();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate_id = 0.to_biguint().unwrap();
+    let gate = "and";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt = FreeXORGates::get_tt(&wi, &wj, &wo, gate.to_string());
+    let gt = FreeXORGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    assert_eq!(gt.0.len(), 3);
 }

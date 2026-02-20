@@ -3,6 +3,7 @@ use crate::crypto_utils::{gc_kdf_128, generate_label_lsb};
 use crate::wires::original_wires::OriginalWires;
 use crate::wires::point_and_permute_wires::PointAndPermuteWires;
 use crate::wires::grr3_wires::{GRR3Wires, get_00_wire, generate_xor_wires, generate_and_wires};
+use crate::wires::free_xor_wires::FreeXORWires;
 use crate::wires::wires::Wires;
 
 #[test]
@@ -93,4 +94,28 @@ fn test_generate_output_wires_unknown_gate() {
     wires.generate_output_wires(
         &wi, &wj, "or".to_string(), &gate_id
     );
+}
+
+#[test]
+fn are_output_wires_xor_of_input() {
+    let wires = FreeXORWires::new();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate_id = BigUint::from(1u32);
+    let wo = wires.generate_output_wires(&wi, &wj, "xor".to_string(), &gate_id);
+    assert_eq!(&wi.0 ^ &wj.0, wo.0);
+    assert_eq!(&wi.0 ^ &wj.1, wo.1);
+    assert_eq!(&wi.1 ^ &wj.0, wo.1);
+    assert_eq!(&wi.1 ^ &wj.1, wo.0);
+}
+
+#[test]
+fn are_and_wires_using_delta() {
+    let wires = FreeXORWires::new();
+    let delta = wires.delta();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate_id = BigUint::from(1u32);
+    let wo = wires.generate_output_wires(&wi, &wj, "and".to_string(), &gate_id);
+    assert_eq!(&wo.0 ^ delta, wo.1);
 }
