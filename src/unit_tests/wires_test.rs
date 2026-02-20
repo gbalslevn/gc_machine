@@ -97,7 +97,7 @@ fn test_generate_output_wires_unknown_gate() {
 }
 
 #[test]
-fn are_output_xor_of_input() {
+fn are_output_wires_xor_of_input() {
     let wires = FreeXORWires::new();
     let wi = wires.generate_input_wires();
     let wj = wires.generate_input_wires();
@@ -110,7 +110,7 @@ fn are_output_xor_of_input() {
 }
 
 #[test]
-fn are_and_using_delta() {
+fn are_and_wires_using_delta() {
     let wires = FreeXORWires::new();
     let delta = wires.delta();
     let wi = wires.generate_input_wires();
