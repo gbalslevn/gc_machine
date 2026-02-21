@@ -1,21 +1,37 @@
 use num_bigint::BigUint;
 use rand::{thread_rng, Rng};
-use crate::wires::wires::Wires;
+use crate::{gates::gates::GateType, wires::wires::{Wire, Wires}};
 
-pub struct OriginalWires;
+pub struct OriginalWires {
+    w0: BigUint,
+    w1: BigUint
+}
 
 impl Wires for OriginalWires {
-    fn generate_input_wires(&self) -> (BigUint, BigUint) {
+    fn new(w0: BigUint, w1: BigUint) -> Self {
+        Self { w0, w1 }
+    }
+    fn w0(&self) -> &BigUint {
+        &self.w0
+    }
+
+    fn w1(&self) -> &BigUint {
+        &self.w1
+    }
+
+    fn generate_input_wire() -> OriginalWires {
         let mut bytes0 = [0u8; 16]; // 128 bits
         let mut bytes1 = [0u8; 16]; // 128 bits
 
         thread_rng().fill(&mut bytes0);
         thread_rng().fill(&mut bytes1);
 
-        (BigUint::from_bytes_be(&bytes0), BigUint::from_bytes_be(&bytes1))
+        let w0 = BigUint::from_bytes_be(&bytes0);
+        let w1 = BigUint::from_bytes_be(&bytes1);
+        Self { w0 , w1 }
     }
 
-    fn generate_output_wires(&self, _wi: &(BigUint, BigUint), _wj: &(BigUint, BigUint), _gate: String, _gate_id: &BigUint) -> (BigUint, BigUint) {
-        Self::generate_input_wires(&self)
+    fn generate_output_wire(_wi: &Self, _wj: &Self, _gate: &GateType, _gate_id: &BigUint) -> Self {
+        Self::generate_input_wire()
     }
 }

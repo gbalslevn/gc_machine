@@ -1,6 +1,8 @@
 use stats_alloc::{Region, StatsAlloc};
 use std::alloc::{System};
 
+// maybe use this to run benching, cargo bench -- --test-threads=1
+
 // Measures amount of heap memory used for the provided action
 pub fn get_memory<F, R>(function: F, global : &StatsAlloc<System>) -> R 
 where 

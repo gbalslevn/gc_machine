@@ -12,6 +12,6 @@ criterion = "0.3"
 stats_alloc = "0.1.10"
 
 [[bench]]
-name = "bench_example"
+name = "bench"
 harness = false
 

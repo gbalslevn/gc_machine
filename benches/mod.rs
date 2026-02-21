@@ -1,3 +1,3 @@
-pub mod bench_utils;
-mod bench_example;
+mod bench_utils;
+#[allow(dead_code)]
 mod bench;
