@@ -14,7 +14,7 @@ impl Gates<OriginalWires> for OriginalGates {
         let wj = OriginalWires::generate_input_wire();
         let wo = OriginalWires::generate_output_wire(&wi, &wj, gate, &gate_id);
         let tt = OriginalGates.get_tt(&wi, &wj, &wo, &gate);
-        let mut table = vec![BigUint::from(0u8); 4];
+        let mut table = vec![];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
         for (il, ir, out) in tt {
             let key = crypto_utils::gc_kdf(&il, &ir, &gate_id);

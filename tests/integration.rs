@@ -22,13 +22,13 @@ fn can_compare_a_bit_using_std_yao() {
     let oblivious_keypair = ot::ObliviousKeyPair::new(&pp);
     let real_keypair = ot::RealKeyPair::new(&pp);
     // 2.2 The evaluator sends the publickey of both keypairs to the garbler who then encrypts wj.0 and wj.1 respectively.
-    let _ciphertext_wj_0 = encrypt(&pp, oblivious_keypair.get_public_key(), wj.0);
-    let ciphertext_wj_1 = encrypt(&pp, real_keypair.get_public_key(), wj.1);
+    let _ciphertext_wj_0 = encrypt(&pp, oblivious_keypair.get_public_key(), xor_gate.wj.w0());
+    let ciphertext_wj_1 = encrypt(&pp, real_keypair.get_public_key(), xor_gate.wj.w1());
     // 2.3 Upon receiving both ciphertexts, the evaluator can only succesfully decrypt the latter, which he does and sets g_label accordingly
-    let g_label_received_from_ot = ot::decrypt(&pp, real_keypair.get_secret_key(),ciphertext_wj_1);
-    // 3. Garbler sends her bit as a label as well as the evaluators labels. Evaluator now has what is needed to evaluate.
+    let e_label_received_from_ot = ot::decrypt(&pp, real_keypair.get_secret_key(),ciphertext_wj_1);
+    // 3. Garbler sends her bit as a label (g_label) as well as the evaluators labels. Evaluator now has what is needed to evaluate.
     let g_label = xor_gate.wi.w0();
-    let e_label = xor_gate.wj.w1();
+    let e_label = e_label_received_from_ot;
     let mut decrypted_output_label =  BigUint::ZERO;
     let key = crypto_utils::gc_kdf(&g_label, &e_label, &gate_id);
     for ct in xor_gate.table {

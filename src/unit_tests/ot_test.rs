@@ -48,7 +48,7 @@ fn real_pk_should_decrypt_correctly() {
     let real_key = ot::RealKeyPair::new(&pp);
     let plaintext : BigUint = 123423331.to_biguint().unwrap();
     println!("plaintext: {}", plaintext);
-    let cipher_text = ot::encrypt(&pp, real_key.get_public_key(), plaintext);
+    let cipher_text = ot::encrypt(&pp, real_key.get_public_key(), &plaintext);
     let decrypted_ciphertext = ot::decrypt(&pp, real_key.get_secret_key(), cipher_text);
     println!("decrypted_ciphertext: {}", decrypted_ciphertext);
 }
