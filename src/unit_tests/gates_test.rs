@@ -1,36 +1,42 @@
 use crate::{crypto_utils};
 use num_bigint::{BigUint, ToBigUint};
 use crate::crypto_utils::gc_kdf_128;
+use crate::gates::free_xor_gates::FreeXORGates;
 use crate::gates::gates::{Gate, GateType, Gates};
 use crate::gates::grr3_gates::GRR3Gates;
 use crate::wires::wires::Wires;
 use crate::gates::original_gates::OriginalGates;
 use crate::wires::original_wires::OriginalWires;
 use crate::gates::point_and_permute_gates::{PointAndPermuteGates, get_position};
+use crate::wires::free_xor_wires::FreeXORWires;
 use crate::wires::grr3_wires::GRR3Wires;
 use crate::wires::point_and_permute_wires::PointAndPermuteWires;
 
 #[test]
-// Gets all possible keys from two input wires and for each key, ensures at least 1 of the 4 output labels can be decrypted. Could also just do it for one key.
-// fn can_decrypt_std_yao_gate_labels() {
-//     let gate_id = 0.to_biguint().unwrap();
-//     let gate = GateType::XOR;
-//     let xor_gate = OriginalGates::new(&gate, gate_id);
-//     let output_table = xor_gate.table;
-//     for i in 0..4 {
-//         let mut has_decrypted = false;
-//         let key = crypto_utils::gc_kdf(&output_table[i], &tt[i].1, &gate_id);
-//         for output_label in &output_table {
-//             let decrypted_label = &key ^ output_label;
-//             let decrypted_label_no_padding: BigUint = decrypted_label >> 128;
-//             let key_decrypts_correctly = decrypted_label_no_padding == wo.0 || decrypted_label_no_padding == wo.1;
-//             if key_decrypts_correctly {
-//                 has_decrypted = true;
-//             }
-//         }
-//         assert!(has_decrypted);
-//     } 
-// }
+// Gets all possible keys from two input wires and for each key, ensures 1 of the 4 output labels can be decrypted. Could also just do it for one key.
+fn can_decrypt_std_yao_gate_labels() {
+    let wires = OriginalWires;
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate_id = 0.to_biguint().unwrap();
+    let gate = "xor";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt= OriginalGates::get_tt(&wi, &wj, &wo, gate.to_string());
+    let xor_gate = OriginalGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    for i in 0..4 {
+        let mut has_decrypted = false;
+        let key = crypto_utils::gc_kdf(&tt[i].0, &tt[i].1, &gate_id);
+        for output_label in &xor_gate.0 {
+            let decrypted_label = &key ^ output_label;
+            let decrypted_label_no_padding: BigUint = decrypted_label >> 128;
+            let key_decrypts_correctly = decrypted_label_no_padding == wo.0 || decrypted_label_no_padding == wo.1;
+            if key_decrypts_correctly {
+                has_decrypted = true;
+            }
+        }
+        assert!(has_decrypted);
+    } 
+}
 
 #[test]
 fn output_labels_is_zero_padded_in_std_yao() {
@@ -173,4 +179,30 @@ fn xor_output_labels_are_correct_grr3() {
             assert_eq!(out, key);
         }
     }
+}
+
+#[test]
+fn no_entries_in_xor_gate_free_xor() {
+    let wires = FreeXORWires::new();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate_id = 0.to_biguint().unwrap();
+    let gate = "xor";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt = FreeXORGates::get_tt(&wi, &wj, &wo, gate.to_string());
+    let gt = FreeXORGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    assert_eq!(gt.0.len(), 0);
+}
+
+#[test]
+fn three_entries_in_and_gate_free_xor() {
+    let wires = FreeXORWires::new();
+    let wi = wires.generate_input_wires();
+    let wj = wires.generate_input_wires();
+    let gate_id = 0.to_biguint().unwrap();
+    let gate = "and";
+    let wo = wires.generate_output_wires(&wi, &wj, gate.to_string(), &gate_id);
+    let tt = FreeXORGates::get_tt(&wi, &wj, &wo, gate.to_string());
+    let gt = FreeXORGates::get_garbled_gate(&tt, &gate_id, gate.to_string());
+    assert_eq!(gt.0.len(), 3);
 }
