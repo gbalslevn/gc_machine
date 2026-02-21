@@ -9,10 +9,10 @@ use crate::gates::gates::{Gate, GateType, Gates};
 pub struct OriginalGates;
 
 impl Gates<OriginalWires> for OriginalGates {
-    fn new(gate : &GateType, gate_id: BigUint) -> Gate<OriginalWires> {
+    fn new(gate : GateType, gate_id: BigUint) -> Gate<OriginalWires> {
         let wi = OriginalWires::generate_input_wire();
         let wj = OriginalWires::generate_input_wire();
-        let wo = OriginalWires::generate_output_wire(&wi, &wj, gate, &gate_id);
+        let wo = OriginalWires::generate_output_wire(&wi, &wj, &gate, &gate_id);
         let tt = OriginalGates.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
@@ -24,7 +24,7 @@ impl Gates<OriginalWires> for OriginalGates {
         }
         table.shuffle(&mut thread_rng());
         Gate {
-            gate_id: gate_id, table: table, wi : wi, wj: wj, wo: wo
+            gate_id: gate_id, gate_type: gate, table: table, wi : wi, wj: wj, wo: wo
         }
     }
 }

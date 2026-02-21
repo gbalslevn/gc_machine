@@ -2,13 +2,14 @@ use num_bigint::{BigUint};
 
 use crate::wires::wires::{Wires};
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GateType {
     XOR, 
     AND
 } 
 
 pub trait Gates<W> where W : Wires {
-    fn new(gate_type : &GateType, id : BigUint) -> Gate<W>;
+    fn new(gate_type : GateType, id : BigUint) -> Gate<W>;
     
     fn get_tt(&self, wi: &W, wj: &W, wo: &W, gate: &GateType) -> [(BigUint, BigUint, BigUint); 4] {
         match gate {
@@ -26,6 +27,7 @@ pub trait Gates<W> where W : Wires {
 
 pub struct Gate<W> {
     pub gate_id: BigUint,
+    pub gate_type: GateType,
     pub table : Vec<BigUint>,
     pub wi: W,
     pub wj: W,

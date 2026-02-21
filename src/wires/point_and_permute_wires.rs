@@ -1,7 +1,7 @@
 use num_bigint::BigUint;
 use rand::{thread_rng, Rng};
 use crate::gates::gates::GateType;
-use crate::wires::wires::{Wire, Wires};
+use crate::wires::wires::Wires;
 use crate::crypto_utils::generate_label_lsb;
 
 pub struct PointAndPermuteWires {
@@ -10,9 +10,6 @@ pub struct PointAndPermuteWires {
 }
 
 impl Wires for PointAndPermuteWires {
-    fn new(w0: BigUint, w1: BigUint) -> Self {
-        Self { w0, w1 }
-    }
     fn w0(&self) -> &BigUint {
         &self.w0
     }
@@ -26,7 +23,7 @@ impl Wires for PointAndPermuteWires {
         let choice = rng.gen_bool(1.0 / 2.0);
         let w0 = generate_label_lsb(choice);
         let w1 = generate_label_lsb(!choice);
-        Self::new(w0, w1)
+        Self {w0: w0, w1: w1}
     }
 
     fn generate_output_wire(_wi: &Self, _wj: &Self, _gate: &GateType, _gate_id: &BigUint) -> Self {

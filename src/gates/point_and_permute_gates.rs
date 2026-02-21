@@ -7,10 +7,10 @@ use crate::wires::wires::Wires;
 pub struct PointAndPermuteGates;
 
 impl Gates<PointAndPermuteWires> for PointAndPermuteGates {
-    fn new(gate : &GateType, gate_id: BigUint) -> Gate<PointAndPermuteWires> {
+    fn new(gate : GateType, gate_id: BigUint) -> Gate<PointAndPermuteWires> {
         let wi = PointAndPermuteWires::generate_input_wire();
         let wj = PointAndPermuteWires::generate_input_wire();
-        let wo = PointAndPermuteWires::generate_output_wire(&wi, &wj, gate, &gate_id);
+        let wo = PointAndPermuteWires::generate_output_wire(&wi, &wj, &gate, &gate_id);
         let tt = PointAndPermuteGates.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![BigUint::from(0u8); 4];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
@@ -21,7 +21,7 @@ impl Gates<PointAndPermuteWires> for PointAndPermuteGates {
             table[pos]= ct;
         }
         Gate {
-            gate_id: gate_id, table: table, wi : wi, wj: wj, wo: wo
+            gate_id: gate_id, gate_type: gate, table: table, wi : wi, wj: wj, wo: wo
         }
     }
 }

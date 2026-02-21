@@ -1,6 +1,6 @@
 use num_bigint::{BigUint};
 
-use crate::{gates::gates::{Gate, GateType}, wires::wires::{Wire, Wires}};
+use crate::{gates::gates::{Gate, GateType}, wires::wires::Wires};
 pub trait Evaluator {
     fn evaluate_gate<W>(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate_type: &GateType, gate: &Gate<W>) -> BigUint where W : Wires {
         match gate_type {

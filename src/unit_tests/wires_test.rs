@@ -39,8 +39,8 @@ fn test_get_00_wire_finds_correct_pair() {
     let w1j = generate_label_lsb(false);  // LSB = 0
     let gate_id = BigUint::from(1u32);
 
-    let wi = GRR3Wires::new(w0i, w1i);
-    let wj = GRR3Wires::new(w0j, w1j);
+    let wi = GRR3Wires {w0: w0i, w1: w1i};
+    let wj = GRR3Wires {w0: w0j, w1: w1j};
 
     let result = get_00_wire(&wi, &wj, &gate_id);
 
@@ -57,8 +57,8 @@ fn test_get_00_wire_panics_when_no_pair() {
     let w1j = generate_label_lsb(true);  // LSB = 1
     let gate_id = BigUint::from(1u32);
 
-    let wi = GRR3Wires::new(w0i, w1i);
-    let wj = GRR3Wires::new(w0j, w1j);
+    let wi = GRR3Wires {w0: w0i, w1: w1i};
+    let wj = GRR3Wires {w0: w0j, w1: w1j};
     
     GRR3Wires::generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
 }

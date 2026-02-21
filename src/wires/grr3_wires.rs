@@ -1,18 +1,15 @@
 use num_bigint::BigUint;
 use rand::{thread_rng, Rng};
 use crate::gates::gates::GateType;
-use crate::wires::wires::{Wire, Wires};
+use crate::wires::wires::Wires;
 use crate::crypto_utils::{gc_kdf_128, generate_label_lsb};
 
 pub struct GRR3Wires {
-    w0: BigUint,
-    w1: BigUint
+    pub w0: BigUint,
+    pub w1: BigUint
 }
 
 impl Wires for GRR3Wires {
-    fn new(w0: BigUint, w1: BigUint) -> Self {
-        Self { w0, w1 }
-    }
     fn w0(&self) -> &BigUint {
         &self.w0
     }
@@ -26,7 +23,7 @@ impl Wires for GRR3Wires {
         let choice = rng.gen_bool(1.0 / 2.0);
         let w0 = generate_label_lsb(choice);
         let w1 = generate_label_lsb(!choice);
-        Self::new(w0, w1)
+        Self{ w0: w0, w1: w1}
     }
     fn generate_output_wire(wi: &Self, wj: &Self, gate: &GateType, gate_id: &BigUint) -> Self {
         match gate {
@@ -47,7 +44,7 @@ fn generate_and_wires(wi: &GRR3Wires, wj: &GRR3Wires, gate_id: &BigUint) -> GRR3
         w1c = generate_label_lsb(!w00.bit(0));
         w0c = w00;
     }
-    GRR3Wires::new(w0c, w1c)
+    GRR3Wires { w0: w0c, w1: w1c }
 }
 
 fn generate_xor_wires(wi: &GRR3Wires, wj: &GRR3Wires, gate_id: &BigUint) -> GRR3Wires {
@@ -61,7 +58,7 @@ fn generate_xor_wires(wi: &GRR3Wires, wj: &GRR3Wires, gate_id: &BigUint) -> GRR3
         w1c = generate_label_lsb(!w00.bit(0));
         w0c = w00;
     }
-    GRR3Wires::new(w0c, w1c)
+    GRR3Wires {w0: w0c, w1: w1c}
 }
 
 pub fn get_00_wire(wi: &GRR3Wires, wj: &GRR3Wires, gate_id: &BigUint) -> BigUint {

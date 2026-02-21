@@ -1,16 +1,13 @@
 use num_bigint::BigUint;
 use rand::{thread_rng, Rng};
-use crate::{gates::gates::GateType, wires::wires::{Wire, Wires}};
+use crate::{gates::gates::GateType, wires::wires::Wires};
 
 pub struct OriginalWires {
-    w0: BigUint,
-    w1: BigUint
+    pub w0: BigUint,
+    pub w1: BigUint
 }
 
 impl Wires for OriginalWires {
-    fn new(w0: BigUint, w1: BigUint) -> Self {
-        Self { w0, w1 }
-    }
     fn w0(&self) -> &BigUint {
         &self.w0
     }

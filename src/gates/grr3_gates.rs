@@ -7,10 +7,10 @@ use crate::wires::wires::Wires;
 pub struct GRR3Gates;
 
 impl Gates<GRR3Wires> for GRR3Gates  {
-    fn new(gate : &GateType, gate_id: BigUint) -> Gate<GRR3Wires> {
+    fn new(gate : GateType, gate_id: BigUint) -> Gate<GRR3Wires> {
         let wi = GRR3Wires::generate_input_wire();
         let wj = GRR3Wires::generate_input_wire();
-        let wo = GRR3Wires::generate_output_wire(&wi, &wj, gate, &gate_id);
+        let wo = GRR3Wires::generate_output_wire(&wi, &wj, &gate, &gate_id);
         let tt = GRR3Gates.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![BigUint::from(0u8); 3];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
@@ -23,7 +23,7 @@ impl Gates<GRR3Wires> for GRR3Gates  {
             }
         }
         Gate {
-            gate_id: gate_id, table: table, wi : wi, wj: wj, wo: wo
+            gate_id: gate_id, gate_type: gate, table: table, wi : wi, wj: wj, wo: wo
         }
     }
 }
