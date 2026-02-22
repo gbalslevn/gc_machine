@@ -40,10 +40,10 @@ fn can_decrypt_std_yao_gate_labels() {
 fn output_labels_is_zero_padded_in_std_yao() {
     let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::XOR;
-    let gt = OriginalGates::new(gate, gate_id.clone());
+    let gt = OriginalGates::new(gate, gate_id);
     let tt = OriginalGates.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
     for i in 0..4 {
-        let key = crypto_utils::gc_kdf(&tt[i].0, &tt[i].1, &gate_id);
+        let key = crypto_utils::gc_kdf(&tt[i].0, &tt[i].1, &gt.gate_id);
         for output_label in &gt.table {
             let decrypted_label = &key ^ output_label;
             let decrypted_label_no_padding: BigUint = (&key ^ output_label) >> 128;
@@ -118,11 +118,11 @@ fn and_tt_gen_is_correct() {
 fn and_gate_uses_point_and_permute_order() {
     let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::AND;
-    let gt = PointAndPermuteGates::new(gate.clone(), gate_id.clone());
-    let tt = PointAndPermuteGates.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
+    let gt = PointAndPermuteGates::new(gate, gate_id);
+    let tt = PointAndPermuteGates.get_tt(&gt.wi, &gt.wj, &gt.wo, &gt.gate_type);
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
-        let key = gc_kdf_128(&il, &ir, &gate_id);
+        let key = gc_kdf_128(&il, &ir, &gt.gate_id);
         let dec = &key ^ &gt.table[pos];
         assert_eq!(out, dec);
     }
@@ -132,11 +132,11 @@ fn and_gate_uses_point_and_permute_order() {
 fn xor_gate_uses_point_and_permute_order() {
     let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::XOR;
-    let gt = PointAndPermuteGates::new(gate, gate_id.clone());
+    let gt = PointAndPermuteGates::new(gate, gate_id);
     let tt = PointAndPermuteGates.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
-        let key = gc_kdf_128(&il, &ir, &gate_id);
+        let key = gc_kdf_128(&il, &ir, &gt.gate_id);
         let dec = &key ^ &gt.table[pos];
         assert_eq!(out, dec);
     }
@@ -153,11 +153,11 @@ fn gate_only_3_entries_grr3() {
 fn are_and_output_labels_correct_grr3() {
     let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::AND;
-    let gt = GRR3Gates::new(gate, gate_id.clone());
+    let gt = GRR3Gates::new(gate, gate_id);
     let tt = GRR3Gates.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
-        let key = gc_kdf_128(&il, &ir, &gate_id);
+        let key = gc_kdf_128(&il, &ir, &gt.gate_id);
         if pos != 0 {
             let dec = &key ^ &gt.table[pos - 1];
             assert_eq!(out, dec);
@@ -171,16 +171,16 @@ fn are_and_output_labels_correct_grr3() {
 fn xor_output_labels_are_correct_grr3() {
     let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::XOR;
-    let gt = GRR3Gates::new(gate, gate_id.clone());
+    let gt = GRR3Gates::new(gate, gate_id);
     let tt = GRR3Gates.get_xor_tt(&gt.wi, &gt.wj, &gt.wo);
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
         if pos != 0 {
-            let key = gc_kdf_128(&il, &ir, &gate_id);
+            let key = gc_kdf_128(&il, &ir, &gt.gate_id);
             let dec = &key ^ &gt.table[pos - 1];
             assert_eq!(out, dec);
         } else {
-            let key = gc_kdf_128(&il, &ir, &gate_id);
+            let key = gc_kdf_128(&il, &ir, &gt.gate_id);
             assert_eq!(out, key);
         }
     }

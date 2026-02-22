@@ -1,4 +1,5 @@
-use num_bigint::BigUint;
+use std::str::FromStr;
+use num_bigint::{BigUint, ToBigUint};
 use crate::gates::gates::GateType;
 use crate::wires::wires::Wires;
 use crate::crypto_utils::{gc_kdf_128, generate_label_lsb, generate_label};
@@ -25,7 +26,10 @@ impl Wires for FreeXORWires {
     }
 
     fn generate_input_wire() -> Self {
-        let delta = generate_label_lsb(true); // to ensure point and permute holds
+        // let delta = generate_label_lsb(true); // to ensure point and permute holds
+        let delta_str = "44118055070050376567495178382802105751"; // WARNING THIS SHOULD BE CREATED FRESH FOR EACH CIRCUIT
+        let delta = BigUint::from_str(delta_str).expect("Invalid number format");
+        println!("delta is : {}", delta);
         let w0 = generate_label();
         let w1 = &w0 ^ &delta;
         Self {w0: w0, w1: w1, delta : delta}

@@ -1,22 +1,22 @@
-use crate::{evaluator::evaluator::Evaluator, gates::gates::Gate};
+use crate::evaluator::evaluator::Evaluator;
 use crate::crypto_utils::gc_kdf_128;
 use num_bigint::{BigUint};
 pub struct GRR3Evaluator;
 
 impl Evaluator for GRR3Evaluator {
-    fn evaluate_and_gate<W>(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: &Gate<W>) -> BigUint {
+    fn evaluate_and_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, table: &Vec<BigUint>) -> BigUint {
         let key = gc_kdf_128(wi, wj, gate_id);
         let pos = get_position(wi, wj);
         if pos == 0 {
             key.clone()
         } else {
-            &gate.table[pos-1] ^ &key
+            &table[pos-1] ^ &key
         }
     }
 
     // No difference between evaluation of AND gate and XOR gate
-    fn evaluate_xor_gate<W>(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, gate: &Gate<W>) -> BigUint {
-        Self::evaluate_and_gate(wi, wj, gate_id, gate)
+    fn evaluate_xor_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, table: &Vec<BigUint>) -> BigUint {
+        Self::evaluate_and_gate(wi, wj, gate_id, table)
     }
 }
 
