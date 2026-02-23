@@ -1,19 +1,29 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
-use crate::gates::gates::Gates;
+use crate::gates::gates::{Gate, GateType, Gates};
+use crate::wires::free_xor_wires::FreeXORWires;
+use crate::wires::wires::Wires;
 pub struct FreeXORGates;
 
-impl Gates for FreeXORGates {
-    fn get_garbled_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint, gate: String) -> (Vec<BigUint>, BigUint, String) {
-        match gate.as_str() {
-            "and"=>generate_and_gate(tt, gate_id, gate),
-            "xor"=>generate_xor_gate(tt, gate_id, gate),
-            _=>panic!("Unknown gate {}", gate),
+// Implements free XOR and grr3
+
+impl Gates<FreeXORWires> for FreeXORGates {
+    fn new(gate: GateType, gate_id: BigUint) -> Gate<FreeXORWires> {
+        let wi = FreeXORWires::generate_input_wire();
+        let wj = FreeXORWires::generate_input_wire();
+        let wo = FreeXORWires::generate_output_wire(&wi, &wj, &gate, &gate_id);
+        let tt = FreeXORGates.get_tt(&wi, &wj, &wo, &gate);
+        match gate {
+            GateType::AND=> {
+                let table = generate_and_table(&tt,  &gate_id);
+                Gate { gate_id, gate_type: GateType::AND, table, wi: wi, wj: wj, wo: wo }
+            }
+            GateType::XOR=>Gate { gate_id, gate_type: GateType::XOR, table: Vec::new(), wi: wi, wj: wj, wo: wo }
         }
     }
 }
 
-fn generate_and_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint, gate: String) -> (Vec<BigUint>, BigUint, String) {
+fn generate_and_table(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint) -> Vec<BigUint> {
     let mut table = vec![BigUint::from(0u8); 3];
     // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
     for (il, ir, out) in tt {
@@ -24,11 +34,7 @@ fn generate_and_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint, 
             table[pos-1] = ct;
         }
     }
-    (table, gate_id.clone(), gate)
-}
-
-fn generate_xor_gate(_tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint, gate: String) -> (Vec<BigUint>, BigUint, String) {
-    (vec![BigUint::from(0u8); 0], gate_id.clone(), gate) // Wish we could send None instead of empty vector
+    table
 }
 
 

@@ -179,7 +179,7 @@ impl CipherText {
     }
 }
 
-pub fn encrypt(pp: &PublicParameters, public_key: PublicKey, plaintext: BigUint) -> CipherText {
+pub fn encrypt(pp: &PublicParameters, public_key: PublicKey, plaintext: &BigUint) -> CipherText {
     // source randomness for encryption
     let r = generate_r(pp.get_q());
     let c_1 = public_key.get_g().modpow(&r, &pp.p);

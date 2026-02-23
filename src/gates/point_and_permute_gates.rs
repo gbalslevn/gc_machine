@@ -1,20 +1,28 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
-use crate::gates::gates::Gates;
+use crate::gates::gates::{Gate, GateType, Gates};
+use crate::wires::point_and_permute_wires::PointAndPermuteWires;
+use crate::wires::wires::Wires;
 
 pub struct PointAndPermuteGates;
 
-impl Gates for PointAndPermuteGates {
-    fn get_garbled_gate(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint, gate: String) -> (Vec<BigUint>, BigUint, String) {
+impl Gates<PointAndPermuteWires> for PointAndPermuteGates {
+    fn new(gate : GateType, gate_id: BigUint) -> Gate<PointAndPermuteWires> {
+        let wi = PointAndPermuteWires::generate_input_wire();
+        let wj = PointAndPermuteWires::generate_input_wire();
+        let wo = PointAndPermuteWires::generate_output_wire(&wi, &wj, &gate, &gate_id);
+        let tt = PointAndPermuteGates.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![BigUint::from(0u8); 4];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
         for (il, ir, out) in tt {
-            let key = crypto_utils::gc_kdf_128(il, ir, gate_id);
+            let key = crypto_utils::gc_kdf_128(&il, &ir, &gate_id);
             let ct = key ^ out;
-            let pos = get_position(il, ir);
+            let pos = get_position(&il, &ir);
             table[pos]= ct;
         }
-        (table, gate_id.clone(), gate)
+        Gate {
+            gate_id: gate_id, gate_type: gate, table: table, wi : wi, wj: wj, wo: wo
+        }
     }
 }
 

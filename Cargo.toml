@@ -7,4 +7,12 @@ edition = "2024"
 num-bigint = { version = "0.4", features = ["rand"] }
 rand = "0.8"
 sha2 = "0.10.9"
+criterion = "0.3"
+stats_alloc = "0.1.10"
+glass_pumpkin = "1.10.0"
+
+[[bench]]
+name = "bench"
+harness = false
+
 glass_pumpkin = "1.0"
