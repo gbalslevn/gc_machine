@@ -2,15 +2,13 @@ use num_bigint::BigUint;
 use crate::crypto_utils;
 use crate::gates::gates::{Gate, GateType, Gates};
 use crate::wires::free_xor_wires::FreeXORWires;
-use crate::wires::wires::Wires;
+use crate::wires::wires::{Wire, Wires};
 pub struct FreeXORGates;
 
 // Implements free XOR and grr3
 
-impl Gates<FreeXORWires> for FreeXORGates {
-    fn new(gate: GateType, gate_id: BigUint) -> Gate<FreeXORWires> {
-        let wi = FreeXORWires::generate_input_wire();
-        let wj = FreeXORWires::generate_input_wire();
+impl Gates for FreeXORGates {
+    fn new(gate : GateType, wi: Wire, wj: Wire, gate_id: BigUint) -> Gate {
         let wo = FreeXORWires::generate_output_wire(&wi, &wj, &gate, &gate_id);
         let tt = FreeXORGates.get_tt(&wi, &wj, &wo, &gate);
         match gate {

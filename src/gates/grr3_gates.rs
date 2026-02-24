@@ -2,14 +2,12 @@ use num_bigint::BigUint;
 use crate::crypto_utils;
 use crate::gates::gates::{Gate, GateType, Gates};
 use crate::wires::grr3_wires::GRR3Wires;
-use crate::wires::wires::Wires;
+use crate::wires::wires::{Wire, Wires};
 
 pub struct GRR3Gates;
 
-impl Gates<GRR3Wires> for GRR3Gates  {
-    fn new(gate : GateType, gate_id: BigUint) -> Gate<GRR3Wires> {
-        let wi = GRR3Wires::generate_input_wire();
-        let wj = GRR3Wires::generate_input_wire();
+impl Gates for GRR3Gates  {
+    fn new(gate : GateType, wi: Wire, wj: Wire, gate_id: BigUint) -> Gate {
         let wo = GRR3Wires::generate_output_wire(&wi, &wj, &gate, &gate_id);
         let tt = GRR3Gates.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![BigUint::from(0u8); 3];

@@ -2,14 +2,12 @@ use num_bigint::BigUint;
 use crate::crypto_utils;
 use crate::gates::gates::{Gate, GateType, Gates};
 use crate::wires::point_and_permute_wires::PointAndPermuteWires;
-use crate::wires::wires::Wires;
+use crate::wires::wires::{Wire, Wires};
 
 pub struct PointAndPermuteGates;
 
-impl Gates<PointAndPermuteWires> for PointAndPermuteGates {
-    fn new(gate : GateType, gate_id: BigUint) -> Gate<PointAndPermuteWires> {
-        let wi = PointAndPermuteWires::generate_input_wire();
-        let wj = PointAndPermuteWires::generate_input_wire();
+impl Gates for PointAndPermuteGates {
+    fn new(gate : GateType, wi: Wire, wj: Wire, gate_id: BigUint) -> Gate {
         let wo = PointAndPermuteWires::generate_output_wire(&wi, &wj, &gate, &gate_id);
         let tt = PointAndPermuteGates.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![BigUint::from(0u8); 4];

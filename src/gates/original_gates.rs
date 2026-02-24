@@ -1,17 +1,15 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
 use crate::wires::original_wires::OriginalWires;
-use crate::wires::wires::Wires;
+use crate::wires::wires::{Wire, Wires};
 
 use rand::{thread_rng};
 use rand::seq::SliceRandom;
 use crate::gates::gates::{Gate, GateType, Gates};
 pub struct OriginalGates;
 
-impl Gates<OriginalWires> for OriginalGates {
-    fn new(gate : GateType, gate_id: BigUint) -> Gate<OriginalWires> {
-        let wi = OriginalWires::generate_input_wire();
-        let wj = OriginalWires::generate_input_wire();
+impl Gates for OriginalGates {
+    fn new(gate : GateType, wi: Wire, wj: Wire, gate_id: BigUint) -> Gate {
         let wo = OriginalWires::generate_output_wire(&wi, &wj, &gate, &gate_id);
         let tt = OriginalGates.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![];

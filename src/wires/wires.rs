@@ -4,13 +4,15 @@ use crate::gates::gates::GateType;
 
 // A wire has two label values, representing bit 0 and 1. 
 pub trait Wires {
-    fn generate_input_wire() -> Self;
-    fn generate_output_wire(wi: &Self, wj: &Self, gate: &GateType, gate_id: &BigUint) -> Self; 
-    fn w0(&self) -> &BigUint;
-    fn w1(&self) -> &BigUint;
+    fn new() -> Self;
+    fn generate_input_wire(&self) -> Wire;
+    fn generate_output_wire(wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire; 
 }
 
 impl Wire {
+    pub fn new(w0: BigUint, w1: BigUint) -> Self {
+        Wire {w0, w1}
+    }
     pub fn w0(&self) -> &BigUint {
         &self.w0
     }
@@ -20,6 +22,7 @@ impl Wire {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Wire {
     w0: BigUint,
     w1: BigUint

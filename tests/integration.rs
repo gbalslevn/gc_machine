@@ -2,6 +2,7 @@ use std::ops::Shr;
 use gc_machine::crypto_utils;
 use gc_machine::gates::gates::{GateType, Gates};
 use gc_machine::gates::original_gates::OriginalGates;
+use gc_machine::wires::original_wires::OriginalWires;
 use num_bigint::BigUint;
 use gc_machine::ot::ot;
 use gc_machine::ot::ot::encrypt;
@@ -13,7 +14,10 @@ fn can_compare_a_bit_using_std_yao() {
     
     // 1. Garbler creates circuit, a single XOR gate, and sends to evaluator
     let gate_id = BigUint::ZERO;
-    let xor_gate = OriginalGates::new(GateType::XOR, gate_id);
+    let wire_gen = OriginalWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let xor_gate = OriginalGates::new(GateType::XOR, wi, wj, gate_id);
     
     // 2. Evaluator receives circuit and chooses which bit-label he wants using OT.
     // 2.1 Evaluator prepares a ObliviousKeyPair and a RealKeyPar in that specific order, since he intends to receive the wirelabel for the 1-bit.

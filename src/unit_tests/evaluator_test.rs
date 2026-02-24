@@ -10,14 +10,20 @@ use crate::gates::gates::{GateType, Gates};
 use crate::gates::grr3_gates::GRR3Gates;
 use crate::gates::original_gates::OriginalGates;
 use crate::gates::point_and_permute_gates::PointAndPermuteGates;
+use crate::wires::free_xor_wires::FreeXORWires;
+use crate::wires::grr3_wires::GRR3Wires;
 use crate::wires::original_wires::OriginalWires;
+use crate::wires::point_and_permute_wires::PointAndPermuteWires;
 use crate::wires::wires::Wires;
 
 #[test]
 fn will_correctly_decrypt_xor_original() {
     let gate_type = GateType::XOR;
     let gate_id = BigUint::ZERO;
-    let gt = OriginalGates::new(gate_type, gate_id);
+    let wire_gen = OriginalWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = OriginalGates::new(gate_type, wi, wj, gate_id);
 
     // Evaluator has wi.0 and wj.1
     let dec = OriginalEvaluator::evaluate_gate(&gt.wi.w0(), &gt.wj.w1(), &gate_type, &gt.gate_id, &gt.table);
@@ -28,7 +34,10 @@ fn will_correctly_decrypt_xor_original() {
 fn will_correctly_decrypt_and_original() {
     let gate_type = GateType::AND;
     let gate_id = BigUint::ZERO;
-    let gt = OriginalGates::new(gate_type, gate_id);
+     let wire_gen = OriginalWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = OriginalGates::new(gate_type, wi, wj, gate_id);
 
     // Evaluator has wi.0 and wj.1
     let dec = OriginalEvaluator::evaluate_gate(&gt.wi.w0(), &gt.wj.w1(), &gate_type, &gt.gate_id, &gt.table);
@@ -40,10 +49,13 @@ fn will_correctly_decrypt_and_original() {
 fn will_panic_with_wrong_wires_original() {
     let gate_type = GateType::XOR;
     let gate_id = BigUint::ZERO;
-    let gt = OriginalGates::new(gate_type, gate_id);
+    let wire_gen = OriginalWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = OriginalGates::new(gate_type, wi, wj, gate_id);
 
     // Evaluator has dummy wires
-    let dummy_wires = OriginalWires::generate_input_wire();
+    let dummy_wires = wire_gen.generate_input_wire();
     OriginalEvaluator::evaluate_gate(&dummy_wires.w0(), &dummy_wires.w1(), &gt.gate_type, &gt.gate_id, &gt.table);
 }
 
@@ -51,7 +63,11 @@ fn will_panic_with_wrong_wires_original() {
 fn will_correctly_decrypt_xor_point_and_permute() {
     let gate_type = GateType::XOR;
     let gate_id = BigUint::ZERO;
-    let gt = PointAndPermuteGates::new(gate_type, gate_id);
+    let wire_gen = PointAndPermuteWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = PointAndPermuteGates::new(gate_type, wi, wj, gate_id);
+
     // Evaluator has wi.0 and wj.1
     let dec = PointAndPermuteEvaluator::evaluate_gate(&gt.wi.w0(), &gt.wj.w1(), &gt.gate_type, &gt.gate_id, &gt.table);
     assert_eq!(&dec, gt.wo.w1())
@@ -61,7 +77,10 @@ fn will_correctly_decrypt_xor_point_and_permute() {
 fn will_correctly_decrypt_and_point_and_permute() {
     let gate_type = GateType::AND;
     let gate_id = BigUint::ZERO;
-    let gt = PointAndPermuteGates::new(gate_type, gate_id);
+    let wire_gen = PointAndPermuteWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = PointAndPermuteGates::new(gate_type, wi, wj, gate_id);
     // Evaluator has wi.0 and wj.1
     let dec = PointAndPermuteEvaluator::evaluate_gate(&gt.wi.w0(), &gt.wj.w1(), &gt.gate_type, &gt.gate_id, &gt.table);
     assert_eq!(&dec, gt.wo.w0())
@@ -71,7 +90,11 @@ fn will_correctly_decrypt_and_point_and_permute() {
 fn will_correctly_decrypt_xor_grr3() {
     let gate_type = GateType::XOR;
     let gate_id = BigUint::ZERO;
-    let gt = GRR3Gates::new(gate_type, gate_id);
+    let wire_gen = GRR3Wires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = GRR3Gates::new(gate_type, wi, wj, gate_id);
+
     // Evaluator has wi.0 and wj.1
     let dec = GRR3Evaluator::evaluate_gate(&gt.wi.w0(), &gt.wj.w1(), &gt.gate_type, &gt.gate_id, &gt.table);
 
@@ -82,7 +105,11 @@ fn will_correctly_decrypt_xor_grr3() {
 fn will_correctly_decrypt_and_grr3() {
     let gate_type = GateType::AND;
     let gate_id = BigUint::ZERO;
-    let gt = GRR3Gates::new(gate_type, gate_id);
+    let wire_gen = GRR3Wires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = GRR3Gates::new(gate_type, wi, wj, gate_id);
+
     // Evaluator has wi.0 and wj.1
     let dec = GRR3Evaluator::evaluate_gate(&gt.wi.w0(), &gt.wj.w1(), &gt.gate_type, &gt.gate_id, &gt.table);
 
@@ -93,7 +120,10 @@ fn will_correctly_decrypt_and_grr3() {
 fn xor_gate_for_free_xor_has_empty_table() {
     let gate_type = GateType::XOR;
     let gate_id = BigUint::ZERO;
-    let gt = FreeXORGates::new(gate_type, gate_id);
+    let wire_gen = FreeXORWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = FreeXORGates::new(gate_type, wi, wj, gate_id);
     assert!(gt.table.len() == 0);
 }
 
@@ -101,7 +131,11 @@ fn xor_gate_for_free_xor_has_empty_table() {
 fn will_correctly_decrypt_xor_free_xor() {
     let gate_type = GateType::XOR;
     let gate_id = BigUint::ZERO;
-    let gt = FreeXORGates::new(gate_type, gate_id);
+    let wire_gen = FreeXORWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = FreeXORGates::new(gate_type, wi, wj, gate_id);
+
     // Evaluator has wi.0 and wj.1
     let dec = FreeXOREvaluator::evaluate_gate(&gt.wi.w0(), &gt.wj.w1(), &gt.gate_type, &gt.gate_id, &gt.table);
 
@@ -112,7 +146,11 @@ fn will_correctly_decrypt_xor_free_xor() {
 fn will_correctly_decrypt_and_free_xor() {
     let gate_type = GateType::AND;
     let gate_id = BigUint::ZERO;
-    let gt = FreeXORGates::new(gate_type, gate_id);
+    let wire_gen = FreeXORWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let gt = FreeXORGates::new(gate_type, wi, wj, gate_id);
+
     // Evaluator has wi.0 and wj.1
     let dec = FreeXOREvaluator::evaluate_gate(&gt.wi.w0(), &gt.wj.w1(), &gt.gate_type, &gt.gate_id, &gt.table);
 
