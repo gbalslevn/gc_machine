@@ -61,10 +61,11 @@ fn test_get_00_wire_panics_when_no_pair() {
     let w1j = generate_label_lsb(true);  // LSB = 1
     let gate_id = BigUint::from(1u32);
 
-     let wi = Wire::new(w0i, w1i);
+    let wi = Wire::new(w0i, w1i);
     let wj = Wire::new(w0j, w1j);
     
-    GRR3Wires::generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
+    let wire_gen = GRR3Wires::new();
+    wire_gen.generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
 }
 
 #[test]
@@ -74,7 +75,7 @@ fn test_generate_grr3_and_wires_opposite_lsb() {
     let wj = wire_gen.generate_input_wire();
     let gate_id = BigUint::from(1u32);
 
-    let w = GRR3Wires::generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
+    let w = wire_gen.generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
 
     assert_ne!(w.w0().bit(0), w.w1().bit(0), "Output wires should have opposite LSBs");
 }
@@ -86,7 +87,7 @@ fn test_generate_xor_wires_opposite_lsb() {
     let wj = wire_gen.generate_input_wire();
     let gate_id = BigUint::from(1u32);
 
-    let w = GRR3Wires::generate_output_wire(&wi, &wj, &GateType::XOR, &gate_id);
+    let w = wire_gen.generate_output_wire(&wi, &wj, &GateType::XOR, &gate_id);
 
     assert_ne!(w.w0().bit(0), w.w1().bit(0), "Output wires should have opposite LSBs");
 }
@@ -97,7 +98,7 @@ fn are_output_wires_xor_of_input() {
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let gate_id = BigUint::from(1u32);
-    let wo = FreeXORWires::generate_output_wire(&wi, &wj, &GateType::XOR, &gate_id);
+    let wo = wire_gen.generate_output_wire(&wi, &wj, &GateType::XOR, &gate_id);
     assert_eq!(&(wi.w0() ^ wj.w0()), wo.w0());
     assert_eq!(&(wi.w0() ^ wj.w1()), wo.w1());
     assert_eq!(&(wi.w1() ^ wj.w0()), wo.w1());
@@ -112,6 +113,6 @@ fn are_and_wires_using_delta() {
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let gate_id = BigUint::from(1u32);
-    let wo = FreeXORWires::generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
+    let wo = wire_gen.generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
     assert_eq!(&(wo.w0() ^ delta), wo.w1());
 }

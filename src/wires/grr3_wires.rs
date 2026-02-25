@@ -10,6 +10,7 @@ impl Wires for GRR3Wires {
     fn new() -> Self {
         Self
     }
+    
     fn generate_input_wire(&self) -> Wire {
         let mut rng = thread_rng();
         let choice = rng.gen_bool(1.0 / 2.0);
@@ -17,7 +18,7 @@ impl Wires for GRR3Wires {
         let w1 = generate_label_lsb(!choice);
         Wire::new(w0, w1)
     }
-    fn generate_output_wire(wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
+    fn generate_output_wire(&self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
         match gate {
             GateType::AND=>generate_and_wire(wi, wj, gate_id),
             GateType::XOR=>generate_xor_wire(wi, wj, gate_id),

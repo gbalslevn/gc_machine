@@ -25,8 +25,8 @@ impl Wires for FreeXORWires {
         let w1 = &w0 ^ delta;
         Wire::new(w0, w1)
     }
-    fn generate_output_wire(wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
-        let delta = wi.w0() ^ wi.w1(); // We derive delta, kind of a hack
+    fn generate_output_wire(&self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
+        let delta = self.delta();
         match gate {
             GateType::AND=>generate_and_wires(delta, &wi, &wj, gate_id),
             GateType::XOR=>generate_xor_wires(delta, &wi, &wj, gate_id),
@@ -34,7 +34,7 @@ impl Wires for FreeXORWires {
     }
 }
 
-pub fn generate_and_wires(delta: BigUint, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
+pub fn generate_and_wires(delta: &BigUint, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
     let w0c;
     let w1c;
     let w00 = get_00_wire(&wi, &wj, gate_id);
@@ -48,7 +48,7 @@ pub fn generate_and_wires(delta: BigUint, wi: &Wire, wj: &Wire, gate_id: &BigUin
     Wire::new(w0c, w1c)
 }
 
-pub fn generate_xor_wires(delta: BigUint, wi: &Wire, wj: &Wire, _gate_id: &BigUint) -> Wire {
+pub fn generate_xor_wires(delta: &BigUint, wi: &Wire, wj: &Wire, _gate_id: &BigUint) -> Wire {
     let w0c = wi.w0() ^ wj.w0();
     let w1c = &w0c ^ delta.clone();
     Wire::new(w0c, w1c)
