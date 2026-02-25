@@ -10,6 +10,7 @@ sha2 = "0.10.9"
 criterion = "0.3"
 stats_alloc = "0.1.10"
 glass_pumpkin = "1.10.0"
+elliptic-curve = "0.13.8"
 
 [[bench]]
 name = "bench"
