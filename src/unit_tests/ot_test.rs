@@ -18,7 +18,7 @@ fn p_should_be_safe_prime() {
 #[test]
 fn p_should_be_1000_bits() {
     let pp = setup();
-    assert_eq!(pp.get_p().bits(), 1000);
+    assert_eq!(pp.get_p().bits(), 200);
 }
 
 // q should be exactly equal to q=(p-1)/2

@@ -19,6 +19,14 @@ pub fn gc_kdf_128(left: &BigUint, right: &BigUint, gate_id: &BigUint) -> BigUint
     bit_result >> 128
 }
 
+pub fn gc_kdf_hg(wire: &BigUint, gate_id: &BigUint) -> BigUint {
+    let mut hasher = Sha256::new();
+    hasher.update(wire.to_bytes_le());
+    hasher.update(gate_id.to_bytes_le());
+    let bit_result = hasher.finalize();
+    BigUint::from_bytes_be(&bit_result) >> 128
+}
+
 pub fn generate_label_lsb(lsb: bool) -> BigUint {
     let mut bytes = [0u8; 16];
     thread_rng().fill(&mut bytes);

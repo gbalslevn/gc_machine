@@ -14,11 +14,12 @@ fn can_compare_a_bit_using_std_yao() {
     
     // 1. Garbler creates circuit, a single XOR gate, and sends to evaluator
     let gate_id = BigUint::ZERO;
+    let gate = GateType::XOR;
     let wire_gen = OriginalWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let xor_gate = OriginalGates::new(GateType::XOR, wi, wj, gate_id);
-    
+    let gate_gen = OriginalGates::new(wire_gen);
+    let xor_gate = gate_gen.generate_gate(gate, wi, wj, gate_id);
     // 2. Evaluator receives circuit and chooses which bit-label he wants using OT.
     // 2.1 Evaluator prepares a ObliviousKeyPair and a RealKeyPar in that specific order, since he intends to receive the wirelabel for the 1-bit.
     let pp = ot::PublicParameters::new();

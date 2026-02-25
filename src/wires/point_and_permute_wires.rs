@@ -15,7 +15,7 @@ impl Wires for PointAndPermuteWires {
         generate_wire()
     }
 
-    fn generate_output_wire(_wi: &Wire, _wj: &Wire, _gate: &GateType, _gate_id: &BigUint) -> Wire {
+    fn generate_output_wire(&self, _wi: &Wire, _wj: &Wire, _gate: &GateType, _gate_id: &BigUint) -> Wire {
         generate_wire()
     }
 }

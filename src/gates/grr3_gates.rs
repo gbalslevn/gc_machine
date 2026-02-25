@@ -1,15 +1,20 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
 use crate::gates::gates::{Gate, GateType, Gates};
-use crate::wires::grr3_wires::GRR3Wires;
 use crate::wires::wires::{Wire, Wires};
 
-pub struct GRR3Gates;
+pub struct GRR3Gates<W: Wires> {
+    pub wires: W,
+}
 
-impl Gates for GRR3Gates  {
-    fn new(gate : GateType, wi: Wire, wj: Wire, gate_id: BigUint) -> Gate {
-        let wo = GRR3Wires::generate_output_wire(&wi, &wj, &gate, &gate_id);
-        let tt = GRR3Gates.get_tt(&wi, &wj, &wo, &gate);
+impl<W: Wires> Gates<W> for GRR3Gates<W>  {
+    fn new(wires: W) -> Self {
+        GRR3Gates{ wires }
+    }
+
+    fn generate_gate(&self, gate: GateType, wi: Wire, wj: Wire, gate_id: BigUint) -> Gate {
+        let wo = self.wires.generate_output_wire(&wi, &wj, &gate, &gate_id);
+        let tt = self.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![BigUint::from(0u8); 3];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
         for (il, ir, out) in tt {
