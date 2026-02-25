@@ -1,16 +1,18 @@
 use num_bigint::{BigUint};
 
-use crate::wires::wires::{Wire};
+use crate::wires::wires::{Wire, Wires};
+
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GateType {
     XOR, 
     AND
-} 
+}
 
-pub trait Gates {
-    fn new(gate_type : GateType, wi: Wire, wj: Wire, id : BigUint) -> Gate;
-    
+pub trait Gates<W: Wires> {
+    fn new(wires: W) -> Self;
+
+    fn generate_gate(&self, gate : GateType, wi: Wire, wj: Wire, gate_id: BigUint) -> Gate;
     fn get_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire, gate: &GateType) -> [(BigUint, BigUint, BigUint); 4] {
         match gate {
             GateType::AND=>self.get_and_tt(wi, wj, wo),
