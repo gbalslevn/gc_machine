@@ -10,6 +10,7 @@ sha2 = "0.10.9"
 criterion = "0.3"
 stats_alloc = "0.1.10"
 glass_pumpkin = "1.10.0"
+uuid = {version = "1.21.0", features= ["v4"]}
 
 [[bench]]
 name = "bench"

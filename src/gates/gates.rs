@@ -9,7 +9,7 @@ pub enum GateType {
 } 
 
 pub trait Gates {
-    fn new(gate_type : GateType, wi: Wire, wj: Wire, id : BigUint) -> Gate;
+    fn new(&self, gate_type : GateType, wi: Wire, wj: Wire, id : BigUint) -> Gate;
     
     fn get_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire, gate: &GateType) -> [(BigUint, BigUint, BigUint); 4] {
         match gate {
