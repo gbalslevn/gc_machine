@@ -24,7 +24,7 @@ impl PublicParameters {
     }
 
     fn generate_safe_prime() -> BigUint {
-        safe_prime::new(201).unwrap()
+        safe_prime::new(200).unwrap()
     }
 
 
