@@ -13,13 +13,13 @@ use gc_machine::wires::wires::Wires;
 fn can_compare_a_bit_using_std_yao() {
     
     // 1. Garbler creates circuit, a single XOR gate, and sends to evaluator
-    let gate_id = BigUint::ZERO;
     let gate = GateType::XOR;
     let wire_gen = OriginalWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gate_gen = OriginalGates::new(wire_gen);
-    let xor_gate = gate_gen.generate_gate(gate, wi, wj, gate_id);
+    let mut gate_gen = OriginalGates::new(wire_gen);
+    let current_index = gate_gen.get_index().clone();
+    let xor_gate = gate_gen.generate_gate(gate, wi, wj);
     // 2. Evaluator receives circuit and chooses which bit-label he wants using OT.
     // 2.1 Evaluator prepares a ObliviousKeyPair and a RealKeyPar in that specific order, since he intends to receive the wirelabel for the 1-bit.
     let pp = ot::PublicParameters::new();
@@ -34,7 +34,7 @@ fn can_compare_a_bit_using_std_yao() {
     let g_label = xor_gate.wi.w0();
     let e_label = e_label_received_from_ot;
     let mut decrypted_output_label =  BigUint::ZERO;
-    let key = crypto_utils::gc_kdf(&g_label, &e_label, &xor_gate.gate_id);
+    let key = crypto_utils::gc_kdf(&g_label, &e_label, &current_index);
     for ct in xor_gate.table {
         let label = ct ^ &key;
         if label.trailing_zeros().unwrap() >= 128 {

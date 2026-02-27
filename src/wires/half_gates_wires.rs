@@ -3,21 +3,20 @@ use crate::gates::gates::GateType;
 use crate::wires::wires::{Wire, Wires};
 use crate::crypto_utils::{gc_kdf_128, generate_label_lsb, generate_label, gc_kdf_hg};
 
-pub struct FreeXORWires {
-    pub delta: BigUint,
+pub struct HalfGateWires {
+    pub delta: BigUint
 }
 
-impl FreeXORWires {
+impl HalfGateWires {
     pub fn delta(&self) -> &BigUint {
         &self.delta
     }
 }
 
-
-impl Wires for FreeXORWires {
+impl Wires for HalfGateWires {
     fn new() -> Self {
         let delta = generate_label_lsb(true); // to ensure point and permute holds
-        FreeXORWires { delta }
+        HalfGateWires { delta}
     }
 
     fn generate_input_wire(&self) -> Wire {
@@ -35,12 +34,12 @@ impl Wires for FreeXORWires {
     }
 }
 
-pub fn generate_and_wires(delta: &BigUint, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
+pub fn generate_and_wires(delta: &BigUint, wi: &Wire, wj: &Wire, index: &BigUint) -> Wire {
     let w0c;
     let w1c;
     let pa = wi.w0().bit(0);
     let pb = wj.w0().bit(0);
-    let j0 = gate_id;
+    let j0 = index;
     let j1 = j0 + 1u32;
     let tg;
     if pb {

@@ -6,7 +6,7 @@ use crate::gates::gates::GateType;
 pub trait Wires {
     fn new() -> Self;
     fn generate_input_wire(&self) -> Wire;
-    fn generate_output_wire(&self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire;
+    fn generate_output_wire(&self, wi: &Wire, wj: &Wire, gate: &GateType, index: &BigUint) -> Wire;
 }
 
 impl Wire {
