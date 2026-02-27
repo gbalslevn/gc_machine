@@ -25,6 +25,7 @@ pub fn original_xor_gate(c: &mut Criterion) {
     let wj = wire_gen.generate_input_wire();
     let gate_gen = OriginalGates::new(wire_gen);
     let mut gt = gate_gen.generate_gate(gate_type, wi, wj, BigUint::ZERO);
+    let mut evaluator = OriginalEvaluator::new();
 
     // *** Bench garbling ***
     bench_utils::get_memory(|| {
@@ -40,7 +41,7 @@ pub fn original_xor_gate(c: &mut Criterion) {
     }, global_mem_alloc::GLOBAL);
     
     c.bench_function("original xor gate evaluation", |b| b.iter(|| {
-        OriginalEvaluator::evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.gate_id), black_box(&gt.table));
+        evaluator.evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.table));
     }));
 }
 
@@ -51,7 +52,7 @@ pub fn grr3_xor_gate(c: &mut Criterion) {
     let wj = wire_gen.generate_input_wire();
     let gate_gen = GRR3Gates::new(wire_gen);
     let mut gt = gate_gen.generate_gate(gate_type.clone(), wi.clone(), wj.clone(), BigUint::ZERO);
-
+    let mut evaluator = GRR3Evaluator::new();
     // *** Bench garbling ***
     bench_utils::get_memory(|| {
         gt = gate_gen.generate_gate(gt.gate_type, gt.wi.clone(), gt.wj.clone(), gt.gate_id.clone());
@@ -63,11 +64,11 @@ pub fn grr3_xor_gate(c: &mut Criterion) {
 
     // *** Bench evaluating ***
     bench_utils::get_memory(|| {
-        GRR3Evaluator::evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.gate_id), black_box(&gt.table));
+        evaluator.evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.table));
     }, global_mem_alloc::GLOBAL);
     
     c.bench_function("grr3 xor gate evaluation", |b| b.iter(|| {
-        GRR3Evaluator::evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.gate_id), black_box(&gt.table));
+        evaluator.evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.table));
     }));
 }
 
@@ -78,7 +79,7 @@ pub fn point_and_permute_xor_gate(c: &mut Criterion) {
     let wj = wire_gen.generate_input_wire();
     let gate_gen = PointAndPermuteGates::new(wire_gen);
     let mut gt = gate_gen.generate_gate(gate_type.clone(), wi.clone(), wj.clone(), BigUint::ZERO);
-
+    let mut evaluator = PointAndPermuteEvaluator::new();
     // *** Bench garbling ***
     bench_utils::get_memory(|| {
         gt = gate_gen.generate_gate(gate_type.clone(), wi.clone(), wj.clone(), BigUint::ZERO);
@@ -90,11 +91,11 @@ pub fn point_and_permute_xor_gate(c: &mut Criterion) {
 
     // *** Bench evaluating ***
     bench_utils::get_memory(|| {
-        PointAndPermuteEvaluator::evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.gate_id), black_box(&gt.table));
+        evaluator.evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.table));
     }, global_mem_alloc::GLOBAL);
     
     c.bench_function("grr3 xor gate evaluation", |b| b.iter(|| {
-        PointAndPermuteEvaluator::evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.gate_id), black_box(&gt.table));
+        evaluator.evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.table));
     }));
 }
 

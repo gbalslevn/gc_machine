@@ -1,11 +1,10 @@
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::BigUint;
 use crate::gates::gates::GateType;
 use crate::wires::wires::{Wire, Wires};
 use crate::crypto_utils::{gc_kdf_128, generate_label_lsb, generate_label, gc_kdf_hg};
 
 pub struct FreeXORWires {
     pub delta: BigUint,
-    pub index: BigUint,
 }
 
 impl FreeXORWires {
@@ -14,11 +13,11 @@ impl FreeXORWires {
     }
 }
 
+
 impl Wires for FreeXORWires {
     fn new() -> Self {
         let delta = generate_label_lsb(true); // to ensure point and permute holds
-        let index = 0.to_biguint().unwrap();
-        FreeXORWires { delta, index }
+        FreeXORWires { delta }
     }
 
     fn generate_input_wire(&self) -> Wire {
@@ -41,8 +40,8 @@ pub fn generate_and_wires(delta: &BigUint, wi: &Wire, wj: &Wire, gate_id: &BigUi
     let w1c;
     let pa = wi.w0().bit(0);
     let pb = wj.w0().bit(0);
-    let j0 = self.index.increment();
-    let j1 = index.increment();
+    let j0 = gate_id;
+    let j1 = j0 + 1u32;
     let tg;
     if pb {
         tg = gc_kdf_hg(&wi.w0(), j0) ^ gc_kdf_hg(&wi.w1(), j0) ^ delta;
@@ -56,12 +55,12 @@ pub fn generate_and_wires(delta: &BigUint, wi: &Wire, wj: &Wire, gate_id: &BigUi
         wg = gc_kdf_hg(&wi.w0(), j0)
     }
 
-    let te = gc_kdf_hg(&wj.w0(), j1) ^ gc_kdf_hg(&wj.w1(), j1) ^ wi.w0();
+    let te = gc_kdf_hg(&wj.w0(), &j1) ^ gc_kdf_hg(&wj.w1(), &j1) ^ wi.w0();
     let we;
     if pb {
-        we = gc_kdf_hg(&wj.w0(), j1) ^ te ^ wi.w0();
+        we = gc_kdf_hg(&wj.w0(), &j1) ^ te ^ wi.w0();
     } else {
-        we = gc_kdf_hg(&wj.w0(), j1)
+        we = gc_kdf_hg(&wj.w0(), &j1)
     }
     w0c = wg ^ we;
     w1c = &w0c ^ delta;
