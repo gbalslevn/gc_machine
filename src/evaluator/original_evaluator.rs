@@ -8,7 +8,9 @@ impl Evaluator for OriginalEvaluator {
         let key = gc_kdf(wi, wj, gate_id);
         for entry in table {
             let dec = &key ^ entry;
+            println!("dec label is: {}", dec);
             if dec.trailing_zeros().unwrap() >= 128 {
+                println!("label has trailing zeros: {}", dec);
                 return dec >> 128
             }
         }

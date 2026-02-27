@@ -2,27 +2,24 @@ use std::ops::Add;
 
 use num_bigint::{BigUint, ToBigUint};
 use crate::gates::gates::GateType;
-use uuid::Uuid;
 
 // Responsible for creating "recepies" for the gates which needs to be created by the garbler"
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct WireBuild {
-    id: Uuid,
-    output_layer : BigUint // The layer which the wire was outputtet on
+    ready_at_layer : BigUint 
 }
 
 impl WireBuild {
-    pub fn new(id: Uuid, output_layer : BigUint) -> Self {
-        WireBuild { id, output_layer }
-    }
-    pub fn id(&self) -> &Uuid {
-        &self.id
+    pub fn new(ready_at_layer : BigUint) -> Self {
+        WireBuild { ready_at_layer }
     }
     pub fn output_layer(&self) -> &BigUint {
-        &self.output_layer
+        &self.ready_at_layer
     }
 }
+
+#[derive(PartialEq)]
 pub struct GateBuild {
     gate_type : GateType,
     wi: WireBuild, 
@@ -48,7 +45,7 @@ impl GateBuild {
     }
 }
 
-pub fn create_OR(input_wi : &WireBuild, input_wj : &WireBuild) -> Vec<GateBuild> {
+pub fn create_or(input_wi : &WireBuild, input_wj : &WireBuild) -> Vec<GateBuild> {
     let xor_0 = create_gate(input_wi, input_wj, GateType::XOR);
     let and_0 = create_gate(input_wi, input_wj, GateType::AND);
     let xor_1 = create_gate(&xor_0.wo(), &and_0.wo(), GateType::XOR);
@@ -57,11 +54,9 @@ pub fn create_OR(input_wi : &WireBuild, input_wj : &WireBuild) -> Vec<GateBuild>
 
 // Creates gate with a new id and the output wire containing when the gate should be calculated
 pub fn create_gate(wi : &WireBuild, wj : &WireBuild, gate_type : GateType) -> GateBuild {
-    let id = Uuid::new_v4();
-    // When it can be created when we have received both values
-    let output_layer = wi.output_layer.clone().max(wj.output_layer.clone()); 
+    let compute_layer = wi.ready_at_layer.clone().max(wj.ready_at_layer.clone()); 
     let one = 1.to_biguint().unwrap();
-    let wo = WireBuild::new(id, output_layer.add(one));
+    let wo = WireBuild::new(compute_layer.add(one));
     GateBuild::new(gate_type, wi.clone(), wj.clone(), wo)
 }
 

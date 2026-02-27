@@ -3,6 +3,7 @@ use crate::gates::gates::GateType;
 use crate::wires::wires::{Wire, Wires};
 use crate::crypto_utils::{gc_kdf_128, generate_label_lsb, generate_label};
 
+#[derive(Clone)]
 pub struct FreeXORWires {
     pub delta: BigUint,
 }

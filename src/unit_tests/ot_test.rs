@@ -1,6 +1,6 @@
 use glass_pumpkin::safe_prime;
 use num_bigint::{BigUint, ToBigUint};
-use crate::ot::ot;
+use crate::{ot::ot::{self, CipherText}, wires::{original_wires::OriginalWires, point_and_permute_wires::PointAndPermuteWires, wires::Wires}};
 
 #[cfg(test)]
 
@@ -45,10 +45,13 @@ fn oblivious_key_element_h_should_be_in_multiplicative_subgroup() {
 #[test]
 fn real_pk_should_decrypt_correctly() {
     let pp = ot::PublicParameters::new();
-    let real_key = ot::RealKeyPair::new(&pp);
-    let plaintext : BigUint = 123423331.to_biguint().unwrap();
-    println!("plaintext: {}", plaintext);
-    let cipher_text = ot::encrypt(&pp, real_key.get_public_key(), &plaintext);
-    let decrypted_ciphertext = ot::decrypt(&pp, real_key.get_secret_key(), cipher_text);
-    println!("decrypted_ciphertext: {}", decrypted_ciphertext);
+    let real_keypair = ot::RealKeyPair::new(&pp);
+    let wire_gen = PointAndPermuteWires::new();
+    let plaintext  = wire_gen.generate_input_wire().w0().clone();
+    println!("Pt is: {}", plaintext);
+    let cipher_text = ot::encrypt(&pp, &real_keypair.get_public_key(), &plaintext);
+    println!("Ct is: {:?}", cipher_text);
+    let decrypted_ciphertext = ot::decrypt(&pp, real_keypair.get_secret_key(), cipher_text);
+    println!("dc_ct is: {:?}", decrypted_ciphertext);
+    assert!(plaintext == decrypted_ciphertext)
 }

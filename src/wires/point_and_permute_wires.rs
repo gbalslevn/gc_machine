@@ -4,6 +4,7 @@ use crate::gates::gates::GateType;
 use crate::wires::wires::{Wire, Wires};
 use crate::crypto_utils::generate_label_lsb;
 
+#[derive(Clone, Copy)]
 pub struct PointAndPermuteWires;
 
 impl Wires for PointAndPermuteWires {

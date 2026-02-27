@@ -27,6 +27,7 @@ pub trait Gates<W: Wires> {
     }
 }
 
+#[derive(PartialEq)]
 pub struct Gate {
     pub gate_id: BigUint,
     pub gate_type: GateType,
@@ -34,4 +35,15 @@ pub struct Gate {
     pub wi: Wire,
     pub wj: Wire,
     pub wo: Wire,
+}
+
+// Perhaps we should combine these two structs or only use the GateEval
+
+pub struct GateEval {
+    pub gate_id: BigUint,
+    pub gate_type: GateType,
+    pub table : Vec<BigUint>,
+    pub wi: BigUint,
+    pub wj: BigUint,
+    pub wo: BigUint,
 }

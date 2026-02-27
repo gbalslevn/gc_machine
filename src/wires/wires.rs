@@ -9,6 +9,12 @@ pub trait Wires {
     fn generate_output_wire(&self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire;
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Wire {
+    w0: BigUint,
+    w1: BigUint,
+}
+
 impl Wire {
     pub fn new(w0: BigUint, w1: BigUint) -> Self {
         Wire {w0, w1}
@@ -20,10 +26,4 @@ impl Wire {
     pub fn w1(&self) -> &BigUint {
         &self.w1
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Wire {
-    w0: BigUint,
-    w1: BigUint
 }
