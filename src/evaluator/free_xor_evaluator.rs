@@ -1,11 +1,21 @@
 use crate::evaluator::evaluator::Evaluator;
 use crate::crypto_utils::gc_kdf_128;
 use num_bigint::{BigUint};
-pub struct FreeXOREvaluator;
+pub struct FreeXOREvaluator {
+    index: BigUint,
+}
 
+impl FreeXOREvaluator {
+    pub fn new() -> Self {
+        FreeXOREvaluator {
+            index: BigUint::from(0u32),
+        }
+    }
+}
 impl Evaluator for FreeXOREvaluator {
-    fn evaluate_and_gate(wi: &BigUint, wj: &BigUint, gate_id: &BigUint, table: &Vec<BigUint>) -> BigUint {
-        let key = gc_kdf_128(wi, wj, gate_id); // Evaluator needs a gatetype, two bits and the table
+    fn evaluate_and_gate(&mut self, wi: &BigUint, wj: &BigUint, table: &Vec<BigUint>) -> BigUint {
+        let key = gc_kdf_128(wi, wj, self.get_index()); // Evaluator needs a gatetype, two bits and the table
+        self.increment_index();
         let pos = get_position(wi, wj);
         if pos == 0 {
             key.clone()
@@ -15,8 +25,16 @@ impl Evaluator for FreeXOREvaluator {
     }
 
     // No difference between evaluation of AND gate and XOR gate
-    fn evaluate_xor_gate(wi: &BigUint, wj: &BigUint, _gate_id: &BigUint, _table: &Vec<BigUint>) -> BigUint {
+    fn evaluate_xor_gate(&mut self, wi: &BigUint, wj: &BigUint, _table: &Vec<BigUint>) -> BigUint {
         wi ^ wj
+    }
+
+    fn increment_index(&mut self) {
+        self.index += 1u32;
+    }
+
+    fn get_index(&self) -> &BigUint {
+        &self.index
     }
 }
 
