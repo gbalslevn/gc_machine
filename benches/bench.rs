@@ -23,16 +23,15 @@ pub fn original_xor_gate(c: &mut Criterion) {
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let mut gate_gen = OriginalGates::new(wire_gen);
-    let mut gt = gate_gen.generate_gate(gate_type, wi, wj);
-    let mut evaluator = OriginalEvaluator::new();
+    let mut gt = gate_gen.generate_gate(gate_type, wi.clone(), wj.clone());
 
     // *** Bench garbling ***
     bench_utils::get_memory(|| {
-        gt = gate_gen.generate_gate(gate_type.clone(), gt.wi.clone(), gt.wj.clone());
+        gate_gen.generate_gate(gate_type.clone(), gt.wi.clone(), gt.wj.clone());
     }, global_mem_alloc::GLOBAL);
     
     c.bench_function("original xor gate garbling", |b| b.iter(|| {
-        gt = gate_gen.generate_gate(black_box(gt.gate_type), black_box(gt.wi.clone()), black_box(gt.wj.clone()));
+        gate_gen.generate_gate(black_box(gt.gate_type), black_box(gt.wi.clone()), black_box(gt.wj.clone()));
     })); // black_box prevents compiler from optimizing the function away but taking the value value, acting like it uses it, preventing the optimizer from seeing through the function. Especially usefull when calling function 1000 times
 
     // *** Bench evaluating ***
@@ -40,7 +39,7 @@ pub fn original_xor_gate(c: &mut Criterion) {
     }, global_mem_alloc::GLOBAL);
     
     c.bench_function("original xor gate evaluation", |b| b.iter(|| {
-        evaluator.evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.table));
+        OriginalEvaluator::new().evaluate_gate(black_box(&gt.wi.w0()), black_box(&gt.wj.w1()), black_box( &gt.gate_type), black_box(&gt.table));
     }));
 }
 
