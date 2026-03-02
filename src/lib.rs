@@ -3,6 +3,7 @@
 
 pub mod crypto_utils;
 pub mod gates;
+pub mod websocket;
 pub mod wires;
 pub mod evaluator;
 pub mod global_mem_alloc;
