@@ -1,6 +1,13 @@
+use std::{collections::HashMap, ops::Add};
+
 use num_bigint::{BigUint, ToBigUint};
 
-use crate::{circuit_builder::GateBuild, crypto_utils, gates::gates::{Gate, GateType, Gates}, ot::ot::{self, CipherText, PublicKey, PublicParameters}, wires::wires::{Wire, Wires}};
+use crate::{
+    circuit_builder::{CircuitBuild},
+    gates::gates::{GateType, Gates},
+    ot::ot::{self, CipherText, PublicKey, PublicParameters},
+    wires::wires::{Wire, Wires},
+};
 
 pub struct Garbler<G: Gates<W>, W: Wires> {
     gate_gen: G,
@@ -14,44 +21,140 @@ impl<G: Gates<W>, W: Wires> Garbler<G, W> {
             wire_gen: wire,
         }
     }
-    pub fn create_circuit(&self, circuit_build : &Vec<GateBuild>, garblers_input_choices : &Vec<u8>,  evaluators_input_choices : &Vec<[ (&PublicKey, &PublicParameters) ; 2]>) -> (Vec<Gate>, Vec<BigUint>, Vec<(CipherText, CipherText)>, [(BigUint, u8); 2])  {
-        let mut circuit : Vec<Gate> = vec![];
-        let mut wi_inputs : Vec<BigUint> = vec![];
-        let mut wj_inputs : Vec<(CipherText, CipherText)> = vec![];
+    pub fn create_circuit(
+        &self,
+        circuit_build: &CircuitBuild,
+        garblers_input_choices: &Vec<u8>,
+        evaluators_input_choices: Vec<[(PublicKey, PublicParameters); 2]>,
+    ) -> (
+        CircuitEval,
+        Vec<BigUint>,
+        Vec<(CipherText, CipherText)>,
+        [(BigUint, u8); 2],
+    ) {
+        let mut circuit: Vec<GateEval> = vec![];
+        let mut wi_inputs: Vec<BigUint> = vec![];
+        let mut wj_inputs: Vec<(CipherText, CipherText)> = vec![];
+        let mut outputs: HashMap<BigUint, Wire> = HashMap::new();
+        let mut wi;
+        let mut wj;
         let mut gate_index = 0;
-        let mut conversion_data: [(BigUint, u8); 2] = [
-        (BigUint::from(0u32), 0), (BigUint::from(0u32), 0)
-        ];
+        let mut output_conversion: [(BigUint, u8); 2] =
+            [(BigUint::from(0u32), 0), (BigUint::from(0u32), 0)];
+        let gates = circuit_build.get_gates();
 
-        for gate in circuit_build {
-            let wi = self.wire_gen.generate_input_wire();
-            let wj = self.wire_gen.generate_input_wire();
-            let wj_encrypted;
-            
+        let true_constant = self.wire_gen.generate_input_wire();
+        let false_constant = self.wire_gen.generate_input_wire();
+        outputs.insert(
+            circuit_build.get_true_constant().wire_id().clone(),
+            true_constant.clone(),
+        ); // insert constants for true and false wire, to enable eg. NOT gates
+        outputs.insert(
+            circuit_build.get_false_constant().wire_id().clone(),
+            false_constant.clone(),
+        ); // insert constants for true and false wire, to enable eg. NOT gates
+
+        for gate in gates {
             let gate_is_input_layer = gate.wo().output_layer() == &1.to_biguint().unwrap();
-            if gate_is_input_layer { // Encrypt with received publickeys from OT. The real and the oblivious
-                let wj_0_ct  = ot::encrypt(&evaluators_input_choices[gate_index][0].1, &evaluators_input_choices[gate_index][0].0, wj.w0());
-                let wj_1_ct  = ot::encrypt(&evaluators_input_choices[gate_index][1].1, &evaluators_input_choices[gate_index][1].0, wj.w1());
-                
-                wj_encrypted = (wj_0_ct, wj_1_ct);
+            if gate_is_input_layer {
+                wi = self.wire_gen.generate_input_wire();
+                wj = self.wire_gen.generate_input_wire();
+                // Encrypt with received publickeys from OT. The real and the oblivious
+                let wj_encrypted = self.gen_encrypted_wire(&wj, &evaluators_input_choices[gate_index]);
+
                 let garbler_input_choice = garblers_input_choices[gate_index];
                 let selected_wire = match garbler_input_choice {
-                    0 => wi.w0().clone(), 1 => wi.w1().clone(), _ => panic!("Invalid bit value: must be 0 or 1"),
+                    0 => wi.w0(),
+                    1 => wi.w1(),
+                    _ => panic!("Invalid bit value: must be 0 or 1"),
                 };
-                wi_inputs.push(selected_wire);
-                wj_inputs.push(wj_encrypted);
+                wi_inputs.push(selected_wire.clone());
+                wj_inputs.push(wj_encrypted.clone());
+            } else {
+                wi = outputs.get(&gate.wi().wire_id()).unwrap().clone();
+                wj = outputs.get(&gate.wj().wire_id()).unwrap().clone();
             }
-            
-            let new_gate = self.gate_gen.generate_gate(gate.gate_type().clone(), wi.clone(), wj.clone(), 1.to_biguint().unwrap());
-            if gate == &circuit_build[circuit_build.len() - 1] {
-                conversion_data = [
-                    (new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)
-                    ];
-                } 
-                
-            circuit.push(new_gate);
-            gate_index+= 1;
+
+            let new_gate = self.gate_gen.generate_gate(
+                gate.gate_type().clone(),
+                wi.clone(),
+                wj.clone(),
+                gate_index.to_biguint().unwrap().add(2 as u32), // need to +2 as we already have two constant inputs, acting like theyre coming from gateid_0 and 1. Need to make it better
+            );
+            outputs.insert(new_gate.gate_id.clone(), new_gate.wo.clone());
+            let gate_eval = new_gate.to_gate_eval(
+                gate.wi().wire_id().clone(),
+                gate.wj().wire_id().clone(),
+                gate_is_input_layer,
+            );
+            let is_last_gate = gate == &gates[gates.len() - 1];
+            if is_last_gate {
+                output_conversion = [(new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)];
+            }
+
+            circuit.push(gate_eval);
+            gate_index += 1;
         }
-        (circuit, wi_inputs, wj_inputs, conversion_data)
+        let circuit = CircuitEval {
+            gates: circuit,
+            true_constant: true_constant.w1().clone(),
+            true_constant_id: circuit_build.get_true_constant().wire_id().clone(),
+            false_constant: false_constant.w0().clone(),
+            false_constant_id: circuit_build.get_false_constant().wire_id().clone(),
+        };
+        (circuit, wi_inputs, wj_inputs, output_conversion)
     }
+
+    pub fn create_circuit_input(&self, input: &BigUint, required_bits : u64) -> Vec<u8> {
+        let mut list = vec![];
+            for i in 0..required_bits {
+                let bit = input.bit(i) as u8;
+                if bit == 0 {
+                    list.push(0 as u8);
+                } else {
+                    list.push(1 as u8)
+                }
+            }
+        list
+    }
+
+    fn gen_encrypted_wire(&self, wire : &Wire, evaluators_input_choices: &[(PublicKey, PublicParameters); 2]) -> (CipherText, CipherText) {
+        let pp_0 = &evaluators_input_choices[0].1;
+        let pk_0 = &evaluators_input_choices[0].0;
+        let wj_0_ct = ot::encrypt(
+            pp_0,
+            pk_0,
+            wire.w0(),
+        );
+        let pp_1 = &evaluators_input_choices[1].1;
+        let pk_1 = &evaluators_input_choices[1].0;
+        let wj_1_ct = ot::encrypt(
+            pp_1,
+            pk_1,
+            wire.w1(),
+        );
+    
+        let wj_encrypted = (wj_0_ct, wj_1_ct);
+        wj_encrypted
+}
+
+}
+
+pub struct CircuitEval {
+    pub gates: Vec<GateEval>,
+    pub true_constant_id: BigUint,
+    pub false_constant_id: BigUint,
+    pub true_constant: BigUint,
+    pub false_constant: BigUint,
+}
+
+// Perhaps look into combining Gate and GateEval
+#[derive(PartialEq)]
+pub struct GateEval {
+    pub gate_id: BigUint,
+    pub gate_type: GateType,
+    pub table: Vec<BigUint>,
+    pub wi_id: BigUint, // output wire produced from gate with "gate_id" gets "gate_id", then we know which wire to use as input to another gate
+    pub wj_id: BigUint,
+    pub is_input_gate: bool,
 }

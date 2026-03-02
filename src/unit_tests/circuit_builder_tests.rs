@@ -1,47 +1,22 @@
-use std::ops::Add;
+use num_bigint::{ToBigUint};
 
-use num_bigint::ToBigUint;
-use uuid::Uuid;
-
-use crate::{circuit_builder::{self, WireBuild}, gates::gates::GateType};
+use crate::{circuit_builder::CircuitBuilder};
 
 #[test] 
-fn create_xor_increment_layer_twice() {
-    let wi_input_layer = 23.to_biguint().unwrap();
-    let wi = WireBuild::new(wi_input_layer.clone());
-
-    let wj_input_layer = 41.to_biguint().unwrap();
-    let wj = WireBuild::new( wj_input_layer.clone());
-
-    let gate_calculated_layer = wi_input_layer.max(wj_input_layer);
-    let or_circuit = circuit_builder::create_or(&wi, &wj);
+fn wire_id_increments_by_amount_of_outputs_created() {
+    let mut circuit_builder = CircuitBuilder::new();
+    let cb = circuit_builder.get_circuit_build();
+    let gates_at_the_start = cb.get_gates();
+    assert!(gates_at_the_start.len() == 0);
     
-    assert!(&gate_calculated_layer.add(2.to_biguint().unwrap()) == or_circuit[2].wo().output_layer());
-}
+    let input_wires = circuit_builder.build_input_wires(2);
+    circuit_builder.build_xnor(&input_wires[0], &input_wires[1]);
 
-#[test] 
-fn create_gate_increments() {
-    let wi_input_layer = 23.to_biguint().unwrap();
-    let wi = WireBuild::new( wi_input_layer.clone());
+    let cb = circuit_builder.get_circuit_build();
+    let gates = cb.get_gates();
+    let number_of_gates = gates.len();
+    let start_id = 2; // Two first outputs are constant values, true and false.
 
-    let wj_input_layer = 41.to_biguint().unwrap();
-    let wj = WireBuild::new(wj_input_layer.clone());
-
-    let layer_to_compute_gate = wi_input_layer.max(wj_input_layer);
-    let gate = circuit_builder::create_gate(&wi, &wj, GateType::AND);
-
-    assert!(&layer_to_compute_gate.add(1.to_biguint().unwrap()) == gate.wo().output_layer());
-}
-
-#[test]
-fn create_gate_uses_correct_input() {
-    let wi_input_layer = 23.to_biguint().unwrap();
-    let wi = WireBuild::new( wi_input_layer.clone());
-
-    let wj_input_layer = 41.to_biguint().unwrap();
-    let wj = WireBuild::new( wj_input_layer.clone());
-
-    let gate = circuit_builder::create_gate(&wi, &wj, GateType::AND);
-
-    // assert!(gate.wi() == wi);
+    let final_wire_id = gates[number_of_gates - 1].wo().wire_id();
+    assert!(final_wire_id == &(number_of_gates - 1 + start_id).to_biguint().unwrap());   
 }

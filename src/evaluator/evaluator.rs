@@ -1,10 +1,10 @@
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::BigUint;
 use std::collections::HashMap;
 
 use crate::{
-    gates::gates::{Gate, GateType},
-    ot::ot::{self, CipherText, PublicParameters, SecretKey},
-    wires::wires::Wire,
+    garbler::CircuitEval,
+    gates::gates::GateType,
+    ot::ot::{self, CipherText, PublicKey, PublicParameters, SecretKey},
 };
 pub trait Evaluator {
     fn evaluate_gate(
@@ -34,73 +34,38 @@ pub trait Evaluator {
     ) -> BigUint;
 
     fn evaluate_circuit(
-        circuit: &Vec<Gate>,
+        circuit: &CircuitEval,
         wires_i: &Vec<BigUint>,
         wires_j: &Vec<(CipherText, CipherText)>,
         conversion_table: &[(BigUint, u8); 2],
-        keys: &Vec<((&SecretKey, &PublicParameters), u8)>,
+        eval_keys: Vec<((SecretKey, PublicParameters), u8)>,
     ) -> u8 {
         // Perhaps make a input gate struct which differs from a normal gate struct. Make it easier to access the wires where we dont have to send a list of wi's also. Also remove the notion of wires, as it reveals which label is w0 and w1, just use 4 labels
-        let mut gate_index = 0;
-        // let mut outputs: HashMap<&BigUint, BigUint> = HashMap::new(); // id, wire
-        let mut outputs: Vec<BigUint> = vec![];
-        let mut wi = BigUint::ZERO;
-        let mut wj = BigUint::ZERO;
+        let mut gate_index = 0; // need to start at 2 because of the two constants. 
+        let mut outputs: HashMap<&BigUint, BigUint> = HashMap::new(); // id, wire
         let mut circuit_result = 3; // need to return circuit result in a better way without init it
-
-        for gate in circuit {
-            let is_input_gate = &wires_i[gate_index] == gate.wi.w0() || &wires_i[gate_index] == gate.wi.w1();
-            if true {
-                let bit_choice = &keys[gate_index].1;
-                let secret_key = keys[gate_index].0.0.clone();
-                let pp = keys[gate_index].0.1;
-                let wj_ct = match bit_choice {
-                    0 => {
-                        &wires_j[gate_index].0
-                    },
-                    1 => {
-                        &wires_j[gate_index].1
-                    },
-                    _ => panic!("Invalid bit value: must be 0 or 1"),
-                };
-                wj = ot::decrypt(&pp, secret_key, wj_ct.clone());
+        
+        // Insert constant values
+        outputs.insert(&circuit.true_constant_id, circuit.true_constant.clone());
+        outputs.insert(&circuit.false_constant_id, circuit.false_constant.clone());
+        
+        for gate in &circuit.gates {
+            let wi ;
+            let wj ;
+            if gate.is_input_gate {
+                wj = decrypt_wj_input(&eval_keys, wires_j, gate_index);
                 wi = wires_i[gate_index].clone();
             } else {
-                // It should already have been calculated
-                // Oh no this is not good code. is it okay that we call a wire with w0? Then the eval would know it is the wire representing 0.... There is also some naming situation. Should we call something a wire when it only contains BigUint, or should we call it label.
-                // Should provide wires with its producer id and get from a hashmap. For now we just search in list.
-                // wi = outputs
-                //     .get(&gate.wi.)
-                //     .or(outputs.get(&gate.wi.w1()))
-                //     .unwrap().clone();
-                // wj = outputs
-                //     .get(&gate.wj.w0())
-                //     .or(outputs.get(&gate.wj.w1()))
-                //     .unwrap().clone();
-                // for label in &outputs {
-                //     if label == gate.wi.w0() || label == gate.wi.w1() {
-                //         wi = label.clone();
-                //     }
-                //     if label == gate.wj.w0() || label == gate.wj.w1() {
-                //         wj = label.clone();
-                //     }
-                // }
+                // It should already have been calculated and kept in map
+                wi = outputs.get(&gate.wi_id).unwrap().clone();
+                wj = outputs.get(&gate.wj_id).unwrap().clone();
             }
 
-            // use gate id of wires_j to know when it is an input gate, and therefore when to decrypt
-            // println!("gate table is: {:?}", &gate.table);
-            // println!("gate wi is: {:?}", &gate.wi);
-            // println!("gate wj is: {:?}", &gate.wj);
-            // println!("gate w0 is: {:?}", &gate.wo);
-            // println!("gate wj is: {:?}", &wj);
             let result = Self::evaluate_gate(&wi, &wj, &gate.gate_type, &gate.gate_id, &gate.table);
-            outputs.push(result.clone());
-            // outputs.insert(&gate.gate_id, result.clone());
+            outputs.insert(&gate.gate_id, result.clone());
             gate_index += 1;
             // If last gate, get output
-            if gate == &circuit[circuit.len() - 1] {
-                // println!("Conversion 0 is: {}", conversion_table[0].0);
-                // println!("Conversion 1 is: {}", conversion_table[1].0);
+            if gate == &circuit.gates[circuit.gates.len() - 1] {
                 if result == conversion_table[0].0 {
                     circuit_result = conversion_table[0].1;
                 }
@@ -111,4 +76,60 @@ pub trait Evaluator {
         }
         circuit_result
     }
+
+    fn create_circuit_input(
+        input: &BigUint,
+        required_bits : u64
+    ) -> (
+        Vec<[(PublicKey, PublicParameters); 2]>,
+        Vec<((SecretKey, PublicParameters), u8)>,
+    ) {
+        let mut input_choices = vec![];
+        let mut decrypt_choices = vec![];
+        let pp = ot::PublicParameters::new();
+        for i in 0..required_bits {
+            let keypair_real = ot::RealKeyPair::new(&pp);
+            let pk_real = keypair_real.get_public_key();
+            let sk_real = keypair_real.get_secret_key();
+            let pk_oblivious = ot::ObliviousKeyPair::new(&pp).get_public_key();
+            let bit = input.bit(i) as u8;
+            let choice;
+            let decrypt_choice;
+            if bit == 0 {
+                choice = [
+                    (pk_real.clone(), pp.clone()),
+                    (pk_oblivious.clone(), pp.clone()),
+                ];
+                decrypt_choice = ((sk_real.clone(), pp.clone()), 0 as u8);
+            } else {
+                choice = [
+                    (pk_oblivious.clone(), pp.clone()),
+                    (pk_real.clone(), pp.clone()),
+                ];
+                decrypt_choice = ((sk_real.clone(), pp.clone()), 1 as u8);
+            }
+            input_choices.push(choice);
+            decrypt_choices.push(decrypt_choice);
+        }
+
+        (input_choices, decrypt_choices)
+    }
+}
+
+fn decrypt_wj_input(
+    eval_keys: &Vec<((SecretKey, PublicParameters), u8)>,
+    wires_j: &Vec<(CipherText, CipherText)>,
+    gate_index: usize,
+) -> BigUint {
+    let bit_choice = &eval_keys[gate_index].1;
+    let secret_key = eval_keys[gate_index].0.0.clone();
+    let pp = &eval_keys[gate_index].0.1;
+    let ct = &wires_j[gate_index];
+    let wj_ct = match bit_choice {
+        0 => &ct.0,
+        1 => &ct.1,
+        _ => panic!("Invalid bit value: must be 0 or 1"),
+    };
+    let wj = ot::decrypt(&pp, secret_key, wj_ct);
+    wj
 }

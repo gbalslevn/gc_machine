@@ -1,11 +1,10 @@
-use std::ops::Mul;
 use num_bigint::{BigUint, ToBigUint};
 use glass_pumpkin::safe_prime;
 use rand::{thread_rng, Rng};
 
 
 // Global parameters for the group used in OT
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PublicParameters {
     p: BigUint, // Public modulus
     q: BigUint, // Prime subgroup order
@@ -204,8 +203,7 @@ fn generate_r(q: &BigUint) -> BigUint {
     }
 }
 
-pub fn decrypt(pp: &PublicParameters, secret_key: SecretKey, ciphertext: CipherText) -> BigUint {
-    println!("Secretkey to decrypt: {:?}", secret_key);
+pub fn decrypt(pp: &PublicParameters, secret_key: SecretKey, ciphertext: &CipherText) -> BigUint {
     let c_1_pow_alpha = ciphertext.get_c_1().modpow(secret_key.get_alpha(), &pp.p);
     let c_1_pow_alpha_inv = c_1_pow_alpha.modinv(&pp.p).unwrap();
     (&ciphertext.c_2 * &c_1_pow_alpha_inv) % &pp.p

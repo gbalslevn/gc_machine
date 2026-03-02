@@ -1,6 +1,6 @@
 use glass_pumpkin::safe_prime;
-use num_bigint::{BigUint, ToBigUint};
-use crate::{ot::ot::{self, CipherText}, wires::{original_wires::OriginalWires, point_and_permute_wires::PointAndPermuteWires, wires::Wires}};
+use num_bigint::{ToBigUint};
+use crate::{ot::ot::{self}, wires::{point_and_permute_wires::PointAndPermuteWires, wires::Wires}};
 
 #[cfg(test)]
 
@@ -48,10 +48,7 @@ fn real_pk_should_decrypt_correctly() {
     let real_keypair = ot::RealKeyPair::new(&pp);
     let wire_gen = PointAndPermuteWires::new();
     let plaintext  = wire_gen.generate_input_wire().w0().clone();
-    println!("Pt is: {}", plaintext);
     let cipher_text = ot::encrypt(&pp, &real_keypair.get_public_key(), &plaintext);
-    println!("Ct is: {:?}", cipher_text);
-    let decrypted_ciphertext = ot::decrypt(&pp, real_keypair.get_secret_key(), cipher_text);
-    println!("dc_ct is: {:?}", decrypted_ciphertext);
+    let decrypted_ciphertext = ot::decrypt(&pp, real_keypair.get_secret_key(), &cipher_text);
     assert!(plaintext == decrypted_ciphertext)
 }
