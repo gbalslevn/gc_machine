@@ -9,6 +9,3 @@ To add a new unit test, add it to mod.rs as it orchetrates all files for the sub
 Use `cargo test`
 This will run both integration tests in /tests and unit_tests. It looks for [#tests] and runs them.
 
-## To clean build
-`cargo clean`
-

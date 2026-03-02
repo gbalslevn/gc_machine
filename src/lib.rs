@@ -4,6 +4,10 @@
 pub mod crypto_utils;
 pub mod gates;
 pub mod websocket;
+pub mod wires;
+pub mod evaluator;
+pub mod global_mem_alloc;
+pub mod ot;
 
 #[cfg(test)] // Only compile when testing
 mod unit_tests; // Finds unit tests folder
