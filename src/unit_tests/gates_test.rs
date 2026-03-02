@@ -11,6 +11,8 @@ use crate::wires::original_wires::OriginalWires;
 use crate::wires::point_and_permute_wires::PointAndPermuteWires;
 use crate::wires::wires::{Wire, Wires};
 use num_bigint::{BigUint, ToBigUint};
+use crate::wires::half_gates_wires::HalfGateWires;
+use crate::gates::half_gates_gates::HalfGatesGates;
 
 #[test]
 // Gets all possible keys from two input wires and for each key, ensures 1 of the 4 output labels can be decrypted. Could also just do it for one key.
@@ -246,3 +248,15 @@ fn three_entries_in_and_gate_free_xor() {
     let gt = gate_gen.generate_gate(gate, wi, wj);
     assert_eq!(gt.table.len(), 3);
 }
+
+#[test]
+fn two_entries_in_and_half_gate() {
+    let gate = GateType::AND;
+    let wire_gen = HalfGateWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let mut gate_gen = HalfGatesGates::new(wire_gen);
+    let gt = gate_gen.generate_gate(gate, wi, wj);
+    assert_eq!(gt.table.len(), 2);
+}
+
