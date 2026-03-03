@@ -1,14 +1,16 @@
-use crate::evaluator::evaluator::Evaluator;
+use crate::{evaluator::evaluator::Evaluator, ot::ot::PublicParameters};
 use crate::crypto_utils::gc_kdf_128;
 use num_bigint::{BigUint};
 pub struct GRR3Evaluator {
     index: BigUint,
+    pp : PublicParameters
 }
 
 impl GRR3Evaluator {
     pub fn new() -> Self {
         GRR3Evaluator {
             index: BigUint::from(0u32),
+            pp : PublicParameters::new()
         }
     }
 }
@@ -36,6 +38,10 @@ impl Evaluator for GRR3Evaluator {
 
     fn get_index(&self) -> &BigUint {
         &self.index
+    }
+
+    fn get_pp(&self) -> &PublicParameters {
+        &self.pp
     }
 }
 

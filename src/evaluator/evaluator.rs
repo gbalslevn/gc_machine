@@ -39,9 +39,8 @@ pub trait Evaluator {
         circuit: &CircuitEval,
         wires_i: &Vec<BigUint>,
         wires_j: &Vec<(CipherText, CipherText)>,
-        conversion_table: &[(BigUint, u8); 2],
         eval_keys: Vec<(SecretKey, u8)>,
-        pp: &PublicParameters,
+        conversion_table: &[(BigUint, u8); 2],
     ) -> u8 {
         let mut outputs: HashMap<&BigUint, BigUint> = HashMap::new(); // id, wire
         let mut circuit_result = 3; // need to return circuit result in a better way without init it
@@ -55,7 +54,7 @@ pub trait Evaluator {
             let wi;
             let wj;
             if gate.is_input_gate {
-                wj = decrypt_wj_input(&eval_keys, pp, wires_j, gate_index);
+                wj = decrypt_wj_input(&eval_keys, self.get_pp(), wires_j, gate_index);
                 wi = wires_i[outputs.len() - 2].clone();
             } else {
                 // It should already have been calculated and kept in map
@@ -80,17 +79,17 @@ pub trait Evaluator {
     }
 
     fn create_circuit_input(
+        &self,
         input: &BigUint,
         required_bits: u64,
-        pp: &PublicParameters,
     ) -> (Vec<[PublicKey; 2]>, Vec<(SecretKey, u8)>) {
         let mut input_choices = vec![];
         let mut decrypt_choices = vec![];
         for i in 0..required_bits {
-            let keypair_real = ot::RealKeyPair::new(&pp);
+            let keypair_real = ot::RealKeyPair::new(&self.get_pp());
             let pk_real = keypair_real.get_public_key();
             let sk_real = keypair_real.get_secret_key();
-            let pk_oblivious = ot::ObliviousKeyPair::new(&pp).get_public_key();
+            let pk_oblivious = ot::ObliviousKeyPair::new(&self.get_pp()).get_public_key();
             let bit = input.bit(i) as u8;
             let choice;
             let decrypt_choice;
@@ -109,6 +108,7 @@ pub trait Evaluator {
     }
     fn increment_index(&mut self);
     fn get_index(&self) -> &BigUint;
+    fn get_pp(&self) -> &PublicParameters;
 }
 
 fn decrypt_wj_input(
