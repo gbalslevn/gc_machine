@@ -134,9 +134,11 @@ fn do_lsb_determine_output_wires() {
     let wj = Wire::new(wj0, wj1);
     let wo = wire_gen.generate_output_wire(&wi, &wj, &gate, &gate_id);
 
+    // When wi.0's lsb is true, wg0 is  H(wi.0, j) ^ H(wi.0, j) ^ H(wi.1, j)
     let wg0 = gc_kdf_hg(&wi.w0(), &gate_id) ^ gc_kdf_hg(&wi.w1(), &gate_id) ^gc_kdf_hg(&wi.w0(), &gate_id);
+    // When wj.0's lsb is false, we0 is H(wj.0, j')
     let we0 = gc_kdf_hg(&wj.w0(), &next_gate_id);
     let w0 = wg0 ^ we0;
     assert_eq!(wo.w0(), &w0);
-    assert_eq!(wo.w1(), &(w0 ^ delta));
+    assert_eq!(wo.w1(), &(&w0 ^ delta));
 }

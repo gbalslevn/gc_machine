@@ -259,4 +259,3 @@ fn two_entries_in_and_half_gate() {
     let gt = gate_gen.generate_gate(gate, wi, wj);
     assert_eq!(gt.table.len(), 2);
 }
-
