@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops::Add};
 use num_bigint::{BigUint, ToBigUint};
 
 use crate::{
-    circuit_builder::{CircuitBuild},
+    circuit_builder::CircuitBuild,
     gates::gates::{GateType, Gates},
     ot::ot::{self, CipherText, PublicKey, PublicParameters},
     wires::wires::{Wire, Wires},
@@ -25,7 +25,8 @@ impl<G: Gates<W>, W: Wires> Garbler<G, W> {
         &self,
         circuit_build: &CircuitBuild,
         garblers_input_choices: &Vec<u8>,
-        evaluators_input_choices: Vec<[(PublicKey, PublicParameters); 2]>,
+        evaluators_input_choices: Vec<[PublicKey; 2]>,
+        pp: &PublicParameters,
     ) -> (
         CircuitEval,
         Vec<BigUint>,
@@ -43,16 +44,17 @@ impl<G: Gates<W>, W: Wires> Garbler<G, W> {
             [(BigUint::from(0u32), 0), (BigUint::from(0u32), 0)];
         let gates = circuit_build.get_gates();
 
+        // insert constants for true and false wire, to enable eg. NOT gates
         let true_constant = self.wire_gen.generate_input_wire();
         let false_constant = self.wire_gen.generate_input_wire();
         outputs.insert(
             circuit_build.get_true_constant().wire_id().clone(),
             true_constant.clone(),
-        ); // insert constants for true and false wire, to enable eg. NOT gates
+        );
         outputs.insert(
             circuit_build.get_false_constant().wire_id().clone(),
             false_constant.clone(),
-        ); // insert constants for true and false wire, to enable eg. NOT gates
+        );
 
         for gate in gates {
             let gate_is_input_layer = gate.wo().output_layer() == &1.to_biguint().unwrap();
@@ -60,7 +62,8 @@ impl<G: Gates<W>, W: Wires> Garbler<G, W> {
                 wi = self.wire_gen.generate_input_wire();
                 wj = self.wire_gen.generate_input_wire();
                 // Encrypt with received publickeys from OT. The real and the oblivious
-                let wj_encrypted = self.gen_encrypted_wire(&wj, &evaluators_input_choices[gate_index]);
+                let wj_encrypted =
+                    self.gen_encrypted_wire(&wj, &evaluators_input_choices[gate_index], &pp);
 
                 let garbler_input_choice = garblers_input_choices[gate_index];
                 let selected_wire = match garbler_input_choice {
@@ -105,39 +108,34 @@ impl<G: Gates<W>, W: Wires> Garbler<G, W> {
         (circuit, wi_inputs, wj_inputs, output_conversion)
     }
 
-    pub fn create_circuit_input(&self, input: &BigUint, required_bits : u64) -> Vec<u8> {
+    pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> Vec<u8> {
         let mut list = vec![];
-            for i in 0..required_bits {
-                let bit = input.bit(i) as u8;
-                if bit == 0 {
-                    list.push(0 as u8);
-                } else {
-                    list.push(1 as u8)
-                }
+        for i in 0..required_bits {
+            let bit = input.bit(i) as u8;
+            if bit == 0 {
+                list.push(0 as u8);
+            } else {
+                list.push(1 as u8)
             }
+        }
         list
     }
 
-    fn gen_encrypted_wire(&self, wire : &Wire, evaluators_input_choices: &[(PublicKey, PublicParameters); 2]) -> (CipherText, CipherText) {
-        let pp_0 = &evaluators_input_choices[0].1;
-        let pk_0 = &evaluators_input_choices[0].0;
-        let wj_0_ct = ot::encrypt(
-            pp_0,
-            pk_0,
-            wire.w0(),
-        );
-        let pp_1 = &evaluators_input_choices[1].1;
-        let pk_1 = &evaluators_input_choices[1].0;
-        let wj_1_ct = ot::encrypt(
-            pp_1,
-            pk_1,
-            wire.w1(),
-        );
-    
+    // Encrypts a wire for the evaluator as a part of OT
+    fn gen_encrypted_wire(
+        &self,
+        wire: &Wire,
+        input_choice: &[PublicKey; 2],
+        pp: &PublicParameters,
+    ) -> (CipherText, CipherText) {
+        let pk_0 = &input_choice[0];
+        let wj_0_ct = ot::encrypt(&pp, pk_0, wire.w0());
+        let pk_1 = &input_choice[1];
+        let wj_1_ct = ot::encrypt(&pp, pk_1, wire.w1());
+
         let wj_encrypted = (wj_0_ct, wj_1_ct);
         wj_encrypted
-}
-
+    }
 }
 
 pub struct CircuitEval {
