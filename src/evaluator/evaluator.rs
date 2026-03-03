@@ -6,42 +6,43 @@ use crate::{
     gates::gates::GateType,
     ot::ot::{self, CipherText, PublicKey, PublicParameters, SecretKey},
 };
+
 pub trait Evaluator {
     fn evaluate_gate(
+        &mut self,
         wi: &BigUint,
         wj: &BigUint,
         gate_type: &GateType,
-        gate_id: &BigUint,
         table: &Vec<BigUint>,
     ) -> BigUint {
         match gate_type {
-            GateType::AND => Self::evaluate_and_gate(wi, wj, gate_id, table),
-            GateType::XOR => Self::evaluate_xor_gate(wi, wj, gate_id, table),
+            GateType::AND => self.evaluate_and_gate(wi, wj, table),
+            GateType::XOR => self.evaluate_xor_gate(wi, wj, table),
         }
     }
 
     fn evaluate_and_gate(
+        &mut self,
         wi: &BigUint,
         wj: &BigUint,
-        gate_id: &BigUint,
         table: &Vec<BigUint>,
     ) -> BigUint;
     fn evaluate_xor_gate(
+        &mut self,
         wi: &BigUint,
         wj: &BigUint,
-        gate_id: &BigUint,
         table: &Vec<BigUint>,
     ) -> BigUint;
 
     fn evaluate_circuit(
+        &mut self,
         circuit: &CircuitEval,
         wires_i: &Vec<BigUint>,
         wires_j: &Vec<(CipherText, CipherText)>,
         conversion_table: &[(BigUint, u8); 2],
-        eval_keys: Vec<(SecretKey, u8)>, pp : &PublicParameters,
+        eval_keys: Vec<(SecretKey, u8)>,
+        pp: &PublicParameters,
     ) -> u8 {
-        // Perhaps make a input gate struct which differs from a normal gate struct. Make it easier to access the wires where we dont have to send a list of wi's also. Also remove the notion of wires, as it reveals which label is w0 and w1, just use 4 labels
-        let mut gate_index = 0; // need to start at 2 because of the two constants. 
         let mut outputs: HashMap<&BigUint, BigUint> = HashMap::new(); // id, wire
         let mut circuit_result = 3; // need to return circuit result in a better way without init it
 
@@ -49,21 +50,21 @@ pub trait Evaluator {
         outputs.insert(&circuit.true_constant_id, circuit.true_constant.clone());
         outputs.insert(&circuit.false_constant_id, circuit.false_constant.clone());
 
+        let mut gate_index = 0;
         for gate in &circuit.gates {
             let wi;
             let wj;
             if gate.is_input_gate {
                 wj = decrypt_wj_input(&eval_keys, pp, wires_j, gate_index);
-                wi = wires_i[gate_index].clone();
+                wi = wires_i[outputs.len() - 2].clone();
             } else {
                 // It should already have been calculated and kept in map
                 wi = outputs.get(&gate.wi_id).unwrap().clone();
                 wj = outputs.get(&gate.wj_id).unwrap().clone();
             }
 
-            let result = Self::evaluate_gate(&wi, &wj, &gate.gate_type, &gate.gate_id, &gate.table);
+            let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &gate.table);
             outputs.insert(&gate.gate_id, result.clone());
-            gate_index += 1;
             // If last gate, get output
             if gate == &circuit.gates[circuit.gates.len() - 1] {
                 if result == conversion_table[0].0 {
@@ -73,6 +74,7 @@ pub trait Evaluator {
                     circuit_result = conversion_table[1].1;
                 }
             }
+            gate_index += 1;
         }
         circuit_result
     }
@@ -105,10 +107,13 @@ pub trait Evaluator {
 
         (input_choices, decrypt_choices)
     }
+    fn increment_index(&mut self);
+    fn get_index(&self) -> &BigUint;
 }
 
 fn decrypt_wj_input(
-    eval_keys: &Vec<(SecretKey, u8)>, pp : &PublicParameters,
+    eval_keys: &Vec<(SecretKey, u8)>,
+    pp: &PublicParameters,
     wires_j: &Vec<(CipherText, CipherText)>,
     gate_index: usize,
 ) -> BigUint {

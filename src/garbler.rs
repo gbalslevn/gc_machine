@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Add};
+use std::{collections::HashMap};
 
 use num_bigint::{BigUint, ToBigUint};
 
@@ -22,7 +22,7 @@ impl<G: Gates<W>, W: Wires> Garbler<G, W> {
         }
     }
     pub fn create_circuit(
-        &self,
+        &mut self,
         circuit_build: &CircuitBuild,
         garblers_input_choices: &Vec<u8>,
         evaluators_input_choices: Vec<[PublicKey; 2]>,
@@ -37,9 +37,9 @@ impl<G: Gates<W>, W: Wires> Garbler<G, W> {
         let mut wi_inputs: Vec<BigUint> = vec![];
         let mut wj_inputs: Vec<(CipherText, CipherText)> = vec![];
         let mut outputs: HashMap<BigUint, Wire> = HashMap::new();
+        // let mut outputs_index = 0;
         let mut wi;
         let mut wj;
-        let mut gate_index = 0;
         let mut output_conversion: [(BigUint, u8); 2] =
             [(BigUint::from(0u32), 0), (BigUint::from(0u32), 0)];
         let gates = circuit_build.get_gates();
@@ -56,6 +56,7 @@ impl<G: Gates<W>, W: Wires> Garbler<G, W> {
             false_constant.clone(),
         );
 
+        let mut gate_index = 0;
         for gate in gates {
             let gate_is_input_layer = gate.wo().output_layer() == &1.to_biguint().unwrap();
             if gate_is_input_layer {
@@ -81,11 +82,12 @@ impl<G: Gates<W>, W: Wires> Garbler<G, W> {
             let new_gate = self.gate_gen.generate_gate(
                 gate.gate_type().clone(),
                 wi.clone(),
-                wj.clone(),
-                gate_index.to_biguint().unwrap().add(2 as u32), // need to +2 as we already have two constant inputs, acting like theyre coming from gateid_0 and 1. Need to make it better
+                wj.clone() // need to +2 as we already have two constant inputs, acting like theyre coming from gateid_0 and 1. Need to make it better
             );
-            outputs.insert(new_gate.gate_id.clone(), new_gate.wo.clone());
+            let output_id = outputs.len().to_biguint().unwrap();
+            outputs.insert(output_id.clone(), new_gate.wo.clone());
             let gate_eval = new_gate.to_gate_eval(
+                output_id,
                 gate.wi().wire_id().clone(),
                 gate.wj().wire_id().clone(),
                 gate_is_input_layer,

@@ -22,13 +22,13 @@ use tokio_tungstenite::tungstenite::Message;
 fn can_compare_a_bit_using_std_yao() {
 
     // 1. Garbler creates circuit, a single XOR gate, and sends to evaluator
-    let gate_id = BigUint::ZERO;
     let gate = GateType::XOR;
     let wire_gen = OriginalWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gate_gen = OriginalGates::new(wire_gen);
-    let xor_gate = gate_gen.generate_gate(gate, wi, wj, gate_id);
+    let mut gate_gen = OriginalGates::new(wire_gen);
+    let current_index = gate_gen.get_index().clone();
+    let xor_gate = gate_gen.generate_gate(gate, wi, wj);
     // 2. Evaluator receives circuit and chooses which bit-label he wants using OT.
     // 2.1 Evaluator prepares a ObliviousKeyPair and a RealKeyPar in that specific order, since he intends to receive the wirelabel for the 1-bit.
     let pp = ot::PublicParameters::new();
@@ -43,7 +43,7 @@ fn can_compare_a_bit_using_std_yao() {
     let g_label = xor_gate.wi.w0();
     let e_label = e_label_received_from_ot;
     let mut decrypted_output_label =  BigUint::ZERO;
-    let key = crypto_utils::gc_kdf(&g_label, &e_label, &xor_gate.gate_id);
+    let key = crypto_utils::gc_kdf(&g_label, &e_label, &current_index);
     for ct in xor_gate.table {
         let label = ct ^ &key;
         if label.trailing_zeros().unwrap() >= 128 {
@@ -78,7 +78,8 @@ async fn websocket_can_tx_and_rx_10_msg() {
 fn can_evaluate_or_circuit() {
     let wire_gen = PointAndPermuteWires::new();
     let gate_gen = PointAndPermuteGates::new(wire_gen);
-    let garbler = Garbler::new(gate_gen, wire_gen);
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = PointAndPermuteEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
 
     let input_wires = circuit_builder.build_input_wires(4);
@@ -97,7 +98,7 @@ fn can_evaluate_or_circuit() {
     
     let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices, &pp);
 
-    let result = PointAndPermuteEvaluator::evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypt_choices, &pp);
+    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypt_choices, &pp);
     assert!(result == 1)
 }
 
@@ -105,7 +106,8 @@ fn can_evaluate_or_circuit() {
 fn can_evaluate_xnor_circuit() {
     let wire_gen = PointAndPermuteWires::new();
     let gate_gen = PointAndPermuteGates::new(wire_gen);
-    let garbler = Garbler::new(gate_gen, wire_gen);
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = PointAndPermuteEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
 
     let input_wires = circuit_builder.build_input_wires(2);
@@ -123,7 +125,7 @@ fn can_evaluate_xnor_circuit() {
     let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. 
     let evaluator_decrypt_choices = vec![(sk_real.clone(), 1 as u8)]; // chooses bit 1
     let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices, &pp);
-    let result = PointAndPermuteEvaluator::evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypt_choices, &pp);
+    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypt_choices, &pp);
     
     assert!(result == 0);
     
@@ -131,7 +133,7 @@ fn can_evaluate_xnor_circuit() {
     let evaluator_input_choices = vec![[pk_real.clone(), pk_oblivious.clone()]]; // Eval has choosen to get bit 0. 
     let evaluator_decrypt_choices = vec![(sk_real.clone(), 0 as u8)]; // chooses bit 0
     let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices, &pp);
-    let result = PointAndPermuteEvaluator::evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypt_choices, &pp);
+    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypt_choices, &pp);
 
     assert!(result == 1);
 }
@@ -141,7 +143,8 @@ fn can_evaluate_xnor_circuit() {
 fn can_evaluate_is_equal_circuit() {
     let wire_gen = OriginalWires::new();
     let gate_gen = OriginalGates::new(wire_gen);
-    let garbler = Garbler::new(gate_gen, wire_gen);
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = OriginalEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
 
     let a = 2.to_biguint().unwrap(); // bitlenght 2
@@ -162,12 +165,12 @@ fn can_evaluate_is_equal_circuit() {
     let (evaluator_circuit_input_a, evaluator_decrypted_input_a) = OriginalEvaluator::create_circuit_input(&a, required_bits, &pp);    
     let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_circuit_input_a, evaluator_circuit_input_a, &pp);
 
-    let result = OriginalEvaluator::evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypted_input_a, &pp);
+    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypted_input_a, &pp);
     assert!(result == 1);
     
     // Testing a != b, eval holds b
     let (evaluator_circuit_input_b, evaluator_decrypted_input_b) = OriginalEvaluator::create_circuit_input(&b, required_bits, &pp);    
     let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_circuit_input_a, evaluator_circuit_input_b, &pp);
-    let result = OriginalEvaluator::evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypted_input_b, &pp);
+    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, &conversion_data, evaluator_decrypted_input_b, &pp);
     assert!(result == 0);
 }
