@@ -5,29 +5,40 @@ use crate::wires::wires::{Wire, Wires};
 
 pub struct GRR3Gates<W: Wires> {
     pub wires: W,
+    pub index: BigUint,
 }
 
 impl<W: Wires> Gates<W> for GRR3Gates<W>  {
     fn new(wires: W) -> Self {
-        GRR3Gates{ wires }
+        GRR3Gates{ wires, index: BigUint::from(0u32), }
     }
 
-    fn generate_gate(&self, gate: GateType, wi: Wire, wj: Wire, gate_id: BigUint) -> Gate {
-        let wo = self.wires.generate_output_wire(&wi, &wj, &gate, &gate_id);
+    fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire) -> Gate {
+        let wo = self.wires.generate_output_wire(&wi, &wj, &gate, &self.index);
         let tt = self.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![BigUint::from(0u8); 3];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
         for (il, ir, out) in tt {
-            let key = crypto_utils::gc_kdf_128(&il, &ir, &gate_id);
+            let key = crypto_utils::gc_kdf_128(&il, &ir, &self.index);
             let ct = key ^ out;
             let pos = get_position(&il, &ir);
             if pos != 0 {
                 table[pos-1] = ct;
             }
         }
-        Gate {
-            gate_id: gate_id, gate_type: gate, table: table, wi : wi, wj: wj, wo: wo
-        }
+        let gate = Gate {
+            gate_type: gate, table, wi, wj, wo
+        };
+        self.increment_index();
+        gate
+    }
+    fn get_index(&self) -> &BigUint {
+        &self.index
+    }
+
+    fn increment_index(&mut self) -> &BigUint {
+        self.index += 1u32;
+        &self.index
     }
 }
 

@@ -4,24 +4,36 @@ use crate::gates::gates::{Gate, GateType, Gates};
 use crate::wires::wires::{Wire, Wires};
 pub struct FreeXORGates<W: Wires> {
     pub wires: W,
+    pub index: BigUint,
 }
 
 // Implements free XOR and grr3
 
 impl<W: Wires> Gates<W> for FreeXORGates<W> {
     fn new(wires: W) -> Self {
-        FreeXORGates { wires }
+        FreeXORGates { wires, index: BigUint::from(0u32), }
     }
-    fn generate_gate(&self, gate: GateType, wi: Wire, wj: Wire, gate_id: BigUint) -> Gate {
-        let wo = self.wires.generate_output_wire(&wi, &wj, &gate, &gate_id);
+    fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire) -> Gate {
+        let wo = self.wires.generate_output_wire(&wi, &wj, &gate, &self.index);
         let tt = self.get_tt(&wi, &wj, &wo, &gate);
         match gate {
             GateType::AND=> {
-                let table = generate_and_table(&tt,  &gate_id);
-                Gate { gate_id, gate_type: GateType::AND, table, wi: wi, wj: wj, wo: wo }
+                let table = generate_and_table(&tt,  &self.index);
+                let gate = Gate { gate_type: GateType::AND, table, wi, wj, wo };
+                self.increment_index();
+                gate
             }
-            GateType::XOR=>Gate { gate_id, gate_type: GateType::XOR, table: Vec::new(), wi: wi, wj: wj, wo: wo }
+            GateType::XOR=>Gate { gate_type: GateType::XOR, table: Vec::new(), wi, wj, wo }
         }
+    }
+
+    fn get_index(&self) -> &BigUint {
+        &self.index
+    }
+
+    fn increment_index(&mut self) -> &BigUint {
+        self.index += 1u32;
+        &self.index
     }
 }
 
