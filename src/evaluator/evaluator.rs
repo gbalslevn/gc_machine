@@ -108,7 +108,7 @@ pub trait Evaluator {
 }
 
 fn decrypt_wj_input(
-    eval_keys: &Vec<((SecretKey), u8)>, pp : &PublicParameters,
+    eval_keys: &Vec<(SecretKey, u8)>, pp : &PublicParameters,
     wires_j: &Vec<(CipherText, CipherText)>,
     gate_index: usize,
 ) -> BigUint {
