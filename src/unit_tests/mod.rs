@@ -5,4 +5,5 @@ mod gates_test;
 mod wires_test;
 mod evaluator_test;
 mod ot_test;
+mod circuit_builder_tests;
 mod websocket_test;

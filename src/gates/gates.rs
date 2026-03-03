@@ -1,6 +1,6 @@
 use num_bigint::{BigUint};
 
-use crate::wires::wires::{Wire, Wires};
+use crate::{garbler::GateEval, wires::wires::{Wire, Wires}};
 
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -30,10 +30,17 @@ pub trait Gates<W: Wires> {
     fn increment_index(&mut self) -> &BigUint;
 }
 
+#[derive(PartialEq)]
 pub struct Gate {
     pub gate_type: GateType,
     pub table : Vec<BigUint>,
     pub wi: Wire,
     pub wj: Wire,
     pub wo: Wire,
+}
+
+impl Gate {
+    pub fn to_gate_eval(&self, gate_id : BigUint, wi_id : BigUint, wj_id : BigUint, is_input_gate : bool) -> GateEval {
+        GateEval {gate_id: gate_id, gate_type: self.gate_type, table : self.table.clone(), wi_id: wi_id, wj_id : wj_id, is_input_gate: is_input_gate}
+    } 
 }

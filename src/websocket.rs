@@ -1,7 +1,6 @@
 use futures_util::SinkExt;
 use futures_util::{StreamExt, stream::SplitSink, stream::SplitStream};
 use std::collections::VecDeque;
-use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;

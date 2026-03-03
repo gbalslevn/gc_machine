@@ -2,6 +2,7 @@ use num_bigint::BigUint;
 use rand::{thread_rng, Rng};
 use crate::{gates::gates::GateType, wires::wires::{Wire, Wires}};
 
+#[derive(Clone, Copy)]
 pub struct OriginalWires;
 
 impl Wires for OriginalWires {

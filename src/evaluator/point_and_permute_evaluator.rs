@@ -1,14 +1,16 @@
-use crate::evaluator::evaluator::Evaluator;
+use crate::{evaluator::evaluator::Evaluator, ot::ot::PublicParameters};
 use crate::crypto_utils::gc_kdf_128;
 use num_bigint::{BigUint};
 pub struct PointAndPermuteEvaluator {
     index: BigUint,
+    pp : PublicParameters
 }
 
 impl PointAndPermuteEvaluator {
     pub fn new() -> Self {
         PointAndPermuteEvaluator {
             index: BigUint::from(0u32),
+            pp : PublicParameters::new()
         }
     }
 }
@@ -32,6 +34,10 @@ impl Evaluator for PointAndPermuteEvaluator {
 
     fn get_index(&self) -> &BigUint {
         &self.index
+    }
+
+    fn get_pp(&self) -> &PublicParameters {
+        &self.pp
     }
 }
 

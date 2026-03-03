@@ -1,10 +1,10 @@
-use std::ops::Mul;
 use num_bigint::{BigUint, ToBigUint};
 use glass_pumpkin::safe_prime;
 use rand::{thread_rng, Rng};
 
 
 // Global parameters for the group used in OT
+#[derive(Debug, Clone)]
 pub struct PublicParameters {
     p: BigUint, // Public modulus
     q: BigUint, // Prime subgroup order
@@ -164,10 +164,10 @@ impl ObliviousKeyPair {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CipherText {
-    c_1: BigUint,
-    c_2: BigUint,
+    pub c_1: BigUint,
+    pub c_2: BigUint,
 }
 
 impl CipherText {
@@ -179,7 +179,7 @@ impl CipherText {
     }
 }
 
-pub fn encrypt(pp: &PublicParameters, public_key: PublicKey, plaintext: &BigUint) -> CipherText {
+pub fn encrypt(pp: &PublicParameters, public_key: &PublicKey, plaintext: &BigUint) -> CipherText {
     // source randomness for encryption
     let r = generate_r(pp.get_q());
     let c_1 = public_key.get_g().modpow(&r, &pp.p);
@@ -203,8 +203,8 @@ fn generate_r(q: &BigUint) -> BigUint {
     }
 }
 
-pub fn decrypt(pp: &PublicParameters, secret_key: SecretKey, ciphertext: CipherText) -> BigUint {
+pub fn decrypt(pp: &PublicParameters, secret_key: &SecretKey, ciphertext: &CipherText) -> BigUint {
     let c_1_pow_alpha = ciphertext.get_c_1().modpow(secret_key.get_alpha(), &pp.p);
     let c_1_pow_alpha_inv = c_1_pow_alpha.modinv(&pp.p).unwrap();
-    ciphertext.get_c_2().mul(c_1_pow_alpha_inv).modpow(&1.to_biguint().unwrap(), &pp.p)
+    (&ciphertext.c_2 * &c_1_pow_alpha_inv) % &pp.p
 }
