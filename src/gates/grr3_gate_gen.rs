@@ -4,17 +4,17 @@ use crate::gates::gate_gen::{Gate, GateType, GateGen};
 use crate::wires::wire_gen::{Wire, WireGen};
 
 pub struct GRR3GateGen<W: WireGen> {
-    pub wires: W,
+    pub wire_gen: W,
     pub index: BigUint,
 }
 
 impl<W: WireGen> GateGen<W> for GRR3GateGen<W>  {
-    fn new(wires: W) -> Self {
-        GRR3GateGen { wires, index: BigUint::from(0u32), }
+    fn new(wire_gen: W) -> Self {
+        GRR3GateGen { wire_gen, index: BigUint::from(0u32), }
     }
 
     fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire) -> Gate {
-        let wo = self.wires.generate_output_wire(&wi, &wj, &gate, &self.index);
+        let wo = self.wire_gen.generate_output_wire(&wi, &wj, &gate, &self.index);
         let tt = self.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![BigUint::from(0u8); 3];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key

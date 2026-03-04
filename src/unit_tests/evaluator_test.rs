@@ -59,7 +59,7 @@ fn will_panic_with_wrong_wires_original() {
     let mut evaluator = OriginalEvaluator::new();
 
     // Evaluator has dummy wires
-    let dummy_wires = gate_gen.wires.generate_input_wire();
+    let dummy_wires = gate_gen.wire_gen.generate_input_wire();
     evaluator.evaluate_gate(&dummy_wires.w0(), &dummy_wires.w1(), &gt.gate_type, &gt.table);
 }
 
