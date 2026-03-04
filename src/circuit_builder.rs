@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use crate::{gates::gate_gen::GateType};
 use num_bigint::{BigUint, ToBigUint};
 
-// Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables. 
+// Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id. 
 // This way we can provide two wire id's from other gates as input, and ensure to provide the correct values. The wire id does not neccesarlly correlate to the id of the gate genereated in wire_gen.
@@ -78,12 +78,22 @@ impl CircuitBuilder {
         let input_wi_copy = WireBuild::new(input_wi.wire_id.clone(), input_wi.ready_at_layer.clone() + 1u32.to_biguint().unwrap());
         let input_wj_copy = WireBuild::new(input_wj.wire_id.clone(), input_wj.ready_at_layer.clone() + 1u32.to_biguint().unwrap());
 
-        let xor_0 = self.build_gate(input_wi, input_wj, GateType::XOR);
-        let and_0 = self.build_gate(&input_wi_copy, &input_wj_copy, GateType::AND);
-        let xor_1 = self.build_gate(&xor_0.wo(), &and_0.wo(), GateType::XOR);
-        let output = xor_1.wo().clone();
+        let xor_0 = self.build_xor(input_wi, input_wj);
+        let and_0 = self.build_and(&input_wi_copy, &input_wj_copy);
+        let xor_1 = self.build_xor(&xor_0, &and_0);
+        let output = xor_1.clone();
 
         output
+    }
+
+    fn build_and(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+        let and =self.build_gate(input_wi, input_wj, GateType::AND);
+        and.wo().clone()
+    }
+
+    fn build_xor(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+        let xor = self.build_gate(input_wi, input_wj, GateType::XOR);
+        xor.wo().clone()
     }
 
 
