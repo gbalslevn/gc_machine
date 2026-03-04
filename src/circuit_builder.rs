@@ -74,12 +74,10 @@ impl CircuitBuilder {
         output
     }
 
-    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild { // or gate needs 4 input wires
-        let input_wi_copy = WireBuild::new(input_wi.wire_id.clone(), input_wi.ready_at_layer.clone() + 1u32.to_biguint().unwrap());
-        let input_wj_copy = WireBuild::new(input_wj.wire_id.clone(), input_wj.ready_at_layer.clone() + 1u32.to_biguint().unwrap());
+    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild, input_wi_1: &WireBuild, input_wj_1: &WireBuild) -> WireBuild { // or gate needs 4 input wires
 
         let xor_0 = self.build_xor(input_wi, input_wj);
-        let and_0 = self.build_and(&input_wi_copy, &input_wj_copy);
+        let and_0 = self.build_and(&input_wi_1, &input_wj_1);
         let xor_1 = self.build_xor(&xor_0, &and_0);
         let output = xor_1.clone();
 
