@@ -1,13 +1,13 @@
 use num_bigint::BigUint;
 use rand::{thread_rng, Rng};
-use crate::gates::gates::GateType;
-use crate::wires::wires::{Wire, Wires};
+use crate::gates::gate_gen::GateType;
+use crate::wires::wire_gen::{Wire, WireGen};
 use crate::crypto_utils::{gc_kdf_128, generate_label_lsb};
 
 #[derive(Clone, Copy)]
-pub struct GRR3Wires;
+pub struct GRR3WireGen;
 
-impl Wires for GRR3Wires {
+impl WireGen for GRR3WireGen {
     fn new() -> Self {
         Self
     }
@@ -19,7 +19,7 @@ impl Wires for GRR3Wires {
         let w1 = generate_label_lsb(!choice);
         Wire::new(w0, w1)
     }
-    fn generate_output_wire(&self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
+    fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
         match gate {
             GateType::AND=>generate_and_wire(wi, wj, gate_id),
             GateType::XOR=>generate_xor_wire(wi, wj, gate_id),

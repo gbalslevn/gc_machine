@@ -4,17 +4,17 @@ use num_bigint::{BigUint, ToBigUint};
 
 use crate::{
     circuit_builder::CircuitBuild,
-    gates::gates::{GateType, Gates},
+    gates::gate_gen::{GateType, GateGen},
     ot::ot::{self, CipherText, PublicKey, PublicParameters},
-    wires::wires::{Wire, Wires},
+    wires::wire_gen::{Wire, WireGen},
 };
 
-pub struct Garbler<G: Gates<W>, W: Wires> {
+pub struct Garbler<G: GateGen<W>, W: WireGen> {
     gate_gen: G,
     wire_gen: W,
 }
 
-impl<G: Gates<W>, W: Wires> Garbler<G, W> {
+impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
     pub fn new(gate: G, wire: W) -> Self {
         Self {
             gate_gen: gate,

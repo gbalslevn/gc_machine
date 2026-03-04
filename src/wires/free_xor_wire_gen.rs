@@ -1,23 +1,23 @@
 use num_bigint::{BigUint};
-use crate::gates::gates::GateType;
-use crate::wires::wires::{Wire, Wires};
+use crate::gates::gate_gen::GateType;
+use crate::wires::wire_gen::{Wire, WireGen};
 use crate::crypto_utils::{gc_kdf_128, generate_label_lsb, generate_label};
 
 #[derive(Clone)]
-pub struct FreeXORWires {
+pub struct FreeXORWireGen {
     pub delta: BigUint,
 }
 
-impl FreeXORWires {
+impl FreeXORWireGen {
     pub fn delta(&self) -> &BigUint {
         &self.delta // Why does each each wire need to hold delta? Perhaps the gate should and we make a standard wire struct for all gates. Even better the garbler should hold it. 
     }
 }
 
-impl Wires for FreeXORWires {
+impl WireGen for FreeXORWireGen {
     fn new() -> Self {
         let delta = generate_label_lsb(true); // to ensure point and permute holds
-        FreeXORWires { delta }
+        FreeXORWireGen { delta }
     }
 
     fn generate_input_wire(&self) -> Wire {
@@ -26,7 +26,7 @@ impl Wires for FreeXORWires {
         let w1 = &w0 ^ delta;
         Wire::new(w0, w1)
     }
-    fn generate_output_wire(&self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
+    fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
         let delta = self.delta();
         match gate {
             GateType::AND=>generate_and_wires(delta, &wi, &wj, gate_id),

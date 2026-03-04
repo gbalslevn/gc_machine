@@ -1,6 +1,6 @@
-pub mod gates;
-pub mod original_gates;
-pub mod point_and_permute_gates;
-pub mod grr3_gates;
-pub mod free_xor_gates;
-pub mod half_gates_gates;
+pub mod gate_gen;
+pub mod original_gate_gen;
+pub mod point_and_permute_gate_gen;
+pub mod grr3_gate_gen;
+pub mod free_xor_gate_gen;
+pub mod half_gates_gate_gen;

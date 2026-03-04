@@ -1,20 +1,20 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
-use crate::gates::gates::{Gate, GateType, Gates};
-use crate::wires::wires::{Wire, Wires};
-pub struct FreeXORGates<W: Wires> {
-    pub wires: W,
+use crate::gates::gate_gen::{Gate, GateType, GateGen};
+use crate::wires::wire_gen::{Wire, WireGen};
+pub struct FreeXORGateGen<W: WireGen> {
+    pub wire_gen: W,
     pub index: BigUint,
 }
 
 // Implements free XOR and grr3
 
-impl<W: Wires> Gates<W> for FreeXORGates<W> {
-    fn new(wires: W) -> Self {
-        FreeXORGates { wires, index: BigUint::from(0u32), }
+impl<W: WireGen> GateGen<W> for FreeXORGateGen<W> {
+    fn new(wire_gen: W) -> Self {
+        FreeXORGateGen { wire_gen, index: BigUint::from(0u32), }
     }
     fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire) -> Gate {
-        let wo = self.wires.generate_output_wire(&wi, &wj, &gate, &self.index);
+        let wo = self.wire_gen.generate_output_wire(&wi, &wj, &gate, &self.index);
         let tt = self.get_tt(&wi, &wj, &wo, &gate);
         match gate {
             GateType::AND=> {
@@ -43,7 +43,7 @@ fn generate_and_table(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint)
     for (il, ir, out) in tt {
         let key = crypto_utils::gc_kdf_128(il, ir, gate_id);
         let ct = key ^ out;
-        let pos = crate::gates::grr3_gates::get_position(il, ir);
+        let pos = crate::gates::grr3_gate_gen::get_position(il, ir);
         if pos != 0 {
             table[pos-1] = ct;
         }
