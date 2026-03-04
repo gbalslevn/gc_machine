@@ -82,18 +82,18 @@ fn can_evaluate_or_circuit() {
     let mut evaluator = PointAndPermuteEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
 
-    let input_wires = circuit_builder.build_input_wires(4);
-    let _circuit_result = circuit_builder.build_or(&input_wires[0], &input_wires[1], &input_wires[2], &input_wires[3]);
+    let input_wires = circuit_builder.build_input_wires(2);
+    let _circuit_result = circuit_builder.build_or(&input_wires[0], &input_wires[1]);
     let circuit_build = circuit_builder.get_circuit_build();
-    let garbler_input_choices = vec![0 as u8, 0 as u8]; // Garbler bit 0 as input. Assert somewhere we have just right amount of input choices
+    let garbler_input_choices = vec![0 as u8]; // Garbler bit 0 as input. Assert somewhere we have just right amount of input choices
     // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now we know its only a or circuit.
     let keypair_real = ot::RealKeyPair::new(&evaluator.get_pp());
     let pk_real = keypair_real.get_public_key();
     let sk_real = keypair_real.get_secret_key();
     let pk_oblivious = ot::ObliviousKeyPair::new(&evaluator.get_pp()).get_public_key();
 
-    let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()], [pk_oblivious.clone(), pk_real]]; // Eval has choosen to get bit 1. Needs to send 2 times as he needs two 1 bits for the OR gate of input AND and XOR. Even though the OR gate abstracts it to seeing it as 1 bit. The input should be the same. 
-    let evaluator_decrypt_choices = vec![(sk_real.clone(), 1 as u8), (sk_real.clone(), 1 as u8)]; // chooses bit 1
+    let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. Needs to send 2 times as he needs two 1 bits for the OR gate of input AND and XOR. Even though the OR gate abstracts it to seeing it as 1 bit. The input should be the same.
+    let evaluator_decrypt_choices = vec![(sk_real.clone(), 1 as u8)]; // chooses bit 1
     
     let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices, evaluator.get_pp());
 
