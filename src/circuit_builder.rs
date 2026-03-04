@@ -74,14 +74,18 @@ impl CircuitBuilder {
         output
     }
 
-    pub fn build_or(&mut self, input_wi_0: &WireBuild, input_wi_1: &WireBuild, input_wj_0: &WireBuild, input_wj_1: &WireBuild) -> WireBuild { // or gate needs 4 input wires
-        let xor_0 = self.build_gate(input_wi_0, input_wj_0, GateType::XOR);
-        let and_0 = self.build_gate(input_wi_1, input_wj_1, GateType::AND);
+    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild { // or gate needs 4 input wires
+        let input_wi_copy = WireBuild::new(input_wi.wire_id.clone(), input_wi.ready_at_layer.clone() + 1u32.to_biguint().unwrap());
+        let input_wj_copy = WireBuild::new(input_wj.wire_id.clone(), input_wj.ready_at_layer.clone() + 1u32.to_biguint().unwrap());
+
+        let xor_0 = self.build_gate(input_wi, input_wj, GateType::XOR);
+        let and_0 = self.build_gate(&input_wi_copy, &input_wj_copy, GateType::AND);
         let xor_1 = self.build_gate(&xor_0.wo(), &and_0.wo(), GateType::XOR);
         let output = xor_1.wo().clone();
 
         output
     }
+
 
     // Builds all gates needed to create a xnor, returns them and the final output 
     pub fn build_xnor(&mut self, wi: &WireBuild, wj: &WireBuild) -> WireBuild {
