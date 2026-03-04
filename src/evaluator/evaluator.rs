@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use crate::{
     garbler::CircuitEval,
-    gates::gates::GateType,
+    gates::gate_gen::GateType,
     ot::ot::{self, CipherText, PublicKey, PublicParameters, SecretKey},
 };
 

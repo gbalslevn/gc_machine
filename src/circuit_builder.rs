@@ -1,7 +1,7 @@
 use std::ops::Add;
 use std::collections::VecDeque;
 
-use crate::{gates::gates::GateType};
+use crate::{gates::gate_gen::GateType};
 use num_bigint::{BigUint, ToBigUint};
 
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables. 

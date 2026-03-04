@@ -1,13 +1,13 @@
 use num_bigint::BigUint;
 use rand::{thread_rng, Rng};
-use crate::gates::gates::GateType;
-use crate::wires::wires::{Wire, Wires};
+use crate::gates::gate_gen::GateType;
+use crate::wires::wire_gen::{Wire, WireGen};
 use crate::crypto_utils::generate_label_lsb;
 
 #[derive(Clone, Copy)]
-pub struct PointAndPermuteWires;
+pub struct PointAndPermuteWireGen;
 
-impl Wires for PointAndPermuteWires {
+impl WireGen for PointAndPermuteWireGen {
     fn new() -> Self {
         Self
     }
@@ -16,7 +16,7 @@ impl Wires for PointAndPermuteWires {
         generate_wire()
     }
 
-    fn generate_output_wire(&self, _wi: &Wire, _wj: &Wire, _gate: &GateType, _gate_id: &BigUint) -> Wire {
+    fn generate_output_wire(&mut self, _wi: &Wire, _wj: &Wire, _gate: &GateType, _gate_id: &BigUint) -> Wire {
         generate_wire()
     }
 }

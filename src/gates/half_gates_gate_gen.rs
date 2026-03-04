@@ -1,18 +1,18 @@
 use num_bigint::BigUint;
 use crate::crypto_utils::gc_kdf_hg;
-use crate::gates::gates::{Gate, GateType, Gates};
-use crate::wires::half_gates_wires::HalfGateWires;
-use crate::wires::wires::{Wire, Wires};
+use crate::gates::gate_gen::{Gate, GateType, GateGen};
+use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
+use crate::wires::wire_gen::{Wire, WireGen};
 
-pub struct HalfGatesGates{
-    pub wires: HalfGateWires,
+pub struct HalfGatesGateGen {
+    pub wires: HalfGatesWireGen,
     index: BigUint,
 
 }
 
-impl Gates<HalfGateWires> for HalfGatesGates {
-    fn new(wires: HalfGateWires) -> Self {
-        HalfGatesGates { wires, index: BigUint::from(0u32)}
+impl GateGen<HalfGatesWireGen> for HalfGatesGateGen {
+    fn new(wires: HalfGatesWireGen) -> Self {
+        HalfGatesGateGen { wires, index: BigUint::from(0u32)}
     }
 
     fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire) -> Gate {

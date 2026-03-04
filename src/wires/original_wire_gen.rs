@@ -1,11 +1,11 @@
 use num_bigint::BigUint;
 use rand::{thread_rng, Rng};
-use crate::{gates::gates::GateType, wires::wires::{Wire, Wires}};
+use crate::{gates::gate_gen::GateType, wires::wire_gen::{Wire, WireGen}};
 
 #[derive(Clone, Copy)]
-pub struct OriginalWires;
+pub struct OriginalWireGen;
 
-impl Wires for OriginalWires {
+impl WireGen for OriginalWireGen {
     fn new() -> Self {
         Self
     }
@@ -13,7 +13,7 @@ impl Wires for OriginalWires {
         generate_wire()
     }
 
-    fn generate_output_wire(&self, _wi: &Wire, _wj: &Wire, _gate: &GateType, _gate_id: &BigUint) -> Wire {
+    fn generate_output_wire(&mut self, _wi: &Wire, _wj: &Wire, _gate: &GateType, _gate_id: &BigUint) -> Wire {
         generate_wire()
     }
 }

@@ -1,32 +1,29 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
-use crate::wires::wires::{Wire, Wires};
+use crate::gates::gate_gen::{Gate, GateType, GateGen};
+use crate::wires::wire_gen::{Wire, WireGen};
 
-use rand::{thread_rng};
-use rand::seq::SliceRandom;
-use crate::gates::gates::{Gate, GateType, Gates};
-pub struct OriginalGates<W: Wires> {
+pub struct PointAndPermuteGateGen<W: WireGen> {
     pub wires: W,
     pub index: BigUint,
 }
 
-impl<W: Wires> Gates<W> for OriginalGates<W> {
+impl<W: WireGen> GateGen<W> for PointAndPermuteGateGen<W> {
     fn new(wires: W) -> Self {
-        OriginalGates{ wires, index: BigUint::from(0u32)}
+        PointAndPermuteGateGen { wires, index: BigUint::from(0u32), }
     }
 
-    fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire ) -> Gate {
+    fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire) -> Gate {
         let wo = self.wires.generate_output_wire(&wi, &wj, &gate, &self.index);
         let tt = self.get_tt(&wi, &wj, &wo, &gate);
-        let mut table = vec![];
+        let mut table = vec![BigUint::from(0u8); 4];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
         for (il, ir, out) in tt {
-            let key = crypto_utils::gc_kdf(&il, &ir, &self.index);
-            let zero_padded_out = out << 128;
-            let ct = key ^ zero_padded_out;
-            table.push(ct);
+            let key = crypto_utils::gc_kdf_128(&il, &ir, &self.index);
+            let ct = key ^ out;
+            let pos = get_position(&il, &ir);
+            table[pos]= ct;
         }
-        table.shuffle(&mut thread_rng());
         let gate = Gate {
             gate_type: gate, table, wi, wj, wo
         };
@@ -41,4 +38,11 @@ impl<W: Wires> Gates<W> for OriginalGates<W> {
         self.index += 1u32;
         &self.index
     }
+
+}
+
+pub fn get_position(il: &BigUint, ir: &BigUint) -> usize {
+    let l = il.bit(0) as usize;
+    let r = ir.bit(0) as usize;
+    l * 2 + r
 }

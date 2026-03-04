@@ -1,12 +1,12 @@
 use num_bigint::{BigUint};
 
-use crate::gates::gates::GateType;
+use crate::gates::gate_gen::GateType;
 
 // A wire has two label values, representing bit 0 and 1. 
-pub trait Wires {
+pub trait WireGen {
     fn new() -> Self;
     fn generate_input_wire(&self) -> Wire;
-    fn generate_output_wire(&self, wi: &Wire, wj: &Wire, gate: &GateType, index: &BigUint) -> Wire;
+    fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, index: &BigUint) -> Wire;
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -5,16 +5,16 @@ use gc_machine::evaluator::evaluator::Evaluator;
 use gc_machine::evaluator::original_evaluator::OriginalEvaluator;
 use gc_machine::evaluator::point_and_permute_evaluator::PointAndPermuteEvaluator;
 use gc_machine::garbler::Garbler;
-use gc_machine::gates::point_and_permute_gates::PointAndPermuteGates;
-use gc_machine::wires::point_and_permute_wires::PointAndPermuteWires;
-use gc_machine::gates::gates::{GateType, Gates};
-use gc_machine::gates::original_gates::OriginalGates;
-use gc_machine::wires::original_wires::OriginalWires;
+use gc_machine::gates::point_and_permute_gate_gen::PointAndPermuteGateGen;
+use gc_machine::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
+use gc_machine::gates::gate_gen::{GateType, GateGen};
+use gc_machine::gates::original_gate_gen::OriginalGateGen;
+use gc_machine::wires::original_wire_gen::OriginalWireGen;
 use gc_machine::{crypto_utils, websocket::{self, SocketConfig}};
 use num_bigint::{BigUint, ToBigUint};
 use gc_machine::ot::ot::{self, PublicParameters};
 use gc_machine::ot::ot::encrypt;
-use gc_machine::wires::wires::Wires;
+use gc_machine::wires::wire_gen::WireGen;
 use tokio_tungstenite::tungstenite::Message;
 
 #[test]
@@ -23,10 +23,10 @@ fn can_compare_a_bit_using_std_yao() {
 
     // 1. Garbler creates circuit, a single XOR gate, and sends to evaluator
     let gate = GateType::XOR;
-    let wire_gen = OriginalWires::new();
+    let wire_gen = OriginalWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = OriginalGates::new(wire_gen);
+    let mut gate_gen = OriginalGateGen::new(wire_gen);
     let current_index = gate_gen.get_index().clone();
     let xor_gate = gate_gen.generate_gate(gate, wi, wj);
     // 2. Evaluator receives circuit and chooses which bit-label he wants using OT.
@@ -76,8 +76,8 @@ async fn websocket_can_tx_and_rx_10_msg() {
 
 #[test] 
 fn can_evaluate_or_circuit() {
-    let wire_gen = PointAndPermuteWires::new();
-    let gate_gen = PointAndPermuteGates::new(wire_gen);
+    let wire_gen = PointAndPermuteWireGen::new();
+    let gate_gen = PointAndPermuteGateGen::new(wire_gen);
     let mut garbler = Garbler::new(gate_gen, wire_gen);
     let mut evaluator = PointAndPermuteEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
@@ -103,8 +103,8 @@ fn can_evaluate_or_circuit() {
 
 #[test]
 fn can_evaluate_xnor_circuit() {
-    let wire_gen = PointAndPermuteWires::new();
-    let gate_gen = PointAndPermuteGates::new(wire_gen);
+    let wire_gen = PointAndPermuteWireGen::new();
+    let gate_gen = PointAndPermuteGateGen::new(wire_gen);
     let mut garbler = Garbler::new(gate_gen, wire_gen);
     let mut evaluator = PointAndPermuteEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
@@ -139,8 +139,8 @@ fn can_evaluate_xnor_circuit() {
 // Tests for positive and negative case. Also for when inputs have unequal amount of bits. Should perhaps be split up at some point
 #[test] 
 fn can_evaluate_is_equal_circuit() {
-    let wire_gen = OriginalWires::new();
-    let gate_gen = OriginalGates::new(wire_gen);
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen);
     let mut garbler = Garbler::new(gate_gen, wire_gen);
     let mut evaluator = OriginalEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
