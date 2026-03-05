@@ -1,10 +1,10 @@
 use std::ops::Add;
 use std::collections::VecDeque;
 
-use crate::{gates::gates::GateType};
+use crate::{gates::gate_gen::GateType};
 use num_bigint::{BigUint, ToBigUint};
 
-// Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables. 
+// Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id. 
 // This way we can provide two wire id's from other gates as input, and ensure to provide the correct values. The wire id does not neccesarlly correlate to the id of the gate genereated in wire_gen.
@@ -74,14 +74,26 @@ impl CircuitBuilder {
         output
     }
 
-    pub fn build_or(&mut self, input_wi_0: &WireBuild, input_wi_1: &WireBuild, input_wj_0: &WireBuild, input_wj_1: &WireBuild) -> WireBuild { // or gate needs 4 input wires
-        let xor_0 = self.build_gate(input_wi_0, input_wj_0, GateType::XOR);
-        let and_0 = self.build_gate(input_wi_1, input_wj_1, GateType::AND);
-        let xor_1 = self.build_gate(&xor_0.wo(), &and_0.wo(), GateType::XOR);
-        let output = xor_1.wo().clone();
+    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild, input_wi_1: &WireBuild, input_wj_1: &WireBuild) -> WireBuild { // or gate needs 4 input wires
+
+        let xor_0 = self.build_xor(input_wi, input_wj);
+        let and_0 = self.build_and(&input_wi_1, &input_wj_1);
+        let xor_1 = self.build_xor(&xor_0, &and_0);
+        let output = xor_1.clone();
 
         output
     }
+
+    fn build_and(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+        let and =self.build_gate(input_wi, input_wj, GateType::AND);
+        and.wo().clone()
+    }
+
+    fn build_xor(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+        let xor = self.build_gate(input_wi, input_wj, GateType::XOR);
+        xor.wo().clone()
+    }
+
 
     // Builds all gates needed to create a xnor, returns them and the final output 
     pub fn build_xnor(&mut self, wi: &WireBuild, wj: &WireBuild) -> WireBuild {

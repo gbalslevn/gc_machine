@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::{
     garbler::CircuitEval,
-    gates::gates::GateType, ot::eg_elliptic::{self, CipherText},
+    gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText},
 };
 
 pub trait Evaluator {

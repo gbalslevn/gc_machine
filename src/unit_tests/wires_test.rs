@@ -1,17 +1,17 @@
 use num_bigint::{BigUint};
 use crate::crypto_utils::{self, gc_kdf_128, gc_kdf_hg, generate_label_lsb};
-use crate::gates::gates::GateType;
-use crate::wires::free_xor_wires::FreeXORWires;
-use crate::wires::original_wires::OriginalWires;
-use crate::wires::point_and_permute_wires::PointAndPermuteWires;
-use crate::wires::grr3_wires::{GRR3Wires, get_00_wire};
-use crate::wires::half_gates_wires::HalfGateWires;
+use crate::gates::gate_gen::GateType;
+use crate::wires::free_xor_wire_gen::FreeXORWireGen;
+use crate::wires::original_wire_gen::OriginalWireGen;
+use crate::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
+use crate::wires::grr3_wire_gen::{GRR3WireGen, get_00_wire};
+use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
 // use crate::wires::free_xor_wires::FreeXORWires;
-use crate::wires::wires::{Wire, Wires};
+use crate::wires::wire_gen::{Wire, WireGen};
 
 #[test]
 fn test_generate_input_wires_returns_two_wires() {
-    let mut wire_gen = OriginalWires::new();
+    let mut wire_gen = OriginalWireGen::new();
     let w = wire_gen.generate_input_wire();
     assert!(w.w0().bits() <= 128);
     assert!(w.w1().bits() <= 128);
@@ -19,7 +19,7 @@ fn test_generate_input_wires_returns_two_wires() {
 
 #[test]
 fn test_generate_input_wires_randomness() {
-    let mut wire_gen = OriginalWires::new();
+    let mut wire_gen = OriginalWireGen::new();
     let w_0 = wire_gen.generate_input_wire();
     let w_1 = wire_gen.generate_input_wire();
 
@@ -29,7 +29,7 @@ fn test_generate_input_wires_randomness() {
 
 #[test]
 fn test_generate_input_wires_opposite_lsb() {
-    let mut wire_gen = PointAndPermuteWires::new();
+    let mut wire_gen = PointAndPermuteWireGen::new();
     let w = wire_gen.generate_input_wire();
 
     // One should have LSB=0, the other LSB=1
@@ -67,13 +67,13 @@ fn test_get_00_wire_panics_when_no_pair() {
     let wi = Wire::new(w0i, w1i);
     let wj = Wire::new(w0j, w1j);
     
-    let mut wire_gen = GRR3Wires::new();
+    let mut wire_gen = GRR3WireGen::new();
     wire_gen.generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
 }
 
 #[test]
 fn test_generate_grr3_and_wires_opposite_lsb() {
-    let mut wire_gen = GRR3Wires::new();
+    let mut wire_gen = GRR3WireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let gate_id = BigUint::from(1u32);
@@ -85,7 +85,7 @@ fn test_generate_grr3_and_wires_opposite_lsb() {
 
 #[test]
 fn test_generate_xor_wires_opposite_lsb() {
-    let mut wire_gen = GRR3Wires::new();
+    let mut wire_gen = GRR3WireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let gate_id = BigUint::from(1u32);
@@ -97,7 +97,7 @@ fn test_generate_xor_wires_opposite_lsb() {
 
 #[test]
 fn are_output_wires_xor_of_input() {
-    let mut wire_gen = FreeXORWires::new();
+    let mut wire_gen = FreeXORWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let gate_id = BigUint::from(1u32);
@@ -110,7 +110,8 @@ fn are_output_wires_xor_of_input() {
 
 #[test]
 fn are_and_wires_using_delta() {
-    let mut wire_gen = FreeXORWires::new();
+    let mut wire_gen = FreeXORWireGen::new();
+    let delta = &wire_gen.delta().clone();
 
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
@@ -122,7 +123,7 @@ fn are_and_wires_using_delta() {
 
 #[test]
 fn do_lsb_determine_output_wires() {
-    let mut wire_gen = HalfGateWires::new();
+    let mut wire_gen = HalfGatesWireGen::new();
     let mut rng = wire_gen.get_rng().clone();
     let gate = GateType::AND;
     let gate_id = BigUint::from(0u32);

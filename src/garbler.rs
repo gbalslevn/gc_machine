@@ -5,15 +5,15 @@ use num_bigint::{BigUint, ToBigUint};
 use rand_chacha::ChaCha20Rng;
 
 use crate::{
-    circuit_builder::CircuitBuild, gates::gates::{GateType, Gates}, ot::eg_elliptic::{self, CipherText}, wires::wires::{Wire, Wires}
+    circuit_builder::CircuitBuild, gates::gate_gen::{GateGen, GateType}, ot::eg_elliptic::{self, CipherText}, wires::wire_gen::{Wire, WireGen}
 };
 
-pub struct Garbler<G: Gates<W>, W: Wires> {
+pub struct Garbler<G: GateGen<W>, W: WireGen> {
     gate_gen: G,
     wire_gen: W,
 }
 
-impl<G: Gates<W>, W: Wires> Garbler<G, W> {
+impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
     pub fn new(gate: G, wire: W) -> Self {
         Self {
             gate_gen: gate,

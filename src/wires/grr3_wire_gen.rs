@@ -1,15 +1,15 @@
 use num_bigint::BigUint;
 use rand_chacha::ChaCha20Rng;
-use crate::gates::gates::GateType;
-use crate::wires::wires::{Wire, Wires};
+use crate::gates::gate_gen::GateType;
+use crate::wires::wire_gen::{Wire, WireGen};
 use crate::crypto_utils::{self, gc_kdf_128, generate_label_lsb};
 
 #[derive(Clone)]
-pub struct GRR3Wires {
+pub struct GRR3WireGen {
     rng : ChaCha20Rng
 }
 
-impl Wires for GRR3Wires {
+impl WireGen for GRR3WireGen {
     fn new() -> Self {
         let rng = crypto_utils::gen_rng();
         Self { rng }

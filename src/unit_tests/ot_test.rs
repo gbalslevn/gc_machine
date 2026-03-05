@@ -1,6 +1,6 @@
 use glass_pumpkin::safe_prime;
 use num_bigint::{BigUint, ToBigUint};
-use crate::{crypto_utils, ot::{eg_elliptic::{self}, eg_finite_field::{self}}, wires::{point_and_permute_wires::PointAndPermuteWires, wires::Wires}};
+use crate::{crypto_utils, ot::{self, eg_elliptic, eg_finite_field::{self, PublicParameters, RealKeyPair}}, wires::{point_and_permute_wire_gen::PointAndPermuteWireGen, wire_gen::WireGen}};
 
 #[cfg(test)]
 
@@ -44,9 +44,9 @@ fn oblivious_key_element_h_should_be_in_multiplicative_subgroup() {
 
 #[test]
 fn real_pk_should_decrypt_correctly() {
-    let pp = eg_finite_field::PublicParameters::new();
-    let real_keypair = eg_finite_field::RealKeyPair::new(&pp);
-    let mut wire_gen = PointAndPermuteWires::new();
+    let pp = PublicParameters::new();
+    let real_keypair = RealKeyPair::new(&pp);
+    let mut wire_gen = PointAndPermuteWireGen::new();
     let plaintext  = wire_gen.generate_input_wire().w0().clone();
     let cipher_text = eg_finite_field::encrypt( &pp, &real_keypair.get_public_key(), &plaintext);
     let decrypted_ciphertext = eg_finite_field::decrypt(&pp, &real_keypair.get_secret_key(), &cipher_text);

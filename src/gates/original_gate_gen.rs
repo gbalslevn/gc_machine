@@ -2,20 +2,21 @@ use num_bigint::{BigUint};
 use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::RngCore;
 use crate::crypto_utils;
-use crate::wires::wires::{Wire, Wires};
-use crate::gates::gates::{Gate, GateType, Gates};
-pub struct OriginalGates<W: Wires> {
-    pub wires: W,
+use crate::wires::wire_gen::{Wire, WireGen};
+
+use crate::gates::gate_gen::{Gate, GateType, GateGen};
+pub struct OriginalGateGen<W: WireGen> {
+    pub wire_gen: W,
     pub index: BigUint,
 }
 
-impl<W: Wires> Gates<W> for OriginalGates<W> {
-    fn new(wires: W) -> Self {
-        OriginalGates{ wires, index: BigUint::from(0u32)}
+impl<W: WireGen> GateGen<W> for OriginalGateGen<W> {
+    fn new(wire_gen: W) -> Self {
+        OriginalGateGen { wire_gen, index: BigUint::from(0u32)}
     }
 
     fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire ) -> Gate {
-        let wo = self.wires.generate_output_wire(&wi, &wj, &gate, &self.index);
+        let wo = self.wire_gen.generate_output_wire(&wi, &wj, &gate, &self.index);
         let tt = self.get_tt(&wi, &wj, &wo, &gate);
         let mut table = vec![];
         // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
@@ -25,7 +26,7 @@ impl<W: Wires> Gates<W> for OriginalGates<W> {
             let ct = key ^ zero_padded_out;
             table.push(ct);
         }
-        let mut rng = self.wires.get_rng().clone();
+        let mut rng = self.wire_gen.get_rng().clone();
         shuffle_vec(&mut rng, &mut table);
         let gate = Gate {
             gate_type: gate, table, wi, wj, wo

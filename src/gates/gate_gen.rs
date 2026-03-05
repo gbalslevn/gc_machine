@@ -1,6 +1,6 @@
 use num_bigint::{BigUint};
 
-use crate::{garbler::GateEval, wires::wires::{Wire, Wires}};
+use crate::{garbler::GateEval, wires::wire_gen::{Wire, WireGen}};
 
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -9,8 +9,8 @@ pub enum GateType {
     AND
 }
 
-pub trait Gates<W: Wires> {
-    fn new(wires: W) -> Self;
+pub trait GateGen<W: WireGen> {
+    fn new(wire_gen: W) -> Self;
 
     fn generate_gate(&mut self, gate : GateType, wi: Wire, wj: Wire) -> Gate;
     fn get_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire, gate: &GateType) -> [(BigUint, BigUint, BigUint); 4] {

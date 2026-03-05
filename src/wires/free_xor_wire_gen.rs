@@ -1,26 +1,26 @@
 use num_bigint::{BigUint};
 use rand_chacha::ChaCha20Rng;
-use crate::gates::gates::GateType;
-use crate::wires::wires::{Wire, Wires};
+use crate::gates::gate_gen::GateType;
+use crate::wires::wire_gen::{Wire, WireGen};
 use crate::crypto_utils::{self, gc_kdf_128, generate_label, generate_label_lsb};
 
 #[derive(Clone)]
-pub struct FreeXORWires {
+pub struct FreeXORWireGen {
     pub delta: BigUint,
     rng : ChaCha20Rng
 }
 
-impl FreeXORWires {
+impl FreeXORWireGen {
     pub fn delta(&self) -> &BigUint {
         &self.delta // Why does each each wire need to hold delta? Perhaps the gate should and we make a standard wire struct for all gates. Even better the garbler should hold it. 
     }
 }
 
-impl Wires for FreeXORWires {
+impl WireGen for FreeXORWireGen {
     fn new() -> Self {
         let mut rng = crypto_utils::gen_rng();
         let delta = generate_label_lsb(&mut rng, true); // to ensure point and permute holds
-        FreeXORWires { delta, rng }
+        FreeXORWireGen { delta, rng }
     }
 
     fn generate_input_wire(&mut self) -> Wire {
