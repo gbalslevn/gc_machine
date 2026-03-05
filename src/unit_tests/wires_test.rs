@@ -1,5 +1,5 @@
 use num_bigint::{BigUint};
-use crate::crypto_utils::{gc_kdf_128, gc_kdf_hg, generate_label_lsb};
+use crate::crypto_utils::{self, gc_kdf_128, gc_kdf_hg, generate_label_lsb};
 use crate::gates::gate_gen::GateType;
 use crate::wires::free_xor_wire_gen::FreeXORWireGen;
 use crate::wires::original_wire_gen::OriginalWireGen;
@@ -38,10 +38,11 @@ fn test_generate_input_wires_opposite_lsb() {
 
 #[test]
 fn test_get_00_wire_finds_correct_pair() {
-    let w0i = generate_label_lsb(false); // LSB = 0
-    let w1i = generate_label_lsb(true);  // LSB = 1
-    let w0j = generate_label_lsb(true); // LSB = 1
-    let w1j = generate_label_lsb(false);  // LSB = 0
+    let mut rng = crypto_utils::gen_rng();
+    let w0i = generate_label_lsb(&mut rng,false); // LSB = 0
+    let w1i = generate_label_lsb(&mut rng,true);  // LSB = 1
+    let w0j = generate_label_lsb(&mut rng,true);  // LSB = 1
+    let w1j = generate_label_lsb(&mut rng,false); // LSB = 0
     let gate_id = BigUint::from(1u32);
 
     let wi = Wire::new(w0i, w1i);
@@ -56,10 +57,11 @@ fn test_get_00_wire_finds_correct_pair() {
 #[test]
 #[should_panic(expected = "Couldn't find where both wires lsb was 0")]
 fn test_get_00_wire_panics_when_no_pair() {
-    let w0i = generate_label_lsb(true);  // LSB = 1
-    let w1i = generate_label_lsb(true);  // LSB = 1
-    let w0j = generate_label_lsb(true);  // LSB = 1
-    let w1j = generate_label_lsb(true);  // LSB = 1
+    let mut rng = crypto_utils::gen_rng();
+    let w0i = generate_label_lsb(&mut rng,true);  // LSB = 1
+    let w1i = generate_label_lsb(&mut rng,true);  // LSB = 1
+    let w0j = generate_label_lsb(&mut rng, true); // LSB = 1
+    let w1j = generate_label_lsb(&mut rng, true); // LSB = 1
     let gate_id = BigUint::from(1u32);
 
     let wi = Wire::new(w0i, w1i);
@@ -109,28 +111,28 @@ fn are_output_wires_xor_of_input() {
 #[test]
 fn are_and_wires_using_delta() {
     let mut wire_gen = FreeXORWireGen::new();
-    let delta = &wire_gen.delta().clone();
 
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let gate_id = BigUint::from(1u32);
     let wo = wire_gen.generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
-    assert_eq!(&(wo.w0() ^ delta), wo.w1());
+
+    assert_eq!(&(wo.w0() ^ wire_gen.delta()), wo.w1());
 }
 
 #[test]
 fn do_lsb_determine_output_wires() {
     let mut wire_gen = HalfGatesWireGen::new();
-    let delta = &wire_gen.delta().clone();
+    let mut rng = wire_gen.get_rng().clone();
     let gate = GateType::AND;
     let gate_id = BigUint::from(0u32);
     let next_gate_id = BigUint::from(1u32);
 
-    let wi0 = generate_label_lsb(true);
-    let wi1 = &wi0 ^ delta;
+    let wi0 = generate_label_lsb(&mut rng, true);
+    let wi1 = &wi0 ^ wire_gen.delta();
     let wi = Wire::new(wi0, wi1);
-    let wj0 = generate_label_lsb(false);
-    let wj1 = &wj0 ^ delta;
+    let wj0 = generate_label_lsb(&mut rng, false);
+    let wj1 = &wj0 ^ wire_gen.delta();
     let wj = Wire::new(wj0, wj1);
     let wo = wire_gen.generate_output_wire(&wi, &wj, &gate, &gate_id);
 
@@ -140,5 +142,5 @@ fn do_lsb_determine_output_wires() {
     let we0 = gc_kdf_hg(&wj.w0(), &next_gate_id);
     let w0 = wg0 ^ we0;
     assert_eq!(wo.w0(), &w0);
-    assert_eq!(wo.w1(), &(&w0 ^ delta));
+    assert_eq!(wo.w1(), &(&w0 ^ wire_gen.delta()));
 }

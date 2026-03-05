@@ -1,12 +1,14 @@
 use num_bigint::BigUint;
+use rand_chacha::ChaCha20Rng;
 use crate::gates::gate_gen::GateType;
 use crate::wires::wire_gen::{Wire, WireGen};
-use crate::crypto_utils::{gc_kdf_128, generate_label_lsb, generate_label, gc_kdf_hg};
+use crate::crypto_utils::{self, gc_kdf_128, gc_kdf_hg, generate_label, generate_label_lsb};
 
 pub struct HalfGatesWireGen {
     pub delta: BigUint,
     pub tg: BigUint,
     pub te: BigUint,
+    pub rng : ChaCha20Rng
 }
 
 impl HalfGatesWireGen {
@@ -24,14 +26,14 @@ impl HalfGatesWireGen {
 
 impl WireGen for HalfGatesWireGen {
     fn new() -> Self {
-        let delta = generate_label_lsb(true); // to ensure point and permute holds
-        HalfGatesWireGen { delta, tg: BigUint::from(0u32), te: BigUint::from(0u32) }
+        let mut rng = crypto_utils::gen_rng();
+        let delta = generate_label_lsb(&mut rng, true); // to ensure point and permute holds
+        HalfGatesWireGen { delta, tg: BigUint::from(0u32), te: BigUint::from(0u32), rng : rng }
     }
 
-    fn generate_input_wire(&self) -> Wire {
-        let delta = self.delta();
-        let w0 = generate_label();
-        let w1 = &w0 ^ delta;
+    fn generate_input_wire(&mut self) -> Wire {
+        let w0 = generate_label(&mut self.rng);
+        let w1 = &w0 ^ self.delta();
         Wire::new(w0, w1)
     }
     fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
@@ -39,6 +41,12 @@ impl WireGen for HalfGatesWireGen {
             GateType::AND=>generate_and_wires(self, &wi, &wj, gate_id),
             GateType::XOR=>generate_xor_wires(self, &wi, &wj, gate_id),
         }
+    }
+    fn get_rng(&self) -> &rand_chacha::ChaCha20Rng {
+        &self.rng
+    }
+    fn new_rng(&mut self) {
+        self.rng = crypto_utils::gen_rng();
     }
 }
 

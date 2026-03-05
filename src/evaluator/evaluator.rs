@@ -1,10 +1,10 @@
+use k256::{PublicKey, SecretKey};
 use num_bigint::BigUint;
 use std::collections::HashMap;
 
 use crate::{
     garbler::CircuitEval,
-    gates::gate_gen::GateType,
-    ot::ot::{self, CipherText, PublicKey, PublicParameters, SecretKey},
+    gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText},
 };
 
 pub trait Evaluator {
@@ -54,7 +54,7 @@ pub trait Evaluator {
             let wi;
             let wj;
             if gate.is_input_gate {
-                wj = decrypt_wj_input(&eval_keys, self.get_pp(), wires_j, gate_index);
+                wj = decrypt_wj_input(&eval_keys, wires_j, gate_index);
                 wi = wires_i[outputs.len() - 2].clone();
             } else {
                 // It should already have been calculated and kept in map
@@ -86,18 +86,19 @@ pub trait Evaluator {
         let mut input_choices = vec![];
         let mut decrypt_choices = vec![];
         for i in 0..required_bits {
-            let keypair_real = ot::RealKeyPair::new(&self.get_pp());
-            let pk_real = keypair_real.get_public_key();
-            let sk_real = keypair_real.get_secret_key();
-            let pk_oblivious = ot::ObliviousKeyPair::new(&self.get_pp()).get_public_key();
+            let keypair_real = eg_elliptic::RealKeyPair::new();
+            let pk_real = keypair_real.get_pk();
+            let sk_real = keypair_real.get_sk();
+            let keypair_oblivious = eg_elliptic::ObliviousKeyPair::new();
+            let pk_obl = keypair_oblivious.get_pk();
             let bit = input.bit(i) as u8;
             let choice;
             let decrypt_choice;
             if bit == 0 {
-                choice = [pk_real.clone(), pk_oblivious.clone()];
+                choice = [pk_real.clone(), pk_obl.clone()];
                 decrypt_choice = (sk_real.clone(), 0 as u8);
             } else {
-                choice = [pk_oblivious.clone(), pk_real.clone()];
+                choice = [pk_obl.clone(), pk_real.clone()];
                 decrypt_choice = (sk_real.clone(), 1 as u8);
             }
             input_choices.push(choice);
@@ -108,12 +109,10 @@ pub trait Evaluator {
     }
     fn increment_index(&mut self);
     fn get_index(&self) -> &BigUint;
-    fn get_pp(&self) -> &PublicParameters;
 }
 
 fn decrypt_wj_input(
     eval_keys: &Vec<(SecretKey, u8)>,
-    pp: &PublicParameters,
     wires_j: &Vec<(CipherText, CipherText)>,
     gate_index: usize,
 ) -> BigUint {
@@ -125,6 +124,6 @@ fn decrypt_wj_input(
         1 => &ct.1,
         _ => panic!("Invalid bit value: must be 0 or 1"),
     };
-    let wj = ot::decrypt(&pp, &secret_key, wj_ct);
+    let wj = eg_elliptic::decrypt(&secret_key, wj_ct);
     wj
 }

@@ -1,12 +1,11 @@
 use std::{collections::HashMap};
 
+use k256::PublicKey;
 use num_bigint::{BigUint, ToBigUint};
+use rand_chacha::ChaCha20Rng;
 
 use crate::{
-    circuit_builder::CircuitBuild,
-    gates::gate_gen::{GateType, GateGen},
-    ot::ot::{self, CipherText, PublicKey, PublicParameters},
-    wires::wire_gen::{Wire, WireGen},
+    circuit_builder::CircuitBuild, gates::gate_gen::{GateGen, GateType}, ot::eg_elliptic::{self, CipherText}, wires::wire_gen::{Wire, WireGen}
 };
 
 pub struct Garbler<G: GateGen<W>, W: WireGen> {
@@ -26,7 +25,6 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         circuit_build: &CircuitBuild,
         garblers_input_choices: &Vec<u8>,
         evaluators_input_choices: Vec<[PublicKey; 2]>,
-        pp: &PublicParameters,
     ) -> (
         CircuitEval,
         Vec<BigUint>,
@@ -57,6 +55,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         );
 
         let mut gate_index = 0;
+        let mut rng = self.wire_gen.get_rng().clone();
         for gate in gates {
             let gate_is_input_layer = gate.wo().output_layer() == &1.to_biguint().unwrap();
             if gate_is_input_layer {
@@ -64,7 +63,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
                 wj = self.wire_gen.generate_input_wire();
                 // Encrypt with received publickeys from OT. The real and the oblivious
                 let wj_encrypted =
-                    self.gen_encrypted_wire(&wj, &evaluators_input_choices[gate_index], &pp);
+                    self.gen_encrypted_wire(&wj, &evaluators_input_choices[gate_index], &mut rng);
 
                 let garbler_input_choice = garblers_input_choices[gate_index];
                 let selected_wire = match garbler_input_choice {
@@ -128,12 +127,12 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         &self,
         wire: &Wire,
         input_choice: &[PublicKey; 2],
-        pp: &PublicParameters,
+        rng : &mut ChaCha20Rng
     ) -> (CipherText, CipherText) {
         let pk_0 = &input_choice[0];
-        let wj_0_ct = ot::encrypt(&pp, pk_0, wire.w0());
+        let wj_0_ct = eg_elliptic::encrypt(rng, pk_0, wire.w0());
         let pk_1 = &input_choice[1];
-        let wj_1_ct = ot::encrypt(&pp, pk_1, wire.w1());
+        let wj_1_ct = eg_elliptic::encrypt(rng, pk_1, wire.w1());
 
         let wj_encrypted = (wj_0_ct, wj_1_ct);
         wj_encrypted

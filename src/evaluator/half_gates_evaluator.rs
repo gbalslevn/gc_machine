@@ -1,17 +1,15 @@
-use crate::{evaluator::evaluator::Evaluator, ot::ot::PublicParameters};
+use crate::{evaluator::evaluator::Evaluator};
 use crate::crypto_utils::gc_kdf_hg;
 use num_bigint::{BigUint};
 
 pub struct HalfGatesEvaluator {
     index: BigUint,
-    pp : PublicParameters
 }
 
 impl HalfGatesEvaluator {
     pub fn new() -> Self {
         HalfGatesEvaluator {
             index: BigUint::from(0u32),
-            pp : PublicParameters::new()
         }
     }
 }
@@ -39,10 +37,6 @@ impl Evaluator for HalfGatesEvaluator {
 
     fn get_index(&self) -> &BigUint {
         &self.index
-    }
-
-    fn get_pp(&self) -> &PublicParameters {
-        &self.pp
     }
 }
 

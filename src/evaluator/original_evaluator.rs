@@ -1,17 +1,14 @@
 use crate::evaluator::evaluator::Evaluator;
 use crate::crypto_utils::gc_kdf;
-use crate::ot::ot::PublicParameters;
 use num_bigint::BigUint;
 pub struct OriginalEvaluator {
     index: BigUint,
-    pp : PublicParameters
 }
 
 impl OriginalEvaluator {
     pub fn new() -> Self {
         OriginalEvaluator {
             index: BigUint::from(0u32),
-            pp : PublicParameters::new()
         }
     }
 }
@@ -40,9 +37,5 @@ impl Evaluator for OriginalEvaluator {
 
     fn get_index(&self) -> &BigUint {
         &self.index
-    }
-
-    fn get_pp(&self) -> &crate::ot::ot::PublicParameters {
-        &self.pp
     }
 }

@@ -26,7 +26,6 @@ pub trait GateGen<W: WireGen> {
         [(wi.w0().clone(), wj.w0().clone(), wo.w0().clone()), (wi.w0().clone(), wj.w1().clone(), wo.w0().clone()), (wi.w1().clone(), wj.w0().clone(), wo.w0().clone()), (wi.w1().clone(), wj.w1().clone(), wo.w1().clone())]
     }
     fn get_index(&self) -> &BigUint;
-    
     fn increment_index(&mut self) -> &BigUint;
 }
 
