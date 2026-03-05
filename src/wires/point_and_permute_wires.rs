@@ -1,29 +1,40 @@
 use num_bigint::BigUint;
-use rand::{thread_rng, Rng};
+use rand_chacha::ChaCha20Rng;
 use crate::gates::gates::GateType;
 use crate::wires::wires::{Wire, Wires};
-use crate::crypto_utils::generate_label_lsb;
+use crate::crypto_utils::{self, generate_label_lsb};
 
-pub struct PointAndPermuteWires;
+#[derive(Clone)]
+pub struct PointAndPermuteWires {
+    rng : ChaCha20Rng
+}
 
 impl Wires for PointAndPermuteWires {
     fn new() -> Self {
-        Self
+        let rng = crypto_utils::gen_rng();
+        Self { rng }
     }
 
-    fn generate_input_wire(&self) -> Wire {
-        generate_wire()
+    fn generate_input_wire(&mut self) -> Wire {
+        generate_wire(&mut self.rng)
     }
 
-    fn generate_output_wire(_wi: &Wire, _wj: &Wire, _gate: &GateType, _gate_id: &BigUint) -> Wire {
-        generate_wire()
+    fn generate_output_wire(&mut self, _wi: &Wire, _wj: &Wire, _gate: &GateType, _gate_id: &BigUint) -> Wire {
+        generate_wire(&mut self.rng)
+    }
+
+    fn get_rng(&self) -> &ChaCha20Rng {
+        &self.rng
+    }
+
+    fn new_rng(&mut self) {
+        self.rng = crypto_utils::gen_rng()
     }
 }
 
-fn generate_wire() -> Wire {
-    let mut rng = thread_rng();
-        let choice = rng.gen_bool(1.0 / 2.0);
-        let w0 = generate_label_lsb(choice);
-        let w1 = generate_label_lsb(!choice);
+fn generate_wire(rng : &mut ChaCha20Rng) -> Wire {
+        let choice = crypto_utils::gen_bool(rng);
+        let w0 = generate_label_lsb(rng, choice);
+        let w1 = generate_label_lsb(rng, !choice);
         Wire::new(w0, w1)
 }

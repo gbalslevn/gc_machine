@@ -4,13 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-num-bigint = { version = "0.4", features = ["rand"] }
-rand = "0.8"
+futures-channel = "0.3.32"
+futures-util = "0.3.32"
+num-bigint = "0.4"
 sha2 = "0.10.9"
+tokio = { version = "1.49.0", features = ["full"] }
+tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
 criterion = "0.3"
 stats_alloc = "0.1.10"
 glass_pumpkin = "1.10.0"
+uuid = {version = "1.21.0", features= ["v4"]}
+rustls = "0.23.37"
 k256 = "0.13.4"
+getrandom = "0.4.2"
+rand_chacha = "0.3.1"
 
 [[bench]]
 name = "bench"

@@ -1,32 +1,30 @@
-use num_bigint::{BigUint};
+use num_bigint::BigUint;
 use rand_chacha::ChaCha20Rng;
 use crate::gates::gates::GateType;
 use crate::wires::wires::{Wire, Wires};
-use crate::crypto_utils::{self, gc_kdf_128, generate_label, generate_label_lsb};
+use crate::crypto_utils::{self, gc_kdf_128, gc_kdf_hg, generate_label, generate_label_lsb};
 
-#[derive(Clone)]
-pub struct FreeXORWires {
+pub struct HalfGateWires {
     pub delta: BigUint,
-    rng : ChaCha20Rng
+    rng: ChaCha20Rng
 }
 
-impl FreeXORWires {
+impl HalfGateWires {
     pub fn delta(&self) -> &BigUint {
-        &self.delta // Why does each each wire need to hold delta? Perhaps the gate should and we make a standard wire struct for all gates. Even better the garbler should hold it. 
+        &self.delta
     }
 }
 
-impl Wires for FreeXORWires {
+impl Wires for HalfGateWires {
     fn new() -> Self {
         let mut rng = crypto_utils::gen_rng();
         let delta = generate_label_lsb(&mut rng, true); // to ensure point and permute holds
-        FreeXORWires { delta, rng }
+        HalfGateWires { delta, rng }
     }
 
     fn generate_input_wire(&mut self) -> Wire {
-        let delta = &self.delta;
         let w0 = generate_label(&mut self.rng);
-        let w1 = &w0 ^ delta;
+        let w1 = &w0 ^ self.delta();
         Wire::new(w0, w1)
     }
     fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
@@ -39,25 +37,44 @@ impl Wires for FreeXORWires {
     fn get_rng(&self) -> &ChaCha20Rng {
         &self.rng
     }
+
     fn new_rng(&mut self) {
         self.rng = crypto_utils::gen_rng()
     }
 }
 
-pub fn generate_and_wires(delta: &BigUint, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
+pub fn generate_and_wires(delta: &BigUint, wi: &Wire, wj: &Wire, index: &BigUint) -> Wire {
     let w0c;
     let w1c;
-    let w00 = get_00_wire(&wi, &wj, gate_id);
-    if !wi.w1().bit(0) && !wj.w1().bit(0) {
-        w0c = &w00 ^ delta.clone();
-        w1c = w00;
+    let pa = wi.w0().bit(0);
+    let pb = wj.w0().bit(0);
+    let j0 = index;
+    let j1 = j0 + 1u32;
+    let tg;
+    if pb {
+        tg = gc_kdf_hg(&wi.w0(), j0) ^ gc_kdf_hg(&wi.w1(), j0) ^ delta;
     } else {
-        w1c = &w00 ^ delta.clone();
-        w0c = w00;
+        tg = gc_kdf_hg(&wi.w0(), j0) ^ gc_kdf_hg(&wi.w1(), j0);
     }
+    let wg;
+    if pa {
+        wg = gc_kdf_hg(&wi.w0(), j0) ^ tg;
+    } else {
+        wg = gc_kdf_hg(&wi.w0(), j0)
+    }
+
+    let te = gc_kdf_hg(&wj.w0(), &j1) ^ gc_kdf_hg(&wj.w1(), &j1) ^ wi.w0();
+    let we;
+    if pb {
+        we = gc_kdf_hg(&wj.w0(), &j1) ^ te ^ wi.w0();
+    } else {
+        we = gc_kdf_hg(&wj.w0(), &j1)
+    }
+    w0c = wg ^ we;
+    w1c = &w0c ^ delta;
+
     Wire::new(w0c, w1c)
 }
-
 pub fn generate_xor_wires(delta: &BigUint, wi: &Wire, wj: &Wire, _gate_id: &BigUint) -> Wire {
     let w0c = wi.w0() ^ wj.w0();
     let w1c = &w0c ^ delta.clone();

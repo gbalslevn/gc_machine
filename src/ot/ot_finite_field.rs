@@ -1,10 +1,11 @@
-use std::ops::Mul;
 use num_bigint::{BigUint, ToBigUint};
 use glass_pumpkin::safe_prime;
-use rand::{thread_rng, Rng};
+use rand_chacha::{ChaCha20Rng, rand_core::RngCore};
 
+use crate::crypto_utils;
 
 // Global parameters for the group used in OT
+#[derive(Debug, Clone)]
 pub struct PublicParameters {
     p: BigUint, // Public modulus
     q: BigUint, // Prime subgroup order
@@ -24,7 +25,7 @@ impl PublicParameters {
     }
 
     fn generate_safe_prime() -> BigUint {
-        safe_prime::new(1000).unwrap()
+        safe_prime::new(200).unwrap()
     }
 
 
@@ -88,7 +89,8 @@ pub struct RealKeyPair {
 
 impl RealKeyPair {
     pub fn new(pp: &PublicParameters) -> Self {
-        let sk = RealKeyPair::secret_key_generator(&pp.q);
+        let mut rng = crypto_utils::gen_rng();
+        let sk = RealKeyPair::secret_key_generator(&mut rng, &pp.q);
         let pk = RealKeyPair::public_key_generator(&pp, &sk);
         RealKeyPair {
             secret_key: sk,
@@ -99,10 +101,10 @@ impl RealKeyPair {
     // Generates a random number \alpha \in Z_q.
     // if q=p-1/2 is at most 2000 bits, then we pick a random 2000 bit number \alpha, and make
     // sure that 0 <= \alpha <= q-1 and if not, we try again.
-    fn secret_key_generator(q: &BigUint) -> SecretKey {
+    fn secret_key_generator(rng : &mut ChaCha20Rng, q: &BigUint) -> SecretKey {
         let mut bytes = [0u8, 125];
         loop {
-            thread_rng().fill(&mut bytes);
+            rng.fill_bytes(&mut bytes);
             let alpha = BigUint::from_bytes_be(&bytes);
             if alpha < *q {
                 let sk = SecretKey {
@@ -136,21 +138,22 @@ pub struct ObliviousKeyPair {
 
 impl ObliviousKeyPair {
     pub fn new(pp: &PublicParameters) -> Self {
+        let mut rng = crypto_utils::gen_rng();
         ObliviousKeyPair {
-            public_key : Self::public_key_generator(&pp)
+            public_key : Self::public_key_generator(&mut rng, &pp)
         }
     }
     pub fn get_public_key(&self) -> PublicKey {
         self.public_key.clone()
     }
 
-    fn public_key_generator(pp: &PublicParameters) -> PublicKey {
+    fn public_key_generator(rng : &mut ChaCha20Rng, pp: &PublicParameters) -> PublicKey {
         // h is set as random element in Z_p after which it is converted to the subgroup of Z_p of order q
         // by squaring it mod p
         let mut bytes = [0, 250];
         let mut b: BigUint;
         loop {
-            thread_rng().fill(&mut bytes);
+            rng.fill_bytes(&mut bytes);
             b = BigUint::from_bytes_be(&bytes);
             if b < pp.p {
                 break;
@@ -164,10 +167,10 @@ impl ObliviousKeyPair {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CipherText {
-    c_1: BigUint,
-    c_2: BigUint,
+    pub c_1: BigUint,
+    pub c_2: BigUint,
 }
 
 impl CipherText {
@@ -179,7 +182,7 @@ impl CipherText {
     }
 }
 
-pub fn encrypt(pp: &PublicParameters, public_key: PublicKey, plaintext: &BigUint) -> CipherText {
+pub fn encrypt(pp: &PublicParameters, public_key: &PublicKey, plaintext: &BigUint) -> CipherText {
     // source randomness for encryption
     let r = generate_r(pp.get_q());
     let c_1 = public_key.get_g().modpow(&r, &pp.p);
@@ -193,9 +196,10 @@ pub fn encrypt(pp: &PublicParameters, public_key: PublicKey, plaintext: &BigUint
 }
 
 fn generate_r(q: &BigUint) -> BigUint {
+    let mut rng = crypto_utils::gen_rng();
     let mut bytes = [0u8, 125];
     loop {
-        thread_rng().fill(&mut bytes);
+        rng.fill_bytes(&mut bytes);
         let r = BigUint::from_bytes_be(&bytes);
         if r < *q {
             return r;
@@ -203,8 +207,8 @@ fn generate_r(q: &BigUint) -> BigUint {
     }
 }
 
-pub fn decrypt(pp: &PublicParameters, secret_key: SecretKey, ciphertext: CipherText) -> BigUint {
+pub fn decrypt(pp: &PublicParameters, secret_key: &SecretKey, ciphertext: &CipherText) -> BigUint {
     let c_1_pow_alpha = ciphertext.get_c_1().modpow(secret_key.get_alpha(), &pp.p);
     let c_1_pow_alpha_inv = c_1_pow_alpha.modinv(&pp.p).unwrap();
-    ciphertext.get_c_2().mul(c_1_pow_alpha_inv).modpow(&1.to_biguint().unwrap(), &pp.p)
+    (&ciphertext.c_2 * &c_1_pow_alpha_inv) % &pp.p
 }

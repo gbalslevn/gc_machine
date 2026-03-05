@@ -11,21 +11,24 @@ use crate::wires::original_wires::OriginalWires;
 use crate::wires::point_and_permute_wires::PointAndPermuteWires;
 use crate::wires::wires::{Wire, Wires};
 use num_bigint::{BigUint, ToBigUint};
+use crate::wires::half_gates_wires::HalfGateWires;
+use crate::gates::half_gates_gates::HalfGatesGates;
 
 #[test]
 // Gets all possible keys from two input wires and for each key, ensures 1 of the 4 output labels can be decrypted. Could also just do it for one key.
 fn can_decrypt_std_yao_gate_labels() {
-    let gate_id = 0.to_biguint().unwrap();
-    let wire_gen = OriginalWires::new();
+    let mut wire_gen = OriginalWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let xor_gate = OriginalGates::new(GateType::XOR, wi, wj, gate_id.clone());
-
+    let gate = GateType::XOR;
+    let mut gate_gen = OriginalGates::new(wire_gen);
+    let current_index = gate_gen.get_index().clone();
+    let xor_gate = gate_gen.generate_gate(gate, wi, wj);
     let mut has_decrypted = false;
-    let key_0 = crypto_utils::gc_kdf(xor_gate.wi.w0(), xor_gate.wj.w0(), &gate_id);
-    let key_1 = crypto_utils::gc_kdf(xor_gate.wi.w1(), xor_gate.wj.w0(), &gate_id);
-    let key_2 = crypto_utils::gc_kdf(xor_gate.wi.w0(), xor_gate.wj.w1(), &gate_id);
-    let key_3 = crypto_utils::gc_kdf(xor_gate.wi.w1(), xor_gate.wj.w1(), &gate_id);
+    let key_0 = crypto_utils::gc_kdf(xor_gate.wi.w0(), xor_gate.wj.w0(), &current_index);
+    let key_1 = crypto_utils::gc_kdf(xor_gate.wi.w0(), xor_gate.wj.w1(), &current_index);
+    let key_2 = crypto_utils::gc_kdf(xor_gate.wi.w1(), xor_gate.wj.w0(), &current_index);
+    let key_3 = crypto_utils::gc_kdf(xor_gate.wi.w1(), xor_gate.wj.w1(), &current_index);
     let keys = vec![key_0, key_1, key_2, key_3];
     for output_label in &xor_gate.table {
         for key in &keys {
@@ -45,16 +48,16 @@ fn can_decrypt_std_yao_gate_labels() {
 
 #[test]
 fn output_labels_is_zero_padded_in_std_yao() {
-    let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::XOR;
-    let wire_gen = OriginalWires::new();
+    let mut wire_gen = OriginalWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gt = OriginalGates::new(GateType::XOR, wi, wj, gate_id);
+    let mut gate_gen = OriginalGates::new(wire_gen);
+    let gt = gate_gen.generate_gate(gate, wi, wj);
 
-    let tt = OriginalGates.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
+    let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
     for i in 0..4 {
-        let key = crypto_utils::gc_kdf(&tt[i].0, &tt[i].1, &gt.gate_id);
+        let key = crypto_utils::gc_kdf(&tt[i].0, &tt[i].1, gate_gen.get_index());
         for output_label in &gt.table {
             let decrypted_label = &key ^ output_label;
             let decrypted_label_no_padding: BigUint = (&key ^ output_label) >> 128;
@@ -69,10 +72,12 @@ fn output_labels_is_zero_padded_in_std_yao() {
 
 #[test] 
 fn original_gate_table_has_4_entries() {
-    let wire_gen = OriginalWires::new();
+    let gate = GateType::XOR;
+    let mut wire_gen = OriginalWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gt = OriginalGates::new(GateType::XOR, wi, wj, BigUint::ZERO);
+    let mut gate_gen = OriginalGates::new(wire_gen);
+    let gt = gate_gen.generate_gate(gate, wi, wj);
     assert_eq!(gt.table.len(), 4);
 }
 
@@ -88,7 +93,8 @@ fn xor_tt_gen_is_correct() {
     let zero_bit= 1.to_biguint().unwrap();
     let one_bit = 1.to_biguint().unwrap();
     let w = Wire::new(zero_bit.clone(), one_bit.clone());
-    let tt = OriginalGates.get_tt(&w, &w, &w, &GateType::XOR);
+    let gate_gen = OriginalGates::new(OriginalWires::new());
+    let tt = gate_gen.get_tt(&w, &w, &w, &GateType::XOR);
     for (il, ir, out) in tt {
         if il == zero_bit || il == zero_bit && ir == zero_bit {
             assert_eq!(out, zero_bit)
@@ -110,7 +116,8 @@ fn and_tt_gen_is_correct() {
     let zero_bit = 0.to_biguint().unwrap();
     let one_bit = 1.to_biguint().unwrap();
     let w = Wire::new(zero_bit.clone(), one_bit.clone());
-    let tt = OriginalGates.get_tt(&w, &w, &w, &GateType::AND);
+    let gate_gen = OriginalGates::new(OriginalWires::new());
+    let tt = gate_gen.get_tt(&w, &w, &w, &GateType::AND);
     for (il, ir, out) in tt {
         if il == zero_bit && ir == zero_bit {
             assert_eq!(out, zero_bit)
@@ -129,16 +136,17 @@ fn and_tt_gen_is_correct() {
 
 #[test]
 fn and_gate_uses_point_and_permute_order() {
-    let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::AND;
-    let wire_gen = PointAndPermuteWires::new();
+    let mut wire_gen = PointAndPermuteWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gt = PointAndPermuteGates::new(gate, wi, wj, gate_id);
-    let tt = PointAndPermuteGates.get_tt(&gt.wi, &gt.wj, &gt.wo, &gt.gate_type);
+    let mut gate_gen = PointAndPermuteGates::new(wire_gen);
+    let current_index = gate_gen.get_index().clone();
+    let gt = gate_gen.generate_gate(gate, wi, wj);
+    let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gt.gate_type);
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
-        let key = gc_kdf_128(&il, &ir, &gt.gate_id);
+        let key = gc_kdf_128(&il, &ir, &current_index);
         let dec = &key ^ &gt.table[pos];
         assert_eq!(out, dec);
     }
@@ -146,16 +154,17 @@ fn and_gate_uses_point_and_permute_order() {
 
 #[test]
 fn xor_gate_uses_point_and_permute_order() {
-    let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::XOR;
-    let wire_gen = PointAndPermuteWires::new();
+    let mut wire_gen = PointAndPermuteWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gt = PointAndPermuteGates::new(gate, wi, wj, gate_id);
-    let tt = PointAndPermuteGates.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
+    let mut gate_gen = PointAndPermuteGates::new(wire_gen);
+    let current_index = gate_gen.get_index().clone();
+    let gt = gate_gen.generate_gate(gate, wi, wj);
+    let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
-        let key = gc_kdf_128(&il, &ir, &gt.gate_id);
+        let key = gc_kdf_128(&il, &ir, &current_index);
         let dec = &key ^ &gt.table[pos];
         assert_eq!(out, dec);
     }
@@ -163,28 +172,29 @@ fn xor_gate_uses_point_and_permute_order() {
 
 #[test]
 fn gate_only_3_entries_grr3() {
-    let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::AND;
-    let wire_gen = GRR3Wires::new();
+    let mut wire_gen = GRR3Wires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gt = GRR3Gates::new(gate, wi, wj, gate_id);
+    let mut gate_gen = GRR3Gates::new(wire_gen);
+    let gt = gate_gen.generate_gate(gate, wi, wj);
 
     assert_eq!(gt.table.len(), 3);
 }
 
 #[test]
 fn are_and_output_labels_correct_grr3() {
-    let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::AND;
-    let wire_gen = GRR3Wires::new();
+    let mut wire_gen = GRR3Wires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gt = GRR3Gates::new(gate, wi, wj, gate_id);
-    let tt = GRR3Gates.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
+    let mut gate_gen = GRR3Gates::new(wire_gen);
+    let current_index = gate_gen.get_index().clone();
+    let gt = gate_gen.generate_gate(gate, wi, wj);
+    let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
-        let key = gc_kdf_128(&il, &ir, &gt.gate_id);
+        let key = gc_kdf_128(&il, &ir, &current_index);
         if pos != 0 {
             let dec = &key ^ &gt.table[pos - 1];
             assert_eq!(out, dec);
@@ -196,21 +206,22 @@ fn are_and_output_labels_correct_grr3() {
 
 #[test]
 fn xor_output_labels_are_correct_grr3() {
-    let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::XOR;
-    let wire_gen = GRR3Wires::new();
+    let mut wire_gen = GRR3Wires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gt = GRR3Gates::new(gate, wi, wj, gate_id);
-    let tt = GRR3Gates.get_xor_tt(&gt.wi, &gt.wj, &gt.wo);
+    let mut gate_gen = GRR3Gates::new(wire_gen);
+    let current_index = gate_gen.get_index().clone();
+    let gt = gate_gen.generate_gate(gate, wi, wj);
+    let tt = gate_gen.get_xor_tt(&gt.wi, &gt.wj, &gt.wo);
     for (il, ir, out) in tt {
         let pos = get_position(&il, &ir);
         if pos != 0 {
-            let key = gc_kdf_128(&il, &ir, &gt.gate_id);
+            let key = gc_kdf_128(&il, &ir, &current_index);
             let dec = &key ^ &gt.table[pos - 1];
             assert_eq!(out, dec);
         } else {
-            let key = gc_kdf_128(&il, &ir, &gt.gate_id);
+            let key = gc_kdf_128(&il, &ir, &current_index);
             assert_eq!(out, key);
         }
     }
@@ -218,22 +229,33 @@ fn xor_output_labels_are_correct_grr3() {
 
 #[test]
 fn no_entries_in_xor_gate_free_xor() {
-    let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::XOR;
-    let wire_gen = FreeXORWires::new();
+    let mut wire_gen = FreeXORWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gt = FreeXORGates::new(gate, wi, wj, gate_id);
+    let mut gate_gen = FreeXORGates::new(wire_gen);
+    let gt = gate_gen.generate_gate(gate, wi, wj);
     assert_eq!(gt.table.len(), 0);
 }
 
 #[test]
 fn three_entries_in_and_gate_free_xor() {
-    let gate_id = 0.to_biguint().unwrap();
     let gate = GateType::AND;
-    let wire_gen = FreeXORWires::new();
+    let mut wire_gen = FreeXORWires::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let gt = FreeXORGates::new(gate, wi, wj, gate_id);
+    let mut gate_gen = FreeXORGates::new(wire_gen);
+    let gt = gate_gen.generate_gate(gate, wi, wj);
     assert_eq!(gt.table.len(), 3);
+}
+
+#[test]
+fn two_entries_in_and_half_gate() {
+    let gate = GateType::AND;
+    let mut wire_gen = HalfGateWires::new();
+    let wi = wire_gen.generate_input_wire();
+    let wj = wire_gen.generate_input_wire();
+    let mut gate_gen = HalfGatesGates::new(wire_gen);
+    let gt = gate_gen.generate_gate(gate, wi, wj);
+    assert_eq!(gt.table.len(), 2);
 }
