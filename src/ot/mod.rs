@@ -1,2 +1,2 @@
-pub mod ot_finite_field;
-pub mod ot_elliptic;
+pub mod eg_finite_field;
+pub mod eg_elliptic;

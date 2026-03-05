@@ -1,16 +1,14 @@
-use crate::{evaluator::evaluator::Evaluator, ot::ot_finite_field::PublicParameters};
+use crate::{evaluator::evaluator::Evaluator};
 use crate::crypto_utils::gc_kdf_128;
 use num_bigint::{BigUint};
 pub struct FreeXOREvaluator {
     index: BigUint,
-    pp: PublicParameters,
 }
 
 impl FreeXOREvaluator {
     pub fn new() -> Self {
         FreeXOREvaluator {
             index: BigUint::from(0u32),
-            pp : PublicParameters::new()
         }
     }
 }
@@ -37,10 +35,6 @@ impl Evaluator for FreeXOREvaluator {
 
     fn get_index(&self) -> &BigUint {
         &self.index
-    }
-
-    fn get_pp(&self) -> &PublicParameters {
-        &self.pp
     }
 }
 

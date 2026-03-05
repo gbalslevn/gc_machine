@@ -1,11 +1,11 @@
 use glass_pumpkin::safe_prime;
 use num_bigint::{BigUint, ToBigUint};
-use crate::{crypto_utils, ot::{ot_elliptic::{self}, ot_finite_field::{self}}, wires::{point_and_permute_wires::PointAndPermuteWires, wires::Wires}};
+use crate::{crypto_utils, ot::{eg_elliptic::{self}, eg_finite_field::{self}}, wires::{point_and_permute_wires::PointAndPermuteWires, wires::Wires}};
 
 #[cfg(test)]
 
-fn setup() -> ot_finite_field::PublicParameters {
-    ot_finite_field::PublicParameters::new()
+fn setup() -> eg_finite_field::PublicParameters {
+    eg_finite_field::PublicParameters::new()
 }
 
 #[test]
@@ -37,19 +37,19 @@ fn g_should_be_generator_of_order_q_subgroup_of_p() {
 #[test]
 fn oblivious_key_element_h_should_be_in_multiplicative_subgroup() {
     let pp = setup();
-    let oblivious_key = ot_finite_field::ObliviousKeyPair::new(&pp);
+    let oblivious_key = eg_finite_field::ObliviousKeyPair::new(&pp);
     let h = oblivious_key.get_public_key().get_h().clone();
     assert_eq!(h.modpow(pp.get_q(), &pp.get_p()), 1.to_biguint().unwrap());
 }
 
 #[test]
 fn real_pk_should_decrypt_correctly() {
-    let pp = ot_finite_field::PublicParameters::new();
-    let real_keypair = ot_finite_field::RealKeyPair::new(&pp);
+    let pp = eg_finite_field::PublicParameters::new();
+    let real_keypair = eg_finite_field::RealKeyPair::new(&pp);
     let mut wire_gen = PointAndPermuteWires::new();
     let plaintext  = wire_gen.generate_input_wire().w0().clone();
-    let cipher_text = ot_finite_field::encrypt( &pp, &real_keypair.get_public_key(), &plaintext);
-    let decrypted_ciphertext = ot_finite_field::decrypt(&pp, &real_keypair.get_secret_key(), &cipher_text);
+    let cipher_text = eg_finite_field::encrypt( &pp, &real_keypair.get_public_key(), &plaintext);
+    let decrypted_ciphertext = eg_finite_field::decrypt(&pp, &real_keypair.get_secret_key(), &cipher_text);
     assert!(plaintext == decrypted_ciphertext)
 }
 
@@ -65,14 +65,14 @@ fn elliptic_can_decrypt() {
     let mut rng = crypto_utils::gen_rng();
     
     // 1. Receiver gen a keypair
-    let keypair = ot_elliptic::KeyPair::new();
+    let keypair = eg_elliptic::RealKeyPair::new();
 
     // 2. Encryption (Sender)
     let message = BigUint::from(123456789u64); 
-    let (ct, c1) = ot_elliptic::encrypt(&mut rng, &message, keypair.get_pk());
+    let ct = eg_elliptic::encrypt(&mut rng, keypair.get_pk(), &message);
 
     // 4. Decryption (Receiver)
-    let pt = ot_elliptic::decrypt(ct, c1, keypair.get_sk());
+    let pt = eg_elliptic::decrypt(&keypair.get_sk(), &ct);
     
     assert_eq!(message, pt);
 }
