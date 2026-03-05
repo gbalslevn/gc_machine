@@ -111,7 +111,6 @@ fn are_output_wires_xor_of_input() {
 #[test]
 fn are_and_wires_using_delta() {
     let mut wire_gen = FreeXORWireGen::new();
-    let delta = &wire_gen.delta().clone();
 
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();

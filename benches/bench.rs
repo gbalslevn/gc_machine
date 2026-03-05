@@ -19,7 +19,7 @@ mod bench_utils;
 pub fn original_xor_gate(c: &mut Criterion) {
     let gate_type = GateType::XOR;
 
-    let wire_gen = OriginalWireGen::new();
+    let mut wire_gen = OriginalWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let mut gate_gen = OriginalGateGen::new(wire_gen);
@@ -45,7 +45,7 @@ pub fn original_xor_gate(c: &mut Criterion) {
 
 pub fn grr3_xor_gate(c: &mut Criterion) {
     let gate_type = GateType::XOR;
-    let wire_gen = GRR3WireGen::new();
+    let mut wire_gen = GRR3WireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let mut gate_gen = GRR3GateGen::new(wire_gen);
@@ -72,7 +72,7 @@ pub fn grr3_xor_gate(c: &mut Criterion) {
 
 pub fn point_and_permute_xor_gate(c: &mut Criterion) {
     let gate_type = GateType::XOR;
-    let wire_gen = PointAndPermuteWireGen::new();
+    let mut wire_gen = PointAndPermuteWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let mut gate_gen = PointAndPermuteGateGen::new(wire_gen);

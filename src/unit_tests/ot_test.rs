@@ -1,6 +1,6 @@
 use glass_pumpkin::safe_prime;
 use num_bigint::{BigUint, ToBigUint};
-use crate::{crypto_utils, ot::{self, eg_elliptic, eg_finite_field::{self, PublicParameters, RealKeyPair}}, wires::{point_and_permute_wire_gen::PointAndPermuteWireGen, wire_gen::WireGen}};
+use crate::{crypto_utils, ot::{eg_elliptic, eg_finite_field::{self, PublicParameters, RealKeyPair}}, wires::{point_and_permute_wire_gen::PointAndPermuteWireGen, wire_gen::WireGen}};
 
 #[cfg(test)]
 
