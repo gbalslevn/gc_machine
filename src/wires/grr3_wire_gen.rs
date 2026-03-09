@@ -2,7 +2,7 @@ use num_bigint::BigUint;
 use rand_chacha::ChaCha20Rng;
 use crate::gates::gate_gen::GateType;
 use crate::wires::wire_gen::{Wire, WireGen};
-use crate::crypto_utils::{self, gc_kdf_128, generate_label_lsb};
+use crate::crypto_utils::{self, generate_label_lsb};
 
 #[derive(Clone)]
 pub struct GRR3WireGen {
@@ -21,10 +21,10 @@ impl WireGen for GRR3WireGen {
         let w1 = generate_label_lsb(&mut self.rng,!choice);
         Wire::new(w0, w1)
     }
-    fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
+    fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, _gate_id: &BigUint) -> Wire {
         match gate {
-            GateType::AND=>generate_and_wire(&mut self.rng, wi, wj, gate_id),
-            GateType::XOR=>generate_xor_wire(&mut self.rng, wi, wj, gate_id),
+            GateType::AND=>generate_and_wire(&mut self.rng, wi, wj),
+            GateType::XOR=>generate_xor_wire(&mut self.rng, wi, wj),
         }
     }
     fn get_rng(&self) -> &ChaCha20Rng {
@@ -35,10 +35,10 @@ impl WireGen for GRR3WireGen {
     }
 }
 
-fn generate_and_wire(rng : &mut ChaCha20Rng, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
+fn generate_and_wire(rng : &mut ChaCha20Rng, wi: &Wire, wj: &Wire) -> Wire {
     let w0c;
     let w1c;
-    let w00 = get_00_wire(&wi, &wj, gate_id);
+    let w00 = get_00_wire(&wi, &wj);
     if !wi.w1().bit(0) && !wj.w1().bit(0) {
         w0c = generate_label_lsb(rng,!w00.bit(0));
         w1c = w00;
@@ -49,10 +49,10 @@ fn generate_and_wire(rng : &mut ChaCha20Rng, wi: &Wire, wj: &Wire, gate_id: &Big
     Wire::new(w0c, w1c)
 }
 
-fn generate_xor_wire(rng : &mut ChaCha20Rng, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
+fn generate_xor_wire(rng : &mut ChaCha20Rng, wi: &Wire, wj: &Wire) -> Wire {
     let w0c;
     let w1c;
-    let w00 = get_00_wire(&wi, &wj, gate_id);
+    let w00 = get_00_wire(&wi, &wj);
     if (!wi.w0().bit(0) && !wj.w1().bit(0)) || (!wi.w1().bit(0) && !wj.w0().bit(0)) {
         w0c = generate_label_lsb(rng,!w00.bit(0));
         w1c = w00;
@@ -63,11 +63,12 @@ fn generate_xor_wire(rng : &mut ChaCha20Rng, wi: &Wire, wj: &Wire, gate_id: &Big
     Wire::new(w0c, w1c)
 }
 
-pub fn get_00_wire(wi: &Wire, wj: &Wire, gate_id: &BigUint) -> BigUint {
+pub fn get_00_wire(wi: &Wire, wj: &Wire) -> BigUint {
     for left in [&wi.w0(), &wi.w1()] {
         for right in [&wj.w0(), &wj.w1()] {
             if !left.bit(0) && !right.bit(0) {
-                return gc_kdf_128(&left, &right, gate_id)
+                let ksdh = "AGF";
+                return BigUint::from_bytes_le(ksdh.as_bytes())
             }
         }
     }

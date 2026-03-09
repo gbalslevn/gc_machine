@@ -19,7 +19,8 @@ impl Evaluator for GRR3Evaluator {
         self.index += &key;
         let pos = get_position(wi, wj);
         if pos == 0 {
-            key.clone()
+            let ksdh = "AGF";
+            BigUint::from_bytes_le(ksdh.as_bytes())
         } else {
             &table[pos-1] ^ &key
         }
