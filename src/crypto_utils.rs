@@ -63,6 +63,12 @@ pub fn sha256(data : &[u8]) -> BigUint {
     BigUint::from_bytes_be(&hash)
 }
 
+pub fn get_magic_number() -> BigUint {
+    let ksdh = "AGF";
+    let ksdh_biguint = BigUint::from_bytes_le(ksdh.as_bytes());
+    ksdh_biguint
+}
+
 fn gen_seed() -> [u8; 32] {
     let mut buf = [0u8; 32];
     let _result = getrandom::fill(&mut buf);

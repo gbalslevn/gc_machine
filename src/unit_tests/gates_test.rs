@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use crate::crypto_utils;
 use crate::crypto_utils::gc_kdf_128;
 use crate::gates::free_xor_gate_gen::FreeXORGateGen;
@@ -199,7 +201,9 @@ fn are_and_output_labels_correct_grr3() {
             let dec = &key ^ &gt.table[pos - 1];
             assert_eq!(out, dec);
         } else {
-            assert_eq!(out, BigUint::from_bytes_le("AGF".as_bytes()));
+            let mn = crypto_utils::get_magic_number();
+            let grr3_wire = crypto_utils::gc_kdf_128(&il.add(mn), &ir, &current_index);
+            assert_eq!(out, grr3_wire);
         }
     }
 }
@@ -221,7 +225,9 @@ fn xor_output_labels_are_correct_grr3() {
             let dec = &key ^ &gt.table[pos - 1];
             assert_eq!(out, dec);
         } else {
-            assert_eq!(out, BigUint::from_bytes_le("AGF".as_bytes()));
+            let mn = crypto_utils::get_magic_number();
+            let grr3_wire = crypto_utils::gc_kdf_128(&il.add(mn), &ir, &current_index);
+            assert_eq!(out, grr3_wire);
         }
     }
 }

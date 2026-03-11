@@ -2,11 +2,20 @@ use std::cmp::max;
 use std::ops::Shr;
 use gc_machine::circuit_builder::{CircuitBuilder};
 use gc_machine::evaluator::evaluator::Evaluator;
+use gc_machine::evaluator::free_xor_evaluator::FreeXOREvaluator;
+use gc_machine::evaluator::grr3_evaluator::GRR3Evaluator;
+use gc_machine::evaluator::half_gates_evaluator::HalfGatesEvaluator;
 use gc_machine::evaluator::original_evaluator::OriginalEvaluator;
 use gc_machine::evaluator::point_and_permute_evaluator::PointAndPermuteEvaluator;
 use gc_machine::garbler::Garbler;
+use gc_machine::gates::free_xor_gate_gen::FreeXORGateGen;
+use gc_machine::gates::grr3_gate_gen::GRR3GateGen;
+use gc_machine::gates::half_gates_gate_gen::HalfGatesGateGen;
 use gc_machine::gates::point_and_permute_gate_gen::PointAndPermuteGateGen;
 use gc_machine::ot::eg_elliptic::{self, ObliviousKeyPair, RealKeyPair};
+use gc_machine::wires::free_xor_wire_gen::FreeXORWireGen;
+use gc_machine::wires::grr3_wire_gen::GRR3WireGen;
+use gc_machine::wires::half_gates_wire_gen::HalfGatesWireGen;
 use gc_machine::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
 use gc_machine::gates::gate_gen::{GateType, GateGen};
 use gc_machine::gates::original_gate_gen::OriginalGateGen;
@@ -74,32 +83,36 @@ async fn websocket_can_tx_and_rx_10_msg() {
 }
 
 #[test] 
-fn can_evaluate_or_circuit() {
+fn can_evaluate_or_circuit_for_all_optimisations() {
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = OriginalEvaluator::new();
+    evaluate_or_circuit(&mut garbler, &mut evaluator);
+
     let wire_gen = PointAndPermuteWireGen::new();
     let gate_gen = PointAndPermuteGateGen::new(wire_gen.clone());
     let mut garbler = Garbler::new(gate_gen, wire_gen);
     let mut evaluator = PointAndPermuteEvaluator::new();
-    let mut circuit_builder = CircuitBuilder::new();
+    evaluate_or_circuit(&mut garbler, &mut evaluator);
 
-    let input_wires = circuit_builder.build_input_wires(4);
-    let _circuit_result = circuit_builder.build_or(&input_wires[0], &input_wires[1], &input_wires[2], &input_wires[3]);
-    let circuit_build = circuit_builder.get_circuit_build();
-    // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now, we know it's only a or circuit.
-    let garbler_input_choices = vec![0 as u8, 0 as u8]; // Garbler bit 0 as input. Assert somewhere we have just right amount of input choices
-    // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now we know its only a or circuit.
-    let keypair_real = RealKeyPair::new();
-    let pk_real = keypair_real.get_pk();
-    let sk_real = keypair_real.get_sk();
-    let keypair_oblivious = ObliviousKeyPair::new();
-    let pk_oblivious = keypair_oblivious.get_pk();
+    let wire_gen = GRR3WireGen::new();
+    let gate_gen = GRR3GateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = GRR3Evaluator::new();
+    evaluate_or_circuit(&mut garbler, &mut evaluator);
     
-    let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()], [pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. Needs to send 2 times as he needs two 1 bits for the OR gate of input AND and XOR. Even though the OR gate abstracts it to seeing it as 1 bit. The input should be the same.
-    let evaluator_decrypt_choices = vec![(sk_real.clone(), 1 as u8), (sk_real.clone(), 1 as u8)]; // chooses bit 1
+    let wire_gen = FreeXORWireGen::new();
+    let gate_gen = FreeXORGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = FreeXOREvaluator::new();
+    evaluate_or_circuit(&mut garbler, &mut evaluator);
 
-    let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-
-    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, evaluator_decrypt_choices, &conversion_data);
-    assert_eq!(result, 1)
+    let wire_gen = HalfGatesWireGen::new();
+    let gate_gen = HalfGatesGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = HalfGatesEvaluator::new();
+    evaluate_or_circuit(&mut garbler, &mut evaluator);
 }
 
 #[test]
@@ -172,4 +185,29 @@ fn can_evaluate_is_equal_circuit() {
     let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_circuit_input_a, evaluator_circuit_input_b);
     let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, evaluator_decrypted_input_b, &conversion_data);
     assert_eq!(result, 0);
+}
+
+// Helper to evaluate a or circuit using different optimisations
+fn evaluate_or_circuit<G, W, E>(garbler : &mut Garbler<G, W>, evaluator : &mut E) where G: GateGen<W>, W: WireGen, E: Evaluator, {
+    let mut circuit_builder = CircuitBuilder::new();
+
+    let input_wires = circuit_builder.build_input_wires(4);
+    let _circuit_result = circuit_builder.build_or(&input_wires[0], &input_wires[1], &input_wires[2], &input_wires[3]);
+    let circuit_build = circuit_builder.get_circuit_build();
+    // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now, we know it's only a or circuit.
+    let garbler_input_choices = vec![0 as u8, 0 as u8]; // Garbler bit 0 as input. Assert somewhere we have just right amount of input choices
+    // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now we know its only a or circuit.
+    let keypair_real = RealKeyPair::new();
+    let pk_real = keypair_real.get_pk();
+    let sk_real = keypair_real.get_sk();
+    let keypair_oblivious = ObliviousKeyPair::new();
+    let pk_oblivious = keypair_oblivious.get_pk();
+    
+    let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()], [pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. Needs to send 2 times as he needs two 1 bits for the OR gate of input AND and XOR. Even though the OR gate abstracts it to seeing it as 1 bit. The input should be the same.
+    let evaluator_decrypt_choices = vec![(sk_real.clone(), 1 as u8), (sk_real.clone(), 1 as u8)]; // chooses bit 1
+
+    let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+
+    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, evaluator_decrypt_choices, &conversion_data);
+    assert_eq!(result, 1)
 }

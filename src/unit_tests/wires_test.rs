@@ -1,5 +1,7 @@
+use std::ops::Add;
+
 use num_bigint::{BigUint};
-use crate::crypto_utils::{self, gc_kdf_hg, generate_label_lsb};
+use crate::crypto_utils::{self, gc_kdf_hg, generate_label_lsb, gc_kdf_128};
 use crate::gates::gate_gen::GateType;
 use crate::wires::free_xor_wire_gen::FreeXORWireGen;
 use crate::wires::original_wire_gen::OriginalWireGen;
@@ -43,14 +45,17 @@ fn test_get_00_wire_finds_correct_pair() {
     let w1i = generate_label_lsb(&mut rng,true);  // LSB = 1
     let w0j = generate_label_lsb(&mut rng,true);  // LSB = 1
     let w1j = generate_label_lsb(&mut rng,false); // LSB = 0
+    let gate_id = BigUint::from(1u32);
 
     let wi = Wire::new(w0i, w1i);
     let wj = Wire::new(w0j, w1j);
 
-    let result = get_00_wire(&wi, &wj);
-
-    // Should successfully find the (w0i, w0j) pair
-    assert_eq!(result, BigUint::from_bytes_le("AGF".as_bytes()));
+    let result = get_00_wire(&wi, &wj, &gate_id);
+    
+    let mn = crypto_utils::get_magic_number();
+    let grr3_wire = gc_kdf_128(&wi.w0().add(mn), wj.w1(), &gate_id);
+    // Should successfully find the (w0i, w1j) pair
+    assert_eq!(result, grr3_wire);
 }
 
 #[test]
