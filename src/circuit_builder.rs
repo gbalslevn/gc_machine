@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 
 use crate::{gates::gate_gen::GateType};
 use num_bigint::{BigUint, ToBigUint};
-
+use crate::wires::wire_gen::Wire;
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id. 
@@ -16,6 +16,7 @@ pub struct CircuitBuilder {
     false_constant : WireBuild
 }
 
+#[derive(Debug)]
 pub struct CircuitBuild {
     gates : Vec<GateBuild>,
     true_constant : WireBuild, 
@@ -50,46 +51,42 @@ impl CircuitBuilder {
         CircuitBuild { gates : self.gates.clone(), true_constant: self.true_constant.clone(), false_constant: self.false_constant.clone() }
     }
 
-    pub fn build_is_equal(&mut self, input_length : u64) ->  WireBuild {
+    pub fn build_is_equal(&mut self, input_wires: Vec<WireBuild>) ->  WireBuild {
         // Compares each bit in a tree like structure
-        let mut deq = VecDeque::new(); 
-        let input_wires = self.build_input_wires(input_length as u32 * 2);
-        // Compare initial layer
-        for wire in input_wires.chunks(2) {
-            let wi = &wire[0];
-            let wj = &wire[1];
-            let xnor_output = self.build_xnor(wi, wj);
-            
-            deq.push_back(xnor_output);
+        let mut garbler_input_wires = Vec::new();
+        let mut evaluator_input_wires = Vec::new();
+        for i in 0..input_wires.len() {
+            if i < (input_wires.len()/2) {
+                garbler_input_wires.push(input_wires[i].clone());
+            } else {
+                evaluator_input_wires.push(input_wires[i].clone());
+            }
         }
-        // Binary tree reduction
-        while deq.len() > 1 { // perhaps cleaner if we could calculate how many gates is needed, avoiding while loop.
-            let element_0 = deq.pop_front().unwrap().clone();
-            let element_1 = deq.pop_front().unwrap().clone();
-            let xnor_output = self.build_xnor(&element_0, &element_1);
-            deq.push_back(xnor_output); 
-        }
-
-        let output  = self.gates[self.gates.len() - 1].wo().clone(); 
+        //let xnor_1 = self.build_xnor(&garbler_input_wires[0], &evaluator_input_wires[0]);
+        //let xnor_2 = self.build_xnor(&garbler_input_wires[1], &evaluator_input_wires[1]);
+        let xnor_1 = self.build_xnor(&input_wires[0], &input_wires[2]);
+        let xnor_2 = self.build_xnor(&input_wires[1], &input_wires[3]);
+        let output = self.build_and(&xnor_1, &xnor_2);
         output
     }
 
-    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild, input_wi_1: &WireBuild, input_wj_1: &WireBuild) -> WireBuild { // or gate needs 4 input wires
-
+    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild { // or gate needs 4 input wires
+        let input_wi_copy = self.copy_wire(input_wi);
+        let input_wj_copy = self.copy_wire(input_wj);
         let xor_0 = self.build_xor(input_wi, input_wj);
-        let and_0 = self.build_and(&input_wi_1, &input_wj_1);
+        let and_0 = self.build_and(&input_wi_copy, &input_wj_copy);
         let xor_1 = self.build_xor(&xor_0, &and_0);
         let output = xor_1.clone();
 
         output
     }
 
-    fn build_and(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+    pub fn build_and(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
         let and =self.build_gate(input_wi, input_wj, GateType::AND);
         and.wo().clone()
     }
 
-    fn build_xor(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+    pub fn build_xor(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
         let xor = self.build_gate(input_wi, input_wj, GateType::XOR);
         xor.wo().clone()
     }
@@ -104,11 +101,16 @@ impl CircuitBuilder {
         xnor_output
     }
 
+    fn copy_wire(&mut self, w: &WireBuild) -> WireBuild {
+        WireBuild::new(w.ready_at_layer.clone(), w.wire_id.clone())
+    }
+
     pub fn build_input_wires(&mut self, amount : u32) -> Vec<WireBuild> {
         let mut input_wires = vec![];
         for _i in 0..amount {
             let input_wire = WireBuild::new(0.to_biguint().unwrap(), self.outputs_created.clone());
             input_wires.push(input_wire);
+            self.outputs_created += 1.to_biguint().unwrap();
         }
         input_wires
     }
