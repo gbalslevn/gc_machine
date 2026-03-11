@@ -4,6 +4,7 @@ use crate::gates::gate_gen::GateType;
 use crate::wires::wire_gen::{Wire, WireGen};
 use crate::crypto_utils::{self, gc_kdf_128, gc_kdf_hg, generate_label, generate_label_lsb};
 
+#[derive(Clone)]
 pub struct HalfGatesWireGen {
     pub delta: BigUint,
     pub tg: BigUint,

@@ -66,6 +66,7 @@ pub trait Evaluator {
             outputs.insert(&gate.gate_id, result.clone());
             // If last gate, get output
             if gate == &circuit.gates[circuit.gates.len() - 1] {
+                println!("conversion_table: {:?}", conversion_table);
                 if result == conversion_table[0].0 {
                     circuit_result = conversion_table[0].1;
                 }

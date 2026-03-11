@@ -1,5 +1,7 @@
+use std::ops::Add;
+
 use crate::{evaluator::evaluator::Evaluator};
-use crate::crypto_utils::gc_kdf_128;
+use crate::crypto_utils::{self, gc_kdf_128};
 use num_bigint::{BigUint};
 pub struct GRR3Evaluator {
     index: BigUint,
@@ -15,11 +17,13 @@ impl GRR3Evaluator {
 
 impl Evaluator for GRR3Evaluator {
     fn evaluate_and_gate(&mut self, wi: &BigUint, wj: &BigUint, table: &Vec<BigUint>) -> BigUint {
-        let key = gc_kdf_128(wi, wj, self.get_index());
-        self.index += &key;
+        let index = self.get_index().clone();
+        let key = gc_kdf_128(wi, wj, &index);
         let pos = get_position(wi, wj);
+        self.increment_index();
         if pos == 0 {
-            key.clone()
+            let mn = crypto_utils::get_magic_number();
+            gc_kdf_128(&wi.add(mn), wj, &index)
         } else {
             &table[pos-1] ^ &key
         }

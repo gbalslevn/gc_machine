@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use num_bigint::BigUint;
 use rand_chacha::ChaCha20Rng;
 use crate::gates::gate_gen::GateType;
@@ -67,7 +69,8 @@ pub fn get_00_wire(wi: &Wire, wj: &Wire, gate_id: &BigUint) -> BigUint {
     for left in [&wi.w0(), &wi.w1()] {
         for right in [&wj.w0(), &wj.w1()] {
             if !left.bit(0) && !right.bit(0) {
-                return gc_kdf_128(&left, &right, gate_id)
+                let mn = crypto_utils::get_magic_number();
+                return gc_kdf_128(&left.add(mn), right, gate_id)
             }
         }
     }
