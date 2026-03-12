@@ -72,6 +72,98 @@ async fn websocket_can_tx_and_rx_10_msg() {
     tokio::time::sleep(std::time::Duration::from_millis(1000)).await; // Wait for messages to propogate
     assert_eq!(bob_socket_client.get_rx_msg_count().await, 10);
 }
+#[test]
+fn can_evaluate_xor_circuit() {
+    // Initialization
+    let wire_gen = PointAndPermuteWireGen::new();
+    let gate_gen = PointAndPermuteGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = PointAndPermuteEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+
+    // Create circuit recipe using circuit builder
+    let input_wires = circuit_builder.build_input_wires(2u32);
+    circuit_builder.build_xor(&input_wires[0], &input_wires[1]);
+    let circuit_build = circuit_builder.get_circuit_build();
+
+    // Create Garbler input. This is just what wire to choose (0)
+    let garbler_input_choices = vec![1 as u8];
+
+    // Create Evaluator Input. This involves creating a fake and real public key. And stating what order they should be used in
+    let real_key = eg_elliptic::RealKeyPair::new();
+    let oblivious_key = eg_elliptic::ObliviousKeyPair::new();
+    let evaluator_input_choices = vec![[real_key.get_pk().clone(), oblivious_key.get_pk().clone()]];
+    let evaluator_decrypt_choices = vec![(real_key.get_sk().clone(), 0u8), (real_key.get_sk().clone(), 0u8)];
+
+    // Garbler garbles
+    let (circuit_eval, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+
+    // Evaluator evaluates
+    let result = evaluator.evaluate_circuit(&circuit_eval, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_table);
+    assert_eq!(result, 1);
+}
+
+#[test]
+fn can_evaluate_and_circuit() {
+    // Initialization
+    let wire_gen = PointAndPermuteWireGen::new();
+    let gate_gen = PointAndPermuteGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = PointAndPermuteEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+
+    // Create circuit recipe using circuit builder
+    let input_wires = circuit_builder.build_input_wires(2u32);
+    circuit_builder.build_and(&input_wires[0], &input_wires[1]);
+    let circuit_build = circuit_builder.get_circuit_build();
+
+    // Create Garbler input. This is just what wire to choose (1)
+    let garbler_input_choices = vec![1 as u8];
+
+    // Create Evaluator Input. This involves creating a fake and real public key. And stating what order they should be used in
+    let real_key = eg_elliptic::RealKeyPair::new();
+    let oblivious_key = eg_elliptic::ObliviousKeyPair::new();
+    let evaluator_input_choices = vec![[oblivious_key.get_pk().clone(), real_key.get_pk().clone()]];
+    let evaluator_decrypt_choices = vec![(real_key.get_sk().clone(), 1u8)];
+
+    // Garbler garbles
+    let (circuit_eval, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+
+    // Evaluator evaluates
+    let result = evaluator.evaluate_circuit(&circuit_eval, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_table);
+    assert_eq!(result, 1);
+}
+
+#[test]
+fn can_evaluate_three_gates_circuit() {
+    // Initialization
+    let wire_gen = PointAndPermuteWireGen::new();
+    let gate_gen = PointAndPermuteGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = PointAndPermuteEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+
+    // Create circuit recipe using circuit builder
+    let input_wires = circuit_builder.build_input_wires(4u32);
+    let and_output_1 = circuit_builder.build_and(&input_wires[0], &input_wires[2]);
+    let and_output_2 = circuit_builder.build_and(&input_wires[1], &input_wires[3]);
+    circuit_builder.build_and(&and_output_1, &and_output_2);
+    let circuit_build = circuit_builder.get_circuit_build();
+    // Create Garbler input. This is just what wire to choose (0)
+    let garbler_input_choices = vec![1 as u8, 1 as u8];
+
+    // Create Evaluator Input. This involves creating a fake and real public key. And stating what order they should be used in
+    let real_key = eg_elliptic::RealKeyPair::new();
+    let oblivious_key = eg_elliptic::ObliviousKeyPair::new();
+    let evaluator_input_choices = vec![[oblivious_key.get_pk().clone(), real_key.get_pk().clone()], [oblivious_key.get_pk().clone(), real_key.get_pk().clone()]];
+    let evaluator_decrypt_choices = vec![(real_key.get_sk().clone(), 1u8), (real_key.get_sk().clone(), 1u8)];
+
+    // Garbler garbles
+    let (circuit_eval, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    // Evaluator evaluates
+    let result = evaluator.evaluate_circuit(&circuit_eval, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_table);
+    assert_eq!(result, 1);
+}
 
 #[test] 
 fn can_evaluate_or_circuit() {
@@ -81,11 +173,11 @@ fn can_evaluate_or_circuit() {
     let mut evaluator = PointAndPermuteEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
 
-    let input_wires = circuit_builder.build_input_wires(4);
-    let _circuit_result = circuit_builder.build_or(&input_wires[0], &input_wires[1], &input_wires[2], &input_wires[3]);
+    let input_wires = circuit_builder.build_input_wires(2);
+    let _circuit_result = circuit_builder.build_or(&input_wires[0], &input_wires[1]);
     let circuit_build = circuit_builder.get_circuit_build();
     // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now, we know it's only a or circuit.
-    let garbler_input_choices = vec![0 as u8, 0 as u8]; // Garbler bit 0 as input. Assert somewhere we have just right amount of input choices
+    let garbler_input_choices = vec![0 as u8]; // Garbler bit 0 as input. Assert somewhere we have just right amount of input choices
     // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now we know its only a or circuit.
     let keypair_real = RealKeyPair::new();
     let pk_real = keypair_real.get_pk();
@@ -93,12 +185,12 @@ fn can_evaluate_or_circuit() {
     let keypair_oblivious = ObliviousKeyPair::new();
     let pk_oblivious = keypair_oblivious.get_pk();
     
-    let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()], [pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. Needs to send 2 times as he needs two 1 bits for the OR gate of input AND and XOR. Even though the OR gate abstracts it to seeing it as 1 bit. The input should be the same.
-    let evaluator_decrypt_choices = vec![(sk_real.clone(), 1 as u8), (sk_real.clone(), 1 as u8)]; // chooses bit 1
+    let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. Needs to send 2 times as he needs two 1 bits for the OR gate of input AND and XOR. Even though the OR gate abstracts it to seeing it as 1 bit. The input should be the same.
+    let evaluator_decrypt_choices = vec![(sk_real.clone(), 1 as u8)]; // chooses bit 1
 
-    let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let (circuit, garbler_input, evaluator_input, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
 
-    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, evaluator_decrypt_choices, &conversion_data);
+    let result = evaluator.evaluate_circuit(&circuit, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_data);
     assert_eq!(result, 1)
 }
 
@@ -147,29 +239,25 @@ fn can_evaluate_is_equal_circuit() {
     let mut evaluator = OriginalEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
 
-    let a = 2.to_biguint().unwrap(); // bitlenght 2
-    let b = 9.to_biguint().unwrap(); // bitlength 4
-    // Comparing ints of unequal bitlength
-    assert_ne!(a, b);
-    let bitlen_of_a = a.bits();
-    let bitlen_of_b = b.bits();
-    assert_ne!(bitlen_of_a, bitlen_of_b);
-    let required_bits = max(a.bits(), b.bits());
+    // First half of the wires are the garblers
+    let input_wires = circuit_builder.build_input_wires(10);
 
-    circuit_builder.build_is_equal(required_bits);
+    circuit_builder.build_is_equal(input_wires);
     let circuit_build = circuit_builder.get_circuit_build();
-    
-    // Testing a=a
-    let garbler_circuit_input_a = garbler.create_circuit_input(&a, required_bits); 
-    let (evaluator_circuit_input_a, evaluator_decrypted_input_a) = evaluator.create_circuit_input(&a, required_bits);    
-    let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_circuit_input_a, evaluator_circuit_input_a);
 
-    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, evaluator_decrypted_input_a, &conversion_data);
+    // Garbler's and Evaluator's input
+    let a = 32.to_biguint().unwrap();
+    let b = 32.to_biguint().unwrap();
+    let required_bits = max(a.bits(), b.bits());
+    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
+
+    // Garbler create circuit
+    let (circuit, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let result = evaluator.evaluate_circuit(&circuit, &garbler_input, &evaluator_input, evaluator_decrypt_values, &conversion_table);
+    // Testing a=a
+
+
+
     assert_eq!(result, 1);
-    
-    // Testing a != b, eval holds b
-    let (evaluator_circuit_input_b, evaluator_decrypted_input_b) = evaluator.create_circuit_input(&b, required_bits);    
-    let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_circuit_input_a, evaluator_circuit_input_b);
-    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, evaluator_decrypted_input_b, &conversion_data);
-    assert_eq!(result, 0);
 }

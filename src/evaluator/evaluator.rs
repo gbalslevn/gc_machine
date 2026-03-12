@@ -1,5 +1,5 @@
 use k256::{PublicKey, SecretKey};
-use num_bigint::BigUint;
+use num_bigint::{BigUint};
 use std::collections::HashMap;
 
 use crate::{
@@ -37,33 +37,49 @@ pub trait Evaluator {
     fn evaluate_circuit(
         &mut self,
         circuit: &CircuitEval,
-        wires_i: &Vec<BigUint>,
-        wires_j: &Vec<(CipherText, CipherText)>,
-        eval_keys: Vec<(SecretKey, u8)>,
+        garbler_input: &HashMap<BigUint, BigUint>,
+        evaluator_input: &HashMap<BigUint, (CipherText, CipherText)>,
+        secret_keys: Vec<(SecretKey, u8)>,
         conversion_table: &[(BigUint, u8); 2],
     ) -> u8 {
-        let mut outputs: HashMap<&BigUint, BigUint> = HashMap::new(); // id, wire
+        let mut outputs: HashMap<BigUint, BigUint> = HashMap::new(); // id, wire
         let mut circuit_result = 3; // need to return circuit result in a better way without init it
 
         // Insert constant values
-        outputs.insert(&circuit.true_constant_id, circuit.true_constant.clone());
-        outputs.insert(&circuit.false_constant_id, circuit.false_constant.clone());
+        outputs.insert(circuit.true_constant_id.clone(), circuit.true_constant.clone());
+        outputs.insert(circuit.false_constant_id.clone(), circuit.false_constant.clone());
+        // Insert garblers input wires
+        let garbler_hash_keys = garbler_input.keys().collect::<Vec<_>>();
+        for wire_id in garbler_hash_keys {
+            let wire = garbler_input.get(wire_id);
+            outputs.insert(wire_id.clone(), wire.unwrap().clone());
+        }
+        // Insert evaluator wires
+        let mut evaluator_hash_keys = evaluator_input.keys().collect::<Vec<_>>();
+        evaluator_hash_keys.sort();
+        let mut secret_keys_iterator = 0;
+        for  key in evaluator_hash_keys {
+            let evaluator_ciphers = evaluator_input.get(key).unwrap();
+            let evaluator_choice = secret_keys[secret_keys_iterator].1.clone();
+            let evaluator_cipher = match evaluator_choice {
+                0 => &evaluator_ciphers.0,
+                1 => &evaluator_ciphers.1,
+                _ => panic!("Invalid evaluator choice"),
+            };
+            let wire = eg_elliptic::decrypt(&secret_keys[secret_keys_iterator].0, evaluator_cipher);
+            outputs.insert(key.clone(), wire.clone());
+            secret_keys_iterator += 1;
+        }
 
-        let mut gate_index = 0;
-        for gate in &circuit.gates {
+        for (index, gate) in circuit.gates.iter().enumerate() {
             let wi;
             let wj;
-            if gate.is_input_gate {
-                wj = decrypt_wj_input(&eval_keys, wires_j, gate_index);
-                wi = wires_i[outputs.len() - 2].clone();
-            } else {
-                // It should already have been calculated and kept in map
-                wi = outputs.get(&gate.wi_id).unwrap().clone();
-                wj = outputs.get(&gate.wj_id).unwrap().clone();
-            }
+            
+            wi = outputs.get(&gate.wi_id).unwrap().clone();
+            wj = outputs.get(&gate.wj_id).unwrap().clone();
 
             let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &gate.table);
-            outputs.insert(&gate.gate_id, result.clone());
+            outputs.insert(gate.output_wire_id.clone(), result.clone());
             // If last gate, get output
             if gate == &circuit.gates[circuit.gates.len() - 1] {
                 if result == conversion_table[0].0 {
@@ -73,7 +89,6 @@ pub trait Evaluator {
                     circuit_result = conversion_table[1].1;
                 }
             }
-            gate_index += 1;
         }
         circuit_result
     }
@@ -109,21 +124,4 @@ pub trait Evaluator {
     }
     fn increment_index(&mut self);
     fn get_index(&self) -> &BigUint;
-}
-
-fn decrypt_wj_input(
-    eval_keys: &Vec<(SecretKey, u8)>,
-    wires_j: &Vec<(CipherText, CipherText)>,
-    gate_index: usize,
-) -> BigUint {
-    let secret_key = eval_keys[gate_index].0.clone();
-    let bit_choice = &eval_keys[gate_index].1;
-    let ct = &wires_j[gate_index];
-    let wj_ct = match bit_choice {
-        0 => &ct.0,
-        1 => &ct.1,
-        _ => panic!("Invalid bit value: must be 0 or 1"),
-    };
-    let wj = eg_elliptic::decrypt(&secret_key, wj_ct);
-    wj
 }
