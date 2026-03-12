@@ -1,9 +1,7 @@
 use std::ops::Add;
-use std::collections::VecDeque;
 
 use crate::{gates::gate_gen::GateType};
 use num_bigint::{BigUint, ToBigUint};
-use crate::wires::wire_gen::Wire;
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id. 
@@ -69,15 +67,24 @@ impl CircuitBuilder {
         output
     }
 
-    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild { // or gate needs 4 input wires
-        let input_wi_copy = self.copy_wire(input_wi);
-        let input_wj_copy = self.copy_wire(input_wj);
-        let xor_0 = self.build_xor(input_wi, input_wj);
-        let and_0 = self.build_and(&input_wi_copy, &input_wj_copy);
+    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+
+        let xor_0 = self.build_xor(&input_wi.clone(), &input_wj.clone());
+        let and_0 = self.build_and(input_wi, input_wj);
         let xor_1 = self.build_xor(&xor_0, &and_0);
         let output = xor_1.clone();
 
         output
+    }
+
+
+
+    pub fn build_xnor(&mut self, wi: &WireBuild, wj: &WireBuild) -> WireBuild {
+        let xor = self.build_gate(wi, wj, GateType::XOR);
+        let xor_with_constant = self.build_gate(xor.wo(), &self.true_constant.clone(), GateType::XOR);
+        let xnor_output = xor_with_constant.wo().clone();
+
+        xnor_output
     }
 
     pub fn build_and(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
@@ -88,20 +95,6 @@ impl CircuitBuilder {
     pub fn build_xor(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
         let xor = self.build_gate(input_wi, input_wj, GateType::XOR);
         xor.wo().clone()
-    }
-
-
-    // Builds all gates needed to create a xnor, returns them and the final output 
-    pub fn build_xnor(&mut self, wi: &WireBuild, wj: &WireBuild) -> WireBuild {
-        let xor = self.build_gate(wi, wj, GateType::XOR);
-        let xor_with_constant = self.build_gate(xor.wo(), &self.true_constant.clone(), GateType::XOR);
-        let xnor_output = xor_with_constant.wo().clone();
-
-        xnor_output
-    }
-
-    fn copy_wire(&mut self, w: &WireBuild) -> WireBuild {
-        WireBuild::new(w.ready_at_layer.clone(), w.wire_id.clone())
     }
 
     pub fn build_input_wires(&mut self, amount : u32) -> Vec<WireBuild> {

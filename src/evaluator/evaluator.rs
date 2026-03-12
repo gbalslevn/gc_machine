@@ -1,5 +1,5 @@
 use k256::{PublicKey, SecretKey};
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::{BigUint};
 use std::collections::HashMap;
 
 use crate::{
@@ -50,9 +50,9 @@ pub trait Evaluator {
         outputs.insert(circuit.false_constant_id.clone(), circuit.false_constant.clone());
         // Insert garblers input wires
         let garbler_hash_keys = garbler_input.keys().collect::<Vec<_>>();
-        for key in garbler_hash_keys {
-            let wire = garbler_input.get(key);
-            outputs.insert(key.clone(), wire.unwrap().clone());
+        for wire_id in garbler_hash_keys {
+            let wire = garbler_input.get(wire_id);
+            outputs.insert(wire_id.clone(), wire.unwrap().clone());
         }
         // Insert evaluator wires
         let mut evaluator_hash_keys = evaluator_input.keys().collect::<Vec<_>>();
@@ -68,17 +68,13 @@ pub trait Evaluator {
             };
             let wire = eg_elliptic::decrypt(&secret_keys[secret_keys_iterator].0, evaluator_cipher);
             outputs.insert(key.clone(), wire.clone());
-            if key.clone() == 4.to_biguint().unwrap() {
-            }
             secret_keys_iterator += 1;
         }
 
-        let mut gate_index = 0;
         for (index, gate) in circuit.gates.iter().enumerate() {
             let wi;
             let wj;
-
-
+            
             wi = outputs.get(&gate.wi_id).unwrap().clone();
             wj = outputs.get(&gate.wj_id).unwrap().clone();
 
@@ -93,7 +89,6 @@ pub trait Evaluator {
                     circuit_result = conversion_table[1].1;
                 }
             }
-            gate_index += 1;
         }
         circuit_result
     }
