@@ -244,7 +244,6 @@ fn can_evaluate_is_equal_circuit() {
 
     circuit_builder.build_is_equal(input_wires);
     let circuit_build = circuit_builder.get_circuit_build();
-
     // Garbler's and Evaluator's input
     let a = 3.to_biguint().unwrap();
     let b = 3.to_biguint().unwrap();

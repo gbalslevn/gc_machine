@@ -53,20 +53,19 @@ impl CircuitBuilder {
 
     pub fn build_is_equal(&mut self, input_wires: Vec<WireBuild>) ->  WireBuild {
         // Compares each bit in a tree like structure
-        let mut garbler_input_wires = Vec::new();
-        let mut evaluator_input_wires = Vec::new();
-        for i in 0..input_wires.len() {
-            if i < (input_wires.len()/2) {
-                garbler_input_wires.push(input_wires[i].clone());
-            } else {
-                evaluator_input_wires.push(input_wires[i].clone());
-            }
+        if input_wires.len() % 2 == 1 {
+            panic!("Checking for equality requires even number of bits between comparators");
         }
-        //let xnor_1 = self.build_xnor(&garbler_input_wires[0], &evaluator_input_wires[0]);
-        //let xnor_2 = self.build_xnor(&garbler_input_wires[1], &evaluator_input_wires[1]);
-        let xnor_1 = self.build_xnor(&input_wires[0], &input_wires[2]);
-        let xnor_2 = self.build_xnor(&input_wires[1], &input_wires[3]);
-        let output = self.build_and(&xnor_1, &xnor_2);
+        let mut deque: VecDeque<WireBuild> = VecDeque::new();
+        for wires in input_wires.chunks(2) {
+            deque.push_back(self.build_xnor(&wires[0], &wires[1]));
+        }
+        while deque.len() > 1 {
+            let first = deque.pop_front().unwrap();
+            let second = deque.pop_front().unwrap();
+            deque.push_back(self.build_and(&first, &second));
+        }
+        let output = deque.pop_front().unwrap();
         output
     }
 
