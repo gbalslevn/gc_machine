@@ -50,9 +50,9 @@ pub trait Evaluator {
         outputs.insert(circuit.false_constant_id.clone(), circuit.false_constant.clone());
         // Insert garblers input wires
         let garbler_hash_keys = garbler_input.keys().collect::<Vec<_>>();
-        for key in garbler_hash_keys {
-            let wire = garbler_input.get(key);
-            outputs.insert(key.clone(), wire.unwrap().clone());
+        for wire_id in garbler_hash_keys {
+            let wire = garbler_input.get(wire_id);
+            outputs.insert(wire_id.clone(), wire.unwrap().clone());
         }
         // Insert evaluator wires
         let mut evaluator_hash_keys = evaluator_input.keys().collect::<Vec<_>>();
@@ -68,8 +68,6 @@ pub trait Evaluator {
             };
             let wire = eg_elliptic::decrypt(&secret_keys[secret_keys_iterator].0, evaluator_cipher);
             outputs.insert(key.clone(), wire.clone());
-            if key.clone() == 4.to_biguint().unwrap() {
-            }
             secret_keys_iterator += 1;
         }
 

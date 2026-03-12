@@ -62,8 +62,6 @@ impl CircuitBuilder {
                 evaluator_input_wires.push(input_wires[i].clone());
             }
         }
-        //let xnor_1 = self.build_xnor(&garbler_input_wires[0], &evaluator_input_wires[0]);
-        //let xnor_2 = self.build_xnor(&garbler_input_wires[1], &evaluator_input_wires[1]);
         let xnor_1 = self.build_xnor(&input_wires[0], &input_wires[2]);
         let xnor_2 = self.build_xnor(&input_wires[1], &input_wires[3]);
         let output = self.build_and(&xnor_1, &xnor_2);

@@ -32,10 +32,9 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         [(BigUint, u8); 2],
     ) {
         let mut circuit: Vec<GateEval> = vec![];
-        let mut wi_hashmap: HashMap<BigUint, BigUint> = HashMap::new();
-        let mut wj_hashmap: HashMap<BigUint, (CipherText, CipherText)> = HashMap::new();
+        let mut garbler_inputs: HashMap<BigUint, BigUint> = HashMap::new();
+        let mut evaluator_inputs: HashMap<BigUint, (CipherText, CipherText)> = HashMap::new();
         let mut outputs: HashMap<BigUint, Wire> = HashMap::new();
-        // let mut outputs_index = 0;
         let mut wi;
         let mut wj;
         let mut output_conversion: [(BigUint, u8); 2] =
@@ -53,8 +52,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
             circuit_build.get_false_constant().wire_id().clone(),
             false_constant.clone(),
         );
-        
-        let mut gate_index = 0;
+
         let mut rng = self.wire_gen.get_rng().clone();
         for (index, gate) in gates.iter().enumerate() {
             let gate_is_input_layer = gate.wo().output_layer() == &1.to_biguint().unwrap();
@@ -62,30 +60,28 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
                 // Generate wires if not already generated (copied wires are already generated)
                 let wi_id = gate.wi().wire_id().clone();
                 let wj_id = gate.wj().wire_id().clone();
-                let wi_is_new_wire = !wi_hashmap.contains_key(&wi_id);
-                let wj_is_new_wire = !wj_hashmap.contains_key(&wj_id);
+                let wi_is_new_wire = !garbler_inputs.contains_key(&wi_id);
+                let wj_is_new_wire = !evaluator_inputs.contains_key(&wj_id);
                 if wi_is_new_wire {
                     wi = self.wire_gen.generate_input_wire();
                     outputs.insert(wi_id.clone(), wi.clone());
-                    let garbler_input_choice = garblers_input_choices[gate_index];
+                    let garbler_input_choice = garblers_input_choices[index];
                     let selected_wire = match garbler_input_choice {
                         0 => wi.w0(),
                         1 => wi.w1(),
                         _ => panic!("Invalid bit value: must be 0 or 1"),
                     };
-                    wi_hashmap.insert(wi_id.clone(), selected_wire.clone());
+                    garbler_inputs.insert(wi_id.clone(), selected_wire.clone());
                 }
                 if wj_is_new_wire {
                     wj = self.wire_gen.generate_input_wire();
                     outputs.insert(wj_id.clone(), wj.clone());
                     // Encrypt with received publickeys from OT. The real and the oblivious
                     let wj_encrypted =
-                        self.gen_encrypted_wire(&wj, &evaluators_input_choices[gate_index], &mut rng);
-                    wj_hashmap.insert(wj_id.clone(), wj_encrypted.clone());
+                        self.gen_encrypted_wire(&wj, &evaluators_input_choices[index], &mut rng);
+                    evaluator_inputs.insert(wj_id.clone(), wj_encrypted.clone());
 
                 }
-            }
-            if *gate.wo().wire_id() == 8.to_biguint().unwrap() {
             }
 
             wi = outputs.get(&gate.wi().wire_id()).unwrap().clone();
@@ -112,7 +108,6 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
             }
 
             circuit.push(gate_eval);
-            gate_index += 1;
         }
         let circuit = CircuitEval {
             gates: circuit,
@@ -121,7 +116,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
             false_constant: false_constant.w0().clone(),
             false_constant_id: circuit_build.get_false_constant().wire_id().clone(),
         };
-        (circuit, wi_hashmap, wj_hashmap, output_conversion)
+        (circuit, garbler_inputs, evaluator_inputs, output_conversion)
     }
 
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> Vec<u8> {

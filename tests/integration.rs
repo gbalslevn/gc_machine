@@ -240,14 +240,14 @@ fn can_evaluate_is_equal_circuit() {
     let mut circuit_builder = CircuitBuilder::new();
 
     // First half of the wires are the garblers
-    let input_wires = circuit_builder.build_input_wires(4);
+    let input_wires = circuit_builder.build_input_wires(10);
 
     circuit_builder.build_is_equal(input_wires);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // Garbler's and Evaluator's input
-    let a = 3.to_biguint().unwrap();
-    let b = 3.to_biguint().unwrap();
+    let a = 32.to_biguint().unwrap();
+    let b = 32.to_biguint().unwrap();
     let required_bits = max(a.bits(), b.bits());
     let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
