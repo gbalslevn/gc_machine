@@ -1,5 +1,5 @@
 use k256::{PublicKey, SecretKey};
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::{BigUint};
 use std::collections::HashMap;
 
 use crate::{
@@ -71,12 +71,10 @@ pub trait Evaluator {
             secret_keys_iterator += 1;
         }
 
-        let mut gate_index = 0;
         for (index, gate) in circuit.gates.iter().enumerate() {
             let wi;
             let wj;
-
-
+            
             wi = outputs.get(&gate.wi_id).unwrap().clone();
             wj = outputs.get(&gate.wj_id).unwrap().clone();
 
@@ -91,7 +89,6 @@ pub trait Evaluator {
                     circuit_result = conversion_table[1].1;
                 }
             }
-            gate_index += 1;
         }
         circuit_result
     }
