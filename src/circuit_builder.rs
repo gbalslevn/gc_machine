@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::ops::Add;
 
 use crate::{gates::gate_gen::GateType};
