@@ -52,8 +52,6 @@ pub trait Evaluator {
         let garbler_hash_keys = garbler_input.keys().collect::<Vec<_>>();
         for key in garbler_hash_keys {
             let wire = garbler_input.get(key);
-            if key.clone() == 2.to_biguint().unwrap() {
-            }
             outputs.insert(key.clone(), wire.unwrap().clone());
         }
         // Insert evaluator wires
