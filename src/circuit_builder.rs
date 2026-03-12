@@ -1,7 +1,7 @@
 use std::ops::Add;
 use std::collections::VecDeque;
 
-use crate::{gates::gate_gen::GateType};
+use crate::gates::gate_gen::{GateType};
 use num_bigint::{BigUint, ToBigUint};
 
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
@@ -50,6 +50,14 @@ impl CircuitBuilder {
         CircuitBuild { gates : self.gates.clone(), true_constant: self.true_constant.clone(), false_constant: self.false_constant.clone() }
     }
 
+    // A 2 input multiplexer
+    pub fn build_if(&mut self, boolean : WireBuild, true_block_output : WireBuild, false_block_output : WireBuild) -> WireBuild {
+        let neg_boolean = self.build_gate(&boolean, &self.true_constant.clone(), GateType::XOR);
+        let and_0 = self.build_gate(&true_block_output, &neg_boolean.wo(), GateType::AND);
+        let and_1 = self.build_gate(&false_block_output, &neg_boolean.wo(), GateType::AND);
+        self.build_gate(&and_0.wo(), &and_1.wo(), GateType::XOR).wo().clone()
+    }
+
     pub fn build_is_equal(&mut self, input_length : u64) ->  WireBuild {
         // Compares each bit in a tree like structure
         let mut deq = VecDeque::new(); 
@@ -75,7 +83,6 @@ impl CircuitBuilder {
     }
 
     pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild, input_wi_1: &WireBuild, input_wj_1: &WireBuild) -> WireBuild { // or gate needs 4 input wires
-
         let xor_0 = self.build_xor(input_wi, input_wj);
         let and_0 = self.build_and(&input_wi_1, &input_wj_1);
         let xor_1 = self.build_xor(&xor_0, &and_0);
@@ -94,13 +101,11 @@ impl CircuitBuilder {
         xor.wo().clone()
     }
 
-
-    // Builds all gates needed to create a xnor, returns them and the final output 
     pub fn build_xnor(&mut self, wi: &WireBuild, wj: &WireBuild) -> WireBuild {
         let xor = self.build_gate(wi, wj, GateType::XOR);
         let xor_with_constant = self.build_gate(xor.wo(), &self.true_constant.clone(), GateType::XOR);
         let xnor_output = xor_with_constant.wo().clone();
-
+        
         xnor_output
     }
 
