@@ -12,7 +12,7 @@ fn gates_are_sorted_by_increasing_output_layer() {
     let mut current_output_layer = &1.to_biguint().unwrap();
     
     for gate in gates {
-        assert!(gate.wo().output_layer() >= &current_output_layer);
-        current_output_layer = gate.wo().output_layer()
+        assert!(gate.wo().ready_at_layer() >= &current_output_layer);
+        current_output_layer = gate.wo().ready_at_layer()
     }
 }

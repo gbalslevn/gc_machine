@@ -47,7 +47,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         self.insert_constant_wires(&mut known_wires, &mut constant_wires);
         let mut rng = self.wire_gen.get_rng().clone();
         for (gate_index, gate) in gates.iter().enumerate() {
-            let gate_is_input_layer = gate.wo().output_layer() == &1.to_biguint().unwrap();
+            let gate_is_input_layer = gate.wo().ready_at_layer() == &1.to_biguint().unwrap();
             if gate_is_input_layer {
                 // Generate wires if not already generated (copied wires are already generated)
                 let wi_id = gate.wi().wire_id().clone();

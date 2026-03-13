@@ -1,22 +1,23 @@
 use std::collections::VecDeque;
-use std::ops::Add;
 
 use crate::{gates::gate_gen::GateType};
 use num_bigint::{BigUint, ToBigUint};
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id. 
-// This way we can provide two wire id's from other gates as input, and ensure to provide the correct values. The wire id does not neccesarlly correlate to the id of the gate genereated in wire_gen.
+// This way we can provide two wire id's from other gates as input, and ensure to provide the correct values. The wire id does not neccesarilly correlate to the id of the gate genereated in wire_gen.
 
 pub struct CircuitBuilder {
     gates : Vec<GateBuild>,
     outputs_created: BigUint,
-    true_constant : WireBuild
+    true_constant : WireBuild,
+    output_layer : BigUint
 }
 
 #[derive(Debug)]
 pub struct CircuitBuild {
-    pub gates : Vec<GateBuild>
+    pub gates : Vec<GateBuild>,
+    pub output_layer : BigUint
 }
 
 impl CircuitBuild {
@@ -29,15 +30,16 @@ impl CircuitBuilder {
     pub fn new() -> Self {
         let gates = vec![];
         let true_constant = WireBuild::new(0.to_biguint().unwrap(), 1.to_biguint().unwrap());
+        let output_layer = 0.to_biguint().unwrap();
 
         CircuitBuilder {
-            gates: gates, outputs_created: 2.to_biguint().unwrap(), true_constant: true_constant
+            gates: gates, outputs_created: 2.to_biguint().unwrap(), true_constant: true_constant , output_layer: output_layer
         }
     }
 
     pub fn get_circuit_build(&mut self) -> CircuitBuild {
         self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
-        CircuitBuild { gates : self.gates.clone() }
+        CircuitBuild { gates : self.gates.clone(), output_layer : self.output_layer.clone() }
     }
 
     pub fn build_is_equal(&mut self, input_wires: Vec<WireBuild>) ->  WireBuild {
@@ -100,9 +102,9 @@ impl CircuitBuilder {
 
     // Builds a gate with a new id and the output wire containing when the gate should be calculated
     fn build_gate(&mut self, wi: &WireBuild, wj: &WireBuild, gate_type: GateType) -> GateBuild {
-        let compute_layer = wi.ready_at_layer.clone().max(wj.ready_at_layer.clone());
-        let one = 1.to_biguint().unwrap();
-        let wo = WireBuild::new(compute_layer.add(one), self.outputs_created.clone());
+        let compute_layer = wi.ready_at_layer.clone().max(wj.ready_at_layer.clone())+1.to_biguint().unwrap();
+        self.output_layer = compute_layer.clone();
+        let wo = WireBuild::new(compute_layer, self.outputs_created.clone());
         self.increment_outputs_created();
         
         let gate = GateBuild::new(gate_type, wi.clone(), wj.clone(), wo);
@@ -127,7 +129,7 @@ impl WireBuild {
             wire_id,
         }
     }
-    pub fn output_layer(&self) -> &BigUint {
+    pub fn ready_at_layer(&self) -> &BigUint {
         &self.ready_at_layer
     }
     pub fn wire_id(&self) -> &BigUint {
