@@ -96,10 +96,10 @@ fn can_evaluate_xor_circuit() {
     let evaluator_decrypt_choices = vec![(real_key.get_sk().clone(), 0u8), (real_key.get_sk().clone(), 0u8)];
 
     // Garbler garbles
-    let (circuit_eval, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
 
     // Evaluator evaluates
-    let result = evaluator.evaluate_circuit(&circuit_eval, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_table);
+    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_table);
     assert_eq!(result, 1);
 }
 
@@ -127,10 +127,10 @@ fn can_evaluate_and_circuit() {
     let evaluator_decrypt_choices = vec![(real_key.get_sk().clone(), 1u8)];
 
     // Garbler garbles
-    let (circuit_eval, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
 
     // Evaluator evaluates
-    let result = evaluator.evaluate_circuit(&circuit_eval, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_table);
+    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_table);
     assert_eq!(result, 1);
 }
 
@@ -159,9 +159,9 @@ fn can_evaluate_three_gates_circuit() {
     let evaluator_decrypt_choices = vec![(real_key.get_sk().clone(), 1u8), (real_key.get_sk().clone(), 1u8)];
 
     // Garbler garbles
-    let (circuit_eval, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
     // Evaluator evaluates
-    let result = evaluator.evaluate_circuit(&circuit_eval, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_table);
+    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_table);
     assert_eq!(result, 1);
 }
 
@@ -188,18 +188,18 @@ fn can_evaluate_or_circuit() {
     let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. Needs to send 2 times as he needs two 1 bits for the OR gate of input AND and XOR. Even though the OR gate abstracts it to seeing it as 1 bit. The input should be the same.
     let evaluator_decrypt_choices = vec![(sk_real.clone(), 1 as u8)]; // chooses bit 1
 
-    let (circuit, garbler_input, evaluator_input, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
 
-    let result = evaluator.evaluate_circuit(&circuit, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_data);
+    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_choices, &conversion_data);
     assert_eq!(result, 1)
 }
 
 #[test]
 fn can_evaluate_xnor_circuit() {
-    let wire_gen = PointAndPermuteWireGen::new();
-    let gate_gen = PointAndPermuteGateGen::new(wire_gen.clone());
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
     let mut garbler = Garbler::new(gate_gen, wire_gen);
-    let mut evaluator = PointAndPermuteEvaluator::new();
+    let mut evaluator = OriginalEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
 
     let input_wires = circuit_builder.build_input_wires(2);
@@ -216,16 +216,16 @@ fn can_evaluate_xnor_circuit() {
     // Eval for when wi=0 and wj=1
     let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. 
     let evaluator_decrypt_choices = vec![(sk_real.clone(), 1u8)]; // chooses bit 1
-    let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, evaluator_decrypt_choices, &conversion_data);
+    let (garbled_gates, constant_wires, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &wi_inputs, &wj_inputs, evaluator_decrypt_choices, &conversion_data);
     
     assert_eq!(result, 0);
     
     // Eval for when wi=0 and wj=0
     let evaluator_input_choices = vec![[pk_real.clone(), pk_oblivious.clone()]]; // Eval has choosen to get bit 0. 
     let evaluator_decrypt_choices = vec![(sk_real.clone(), 0u8)]; // chooses bit 0
-    let (circuit, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit, &wi_inputs, &wj_inputs, evaluator_decrypt_choices, &conversion_data);
+    let (garbled_gates, constant_wires, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &wi_inputs, &wj_inputs, evaluator_decrypt_choices, &conversion_data);
 
     assert_eq!(result, 1);
 }
@@ -252,8 +252,8 @@ fn can_evaluate_is_equal_circuit() {
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
 
     // Garbler create circuit
-    let (circuit, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit, &garbler_input, &evaluator_input, evaluator_decrypt_values, &conversion_table);
+    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_values, &conversion_table);
     // Testing a=a
 
 
