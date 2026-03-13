@@ -2,17 +2,6 @@ use num_bigint::{ToBigUint};
 
 use crate::{circuit_builder::CircuitBuilder};
 
-// constant has a build id of 0 and 1
-#[test]
-fn const_has_specific_id() {
-    let mut circuit_builder = CircuitBuilder::new();
-    let cb = circuit_builder.get_circuit_build();
-    let false_constant_id = cb.get_false_constant().wire_id();
-    let true_constant_id = cb.get_true_constant().wire_id();
-    assert!(true_constant_id == &0.to_biguint().unwrap());
-    assert!(false_constant_id == &1.to_biguint().unwrap())
-}
-
 #[test]
 fn gates_are_sorted_by_increasing_output_layer() {
     let mut circuit_builder = CircuitBuilder::new();

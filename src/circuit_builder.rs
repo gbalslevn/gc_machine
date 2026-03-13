@@ -11,43 +11,33 @@ use num_bigint::{BigUint, ToBigUint};
 pub struct CircuitBuilder {
     gates : Vec<GateBuild>,
     outputs_created: BigUint,
-    true_constant : WireBuild, 
-    false_constant : WireBuild
+    true_constant : WireBuild
 }
 
 #[derive(Debug)]
 pub struct CircuitBuild {
-    gates : Vec<GateBuild>,
-    true_constant : WireBuild, 
-    false_constant : WireBuild
+    pub gates : Vec<GateBuild>
 }
 
 impl CircuitBuild {
     pub fn get_gates(&self) -> &Vec<GateBuild> {
         &self.gates
     }
-    pub fn get_true_constant(&self) -> &WireBuild {
-        &self.true_constant
-    }
-    pub fn get_false_constant(&self) -> &WireBuild {
-        &self.false_constant
-    }
 }
 
 impl CircuitBuilder {
     pub fn new() -> Self {
         let gates = vec![];
-        let true_constant = WireBuild::new(0.to_biguint().unwrap(), 0.to_biguint().unwrap());
-        let false_constant = WireBuild::new(0.to_biguint().unwrap(), 1.to_biguint().unwrap());
+        let true_constant = WireBuild::new(0.to_biguint().unwrap(), 1.to_biguint().unwrap());
 
         CircuitBuilder {
-            gates: gates, outputs_created: 2.to_biguint().unwrap(), true_constant: true_constant, false_constant: false_constant
+            gates: gates, outputs_created: 2.to_biguint().unwrap(), true_constant: true_constant
         }
     }
 
     pub fn get_circuit_build(&mut self) -> CircuitBuild {
         self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
-        CircuitBuild { gates : self.gates.clone(), true_constant: self.true_constant.clone(), false_constant: self.false_constant.clone() }
+        CircuitBuild { gates : self.gates.clone() }
     }
 
     pub fn build_is_equal(&mut self, input_wires: Vec<WireBuild>) ->  WireBuild {
@@ -147,7 +137,7 @@ impl WireBuild {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct GateBuild {
-    gate_type: GateType,
+    pub gate_type: GateType,
     wi: WireBuild,
     wj: WireBuild,
     wo: WireBuild,

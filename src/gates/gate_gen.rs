@@ -1,6 +1,6 @@
 use num_bigint::{BigUint};
 
-use crate::{garbler::GateEval, wires::wire_gen::{Wire, WireGen}};
+use crate::{wires::wire_gen::{Wire, WireGen}};
 
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -39,7 +39,7 @@ pub struct Gate {
 }
 
 impl Gate {
-    pub fn to_gate_eval(&self, gate_id : BigUint, wi_id : BigUint, wj_id : BigUint, is_input_gate : bool) -> GateEval {
-        GateEval {output_wire_id: gate_id, gate_type: self.gate_type, table : self.table.clone(), wi_id: wi_id, wj_id : wj_id, is_input_gate: is_input_gate}
+    pub fn to_table(&self) -> Vec<BigUint> {
+        self.table.clone()
     } 
 }
