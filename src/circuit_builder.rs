@@ -1,9 +1,7 @@
-use std::ops::Add;
-use std::collections::VecDeque;
+use std::{collections::HashMap, ops::Add, vec};
 
 use crate::gates::gate_gen::{GateType};
 use num_bigint::{BigUint, ToBigUint};
-
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id. 
@@ -13,13 +11,15 @@ pub struct CircuitBuilder {
     gates : Vec<GateBuild>,
     outputs_created: BigUint,
     true_constant : WireBuild, 
-    false_constant : WireBuild
+    false_constant : WireBuild,
+    branches : HashMap<BigUint, Vec<GateBuild>> // output wire id of branch, branch
 }
 
+#[derive(Debug)]
 pub struct CircuitBuild {
     gates : Vec<GateBuild>,
     true_constant : WireBuild, 
-    false_constant : WireBuild
+    false_constant : WireBuild,
 }
 
 impl CircuitBuild {
@@ -37,68 +37,74 @@ impl CircuitBuild {
 impl CircuitBuilder {
     pub fn new() -> Self {
         let gates = vec![];
+        let branches = HashMap::new();
         let true_constant = WireBuild::new(0.to_biguint().unwrap(), 0.to_biguint().unwrap());
         let false_constant = WireBuild::new(0.to_biguint().unwrap(), 1.to_biguint().unwrap());
 
         CircuitBuilder {
-            gates: gates, outputs_created: 2.to_biguint().unwrap(), true_constant: true_constant, false_constant: false_constant
+            gates: gates, outputs_created: 2.to_biguint().unwrap(), true_constant: true_constant, false_constant: false_constant, branches : branches
         }
     }
 
     pub fn get_circuit_build(&mut self) -> CircuitBuild {
         self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
+        // self.numerate_gate_branches();
         CircuitBuild { gates : self.gates.clone(), true_constant: self.true_constant.clone(), false_constant: self.false_constant.clone() }
     }
 
-    // A 2 input multiplexer
-    pub fn build_if(&mut self, boolean : WireBuild, true_block_output : WireBuild, false_block_output : WireBuild) -> WireBuild {
+    // fn numerate_gate_branches(&mut self) {
+    //     let mut branch_num = 0;
+    //     for branch in self.branches.clone() {
+    //         for mut gate in branch {
+    //             gate.branch = branch_num.to_biguint().unwrap();
+    //         }
+    //         branch_num += 1;
+    //     }
+    //     // numerate all branches which can be done now as we know how many we have
+    // }
+
+    // An if block where the "code" which needs to be run inside the statement is provided as a part of branch_true. branch_false is conceptually seen as the block which runs after the if, no such thing as if else. If else is an abstraction to a if(true_stamement) { a() } if(!true_stamement) { b() }. To create if else, run two build_if 
+    // The block provided are all the prior code (as gates) which has run so far, + the code which needs to run inside the if statement. 
+    pub fn build_if(&mut self, boolean : WireBuild, code_block : &mut Vec<GateBuild>) -> WireBuild {
+        let current_branch_output = self.gates[self.gates.len() - 1].wo().clone();
+        let mut current_branch = self.branches.get(&current_branch_output.wire_id).unwrap_or(&self.gates).clone(); // default, no branch has been added yet
+        
+        // Insert the new branch 
+        code_block.append(&mut current_branch);
+        let code_block_output = code_block[code_block.len() - 1].wo();
+        self.branches.insert(code_block_output.wire_id.clone(), code_block.clone());
+
         let neg_boolean = self.build_gate(&boolean, &self.true_constant.clone(), GateType::XOR);
-        let and_0 = self.build_gate(&true_block_output, &neg_boolean.wo(), GateType::AND);
-        let and_1 = self.build_gate(&false_block_output, &neg_boolean.wo(), GateType::AND);
+        let and_0 = self.build_gate(code_block_output, &neg_boolean.wo(), GateType::AND);
+        let and_1 = self.build_gate(&current_branch_output, &boolean, GateType::AND);
         self.build_gate(&and_0.wo(), &and_1.wo(), GateType::XOR).wo().clone()
     }
 
-    pub fn build_is_equal(&mut self, input_length : u64) ->  WireBuild {
+    pub fn build_is_equal(&mut self, input_wires: Vec<WireBuild>) ->  WireBuild {
         // Compares each bit in a tree like structure
-        let mut deq = VecDeque::new(); 
-        let input_wires = self.build_input_wires(input_length as u32 * 2);
-        // Compare initial layer
-        for wire in input_wires.chunks(2) {
-            let wi = &wire[0];
-            let wj = &wire[1];
-            let xnor_output = self.build_xnor(wi, wj);
-            
-            deq.push_back(xnor_output);
+        let mut garbler_input_wires = Vec::new();
+        let mut evaluator_input_wires = Vec::new();
+        for i in 0..input_wires.len() {
+            if i < (input_wires.len()/2) {
+                garbler_input_wires.push(input_wires[i].clone());
+            } else {
+                evaluator_input_wires.push(input_wires[i].clone());
+            }
         }
-        // Binary tree reduction
-        while deq.len() > 1 { // perhaps cleaner if we could calculate how many gates is needed, avoiding while loop.
-            let element_0 = deq.pop_front().unwrap().clone();
-            let element_1 = deq.pop_front().unwrap().clone();
-            let xnor_output = self.build_xnor(&element_0, &element_1);
-            deq.push_back(xnor_output); 
-        }
-
-        let output  = self.gates[self.gates.len() - 1].wo().clone(); 
+        let xnor_1 = self.build_xnor(&input_wires[0], &input_wires[2]);
+        let xnor_2 = self.build_xnor(&input_wires[1], &input_wires[3]);
+        let output = self.build_and(&xnor_1, &xnor_2);
         output
     }
 
-    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild, input_wi_1: &WireBuild, input_wj_1: &WireBuild) -> WireBuild { // or gate needs 4 input wires
-        let xor_0 = self.build_xor(input_wi, input_wj);
-        let and_0 = self.build_and(&input_wi_1, &input_wj_1);
+    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> Vec<GateBuild> {
+
+        let xor_0 = self.build_xor(&input_wi.clone(), &input_wj.clone());
+        let and_0 = self.build_and(input_wi, input_wj);
         let xor_1 = self.build_xor(&xor_0, &and_0);
         let output = xor_1.clone();
 
-        output
-    }
-
-    fn build_and(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
-        let and =self.build_gate(input_wi, input_wj, GateType::AND);
-        and.wo().clone()
-    }
-
-    fn build_xor(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
-        let xor = self.build_gate(input_wi, input_wj, GateType::XOR);
-        xor.wo().clone()
+        vec![xor_0, and_0, xor_1]
     }
 
     pub fn build_xnor(&mut self, wi: &WireBuild, wj: &WireBuild) -> WireBuild {
@@ -109,11 +115,22 @@ impl CircuitBuilder {
         xnor_output
     }
 
+    pub fn build_and(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+        let and =self.build_gate(input_wi, input_wj, GateType::AND);
+        and.wo().clone()
+    }
+
+    pub fn build_xor(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+        let xor = self.build_gate(input_wi, input_wj, GateType::XOR);
+        xor.wo().clone()
+    }
+
     pub fn build_input_wires(&mut self, amount : u32) -> Vec<WireBuild> {
         let mut input_wires = vec![];
         for _i in 0..amount {
             let input_wire = WireBuild::new(0.to_biguint().unwrap(), self.outputs_created.clone());
             input_wires.push(input_wire);
+            self.outputs_created += 1.to_biguint().unwrap();
         }
         input_wires
     }
@@ -161,15 +178,20 @@ pub struct GateBuild {
     wi: WireBuild,
     wj: WireBuild,
     wo: WireBuild,
+    branch: BigUint
 }
 
 impl GateBuild {
     pub fn new(gate_type: GateType, wi: WireBuild, wj: WireBuild, wo: WireBuild) -> Self {
+        Self::new_with_branch(gate_type, wi, wj, wo, 0.to_biguint().unwrap())
+    }
+    pub fn new_with_branch(gate_type: GateType, wi: WireBuild, wj: WireBuild, wo: WireBuild, branch : BigUint) -> Self {
         GateBuild {
             gate_type,
             wi,
             wj,
             wo,
+            branch
         }
     }
     pub fn gate_type(&self) -> &GateType {

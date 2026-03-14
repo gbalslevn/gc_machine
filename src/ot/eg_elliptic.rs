@@ -40,7 +40,7 @@ impl ObliviousKeyPair {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CipherText {
     pub payload : BigUint,
     pub ephemeral_key : ProjectivePoint
