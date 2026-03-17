@@ -15,7 +15,6 @@ fn gates_are_sorted_by_increasing_output_layer() {
         assert!(gate.wo().ready_at_layer() >= &current_output_layer);
         current_output_layer = gate.wo().ready_at_layer()
     }
-    circuit_builder.print_summary();
 }
 
 #[test]
@@ -36,7 +35,7 @@ fn branches_assigned_correctly_for_two_ifs() {
         assert_eq!(gate.branches().len(), 1)
     }
 
-     // There should be no dublicate branches for a gate
+     // A gate should not have dublicate branches
     for gate in gates {
         let mut used_branches = HashSet::new();    
         for branch in gate.branches() {

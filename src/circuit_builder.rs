@@ -9,19 +9,19 @@ use num_bigint::{BigUint, ToBigUint};
 // This way we can provide two wire id's from other gates as input, and ensure to provide the correct values. The wire id does not neccesarilly correlate to the id of the gate genereated in wire_gen.
 
 pub struct CircuitBuilder {
-    gates: HashMap<BigUint, GateBuild>,
+    gates: Vec<GateBuild>,
     outputs_created: BigUint,
     true_constant: WireBuild,
     output_layer: BigUint,
     branches: HashMap<BigUint, BranchEntry>, // Markers for a branch with the mux output gate as key
-    branch_counter: usize
+    branch_counter: usize,
 }
 
 #[derive(Clone)]
 pub struct BranchEntry {
     pub true_gate_id: BigUint,
     pub false_gate_id: BigUint,
-    pub mux_gates : Vec<GateBuild> 
+    pub mux_gates: Vec<BigUint>,
 }
 
 #[derive(Debug, Clone)]
@@ -38,7 +38,7 @@ impl CircuitBuild {
 
 impl CircuitBuilder {
     pub fn new() -> Self {
-        let gates = HashMap::new();
+        let gates = Vec::new();
         let branches = HashMap::new();
         let true_constant = WireBuild::new(0.to_biguint().unwrap(), 1.to_biguint().unwrap());
         let output_layer = 0.to_biguint().unwrap();
@@ -49,27 +49,26 @@ impl CircuitBuilder {
             true_constant: true_constant,
             output_layer: output_layer,
             branches,
-            branch_counter: 0
+            branch_counter: 0,
         }
     }
 
     pub fn get_circuit_build(&mut self) -> CircuitBuild {
-        let mut gates_list: Vec<_> = self.gates.values().cloned().collect(); 
-        gates_list.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
         self.numerate_gate_branches();
-
+        // let mut gates_list: Vec<GateBuild> = self.gates.values().cloned().collect();
+        self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
         CircuitBuild {
-            gates: gates_list,
+            gates: self.gates.clone(),
             output_layer: self.output_layer.clone(),
         }
     }
 
-    pub fn print_summary(&self) {
+    pub fn print_circuit(&self) {
         println!("{:}", " ***** CIRCUIT_BUILD ***** ");
         println!("Branches: {}", self.branches.len() + 1);
         println!("Amount of gates: {}", self.gates.len());
-        for (i, (_gate_id, gate)) in self.gates.iter().enumerate() {
-            println!("{:>2} | {}", i, gate); 
+        for gate in &self.gates {
+            println!("{}", gate);
         }
     }
 
@@ -85,8 +84,17 @@ impl CircuitBuilder {
         let and_1 = self.build_gate(false_output, boolean, GateType::AND);
         let output = self.build_gate(&and_0.wo(), &and_1.wo(), GateType::XOR);
         let mux_id = output.wo().wire_id().clone();
-        let branch = BranchEntry { true_gate_id: true_output.wire_id().clone(), false_gate_id : false_output.wire_id().clone(), mux_gates : vec![neg_boolean, and_0, and_1, output.clone()]};
-        self.branches.insert(mux_id, branch); 
+        let branch = BranchEntry {
+            true_gate_id: true_output.wire_id().clone(),
+            false_gate_id: false_output.wire_id().clone(),
+            mux_gates: vec![
+                neg_boolean.wo().wire_id().clone(),
+                and_0.wo().wire_id().clone(),
+                and_1.wo().wire_id().clone(),
+                output.wo().wire_id().clone(),
+            ],
+        };
+        self.branches.insert(mux_id, branch);
         output.wo
     }
 
@@ -149,77 +157,90 @@ impl CircuitBuilder {
         self.branch_counter += 1;
         self.branch_counter
     }
-    
+
     // Traverses backwards from the output gate to propogate all correct branches to each gate
     fn numerate_gate_branches(&mut self) {
         let final_gate_id = self.gates[self.gates.len() - 1].wo().wire_id().clone();
-        let id_to_gate_index: HashMap<BigUint, usize> = self.gates.iter().enumerate().map(|(idx, gate)| (gate.wo().wire_id().clone(), idx)).collect(); // Lookup to find the index of each gate in gates according to its wire_id. Returns gate in the form of the index in self.gates
-        self.proceed_with_branch(0, &mut vec![], &final_gate_id, &id_to_gate_index); // initial call to recursive loop
+        let gate_index_map: HashMap<BigUint, usize> = self.gates.iter().enumerate().map(|(idx, gate)| (gate.wo().wire_id().clone(), idx)).collect();
+        self.proceed_with_branch(0, &mut vec![], &final_gate_id, &gate_index_map); // initial call to recursive loop
     }
 
     // Adds branch for dependent gates of start_gate_id and splits if reaching a branch
-    fn proceed_with_branch(&mut self, branch_id: usize, branch_route : &mut Vec<BigUint>, start_gate_id : &BigUint, lookup_index : &HashMap<BigUint, usize>) {
+    fn proceed_with_branch(&mut self, branch_id: usize, branch_route: &mut Vec<BigUint>, start_gate_id: &BigUint, gate_lookup : &HashMap<BigUint, usize>) {
         let mut visited_gates: HashSet<BigUint> = HashSet::new(); // Only add branch id once
         let mut stack = vec![start_gate_id.clone()];
+        let branches = self.branches.clone();
 
-        while let Some(gate_id) = stack.pop() { 
+        while let Some(gate_id) = stack.pop() {
             if !visited_gates.insert(gate_id.clone()) {
                 continue;
-            }   
-            if let Some(&gate_index) = lookup_index.get(&gate_id) {
-                if let Some(branch) = self.branches.get(&gate_id).cloned() { // if we hit a branch id, id of the mux (which is the last gate in the mux), start also numerating gates with that new branch
-                    let next_branch_id = self.next_branch_id();
-                    for gate in branch.mux_gates { // Add both branches to all gates in the MUX
-                        if let Some (&mux_gate_idx) = lookup_index.get(gate.wo().wire_id()) {
-                            self.gates[mux_gate_idx].add_branch(branch_id);
-                            self.gates[mux_gate_idx].add_branch(next_branch_id);
-                        }
+            }
+            // if we hit id of a mux, start branch out and numerate both branches
+            if let Some(branch) = branches.get(&gate_id) {
+                let next_branch_id = self.next_branch_id();
+                for mux_gate_id in &branch.mux_gates {
+                    // Add both branch_ids to all gates in the MUX
+                    if let Some(&gate_idx) = gate_lookup.get(mux_gate_id) {
+                        let gate = &mut self.gates[gate_idx];
+                        gate.add_branch(branch_id);
+                        gate.add_branch(next_branch_id);
                     }
-                    let true_gate = &branch.true_gate_id;
-                    branch_route.push(true_gate.clone());
-                    self.proceed_with_branch(next_branch_id, branch_route, true_gate, lookup_index); 
-                    self.add_branch_until_brancing(&gate_id, next_branch_id, branch_route, lookup_index);
-                    
-                    let false_gate = &branch.false_gate_id;
-                    branch_route.pop();
-                    branch_route.push(false_gate.clone());
-                    self.proceed_with_branch(branch_id, branch_route, false_gate, lookup_index); // Simply proceed with the false branch
-                    break;
-                } else { // keep adding more gates
-                    let dependent_gate = &mut self.gates[gate_index];
-                    dependent_gate.add_branch(branch_id);
-                    let left_wire = dependent_gate.wi().wire_id().clone();
-                    let right_wire = dependent_gate.wj().wire_id().clone();
-                    stack.push(left_wire);
-                    stack.push(right_wire);
                 }
+                let true_gate_id = &branch.true_gate_id;
+                branch_route.push(true_gate_id.clone());
+                self.proceed_with_branch(next_branch_id, branch_route, &true_gate_id, gate_lookup);
+                self.add_branch_until_brancing(&gate_id, next_branch_id, branch_route, gate_lookup);
+
+                let false_gate = &branch.false_gate_id;
+                branch_route.pop();
+                branch_route.push(false_gate.clone());
+                self.proceed_with_branch(branch_id, branch_route, &false_gate, gate_lookup); // Simply proceed with the false branch
+                break;
+            }
+            // keep traversing backwards
+            if let Some(&gate_idx) = gate_lookup.get(&gate_id) {
+                let gate = &mut self.gates[gate_idx];
+                gate.add_branch(branch_id);
+                let left_wire = gate.wi().wire_id().clone();
+                let right_wire = gate.wj().wire_id().clone();
+                stack.push(left_wire);
+                stack.push(right_wire);
             }
         }
     }
 
     // Adds branch for gates leading to the gate where the branching happens
-    fn add_branch_until_brancing(&mut self, branch_gate_id: &BigUint, branch_id: usize, branch_route : &mut Vec<BigUint>, lookup_index : &HashMap<BigUint, usize>) {
+    fn add_branch_until_brancing(
+        &mut self,
+        branch_gate_id: &BigUint,
+        branch_id: usize,
+        branch_route: &mut Vec<BigUint>,
+        gate_lookup : &HashMap<BigUint, usize>
+    ) {
         let mut visited_gates: HashSet<BigUint> = HashSet::new(); // Only add branch id once
-        let final_gate_id = self.gates[self.gates.len() - 1].wo().wire_id().clone();
-        let mut stack = vec![final_gate_id];
+        let final_gate_id = self.gates[self.gates.len() - 1].wo().wire_id();
+        let mut stack = vec![final_gate_id.clone()];
+        let branches = self.branches.clone();
 
         let mut route_index = 0;
         while let Some(gate_id) = stack.pop() {
+            if !visited_gates.insert(gate_id.clone()) {
+                continue;
+            }
             if &gate_id == branch_gate_id {
                 break;
             }
-            if let Some(&gate_index) = lookup_index.get(&gate_id) {
-                let consuming_gate = &mut self.gates[gate_index];
-                if !visited_gates.insert(consuming_gate.wo().wire_id().clone()) {
-                        continue;
-                }
-                consuming_gate.add_branch(branch_id);
-                if let Some(_branch) = self.branches.get(&gate_id) { // Determine if the gate_id is a branch wire, and then only push the wire which the branch should take
+            if let Some(&gate_idx) = gate_lookup.get(&gate_id) {
+                let gate = &mut self.gates[gate_idx];
+                gate.add_branch(branch_id);
+
+                if let Some(_branch) = branches.get(&gate_id) {
+                    // Determine if the gate_id is a branch wire, and then only push the wire which the branch should take
                     stack.push(branch_route[route_index].clone());
                     route_index += 1;
                 } else {
-                    let left_wire = consuming_gate.wi().wire_id().clone();
-                    let right_wire = consuming_gate.wj().wire_id().clone();
+                    let left_wire = gate.wi().wire_id().clone();
+                    let right_wire = gate.wj().wire_id().clone();
                     stack.push(left_wire);
                     stack.push(right_wire);
                 }
@@ -235,7 +256,8 @@ impl CircuitBuilder {
         let wo = WireBuild::new(compute_layer, self.outputs_created.clone());
         self.increment_outputs_created();
 
-        let gate = GateBuild::new(gate_type, wi.clone(), wj.clone(), wo);
+        let gate: GateBuild = GateBuild::new(gate_type, wi.clone(), wj.clone(), wo);
+        // self.gates.insert(gate.wo().wire_id().clone(), gate.clone());
         self.gates.push(gate.clone());
         gate
     }
@@ -310,8 +332,8 @@ impl GateBuild {
 impl fmt::Display for GateBuild {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
-            f, 
-            "[{:?}] : id: {:<3} | ready at layer {:?} | Branches: {:?}", 
+            f,
+            "[{:?}] : id: {:<3} | ready at layer {:?} | Branches: {:?}",
             self.gate_type, self.wo.wire_id, self.wo.ready_at_layer, self.branches
         )
     }
