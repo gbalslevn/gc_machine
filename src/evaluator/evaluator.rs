@@ -1,11 +1,11 @@
 use k256::{PublicKey, SecretKey};
-use num_bigint::{BigUint};
+use num_bigint::{BigUint, ToBigUint};
 use std::collections::HashMap;
 
 use crate::{
-    garbler::CircuitEval,
     gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText},
 };
+use crate::circuit_builder::CircuitBuild;
 
 pub trait Evaluator {
     fn evaluate_gate(
@@ -36,23 +36,26 @@ pub trait Evaluator {
 
     fn evaluate_circuit(
         &mut self,
-        circuit: &CircuitEval,
+        circuit_build: &CircuitBuild,
+        garbled_gates: &Vec<Vec<BigUint>>,
+        constant_wires: &Vec<BigUint>,
         garbler_input: &HashMap<BigUint, BigUint>,
         evaluator_input: &HashMap<BigUint, (CipherText, CipherText)>,
         secret_keys: Vec<(SecretKey, u8)>,
         conversion_table: &[(BigUint, u8); 2],
     ) -> u8 {
-        let mut outputs: HashMap<BigUint, BigUint> = HashMap::new(); // id, wire
+        let mut known_wires: HashMap<BigUint, BigUint> = HashMap::new(); // id, wire
         let mut circuit_result = 3; // need to return circuit result in a better way without init it
 
         // Insert constant values
-        outputs.insert(circuit.true_constant_id.clone(), circuit.true_constant.clone());
-        outputs.insert(circuit.false_constant_id.clone(), circuit.false_constant.clone());
+        known_wires.insert(0.to_biguint().unwrap(), constant_wires[0].to_biguint().unwrap());
+        known_wires.insert(1.to_biguint().unwrap(), constant_wires[1].to_biguint().unwrap());
+
         // Insert garblers input wires
         let garbler_hash_keys = garbler_input.keys().collect::<Vec<_>>();
         for wire_id in garbler_hash_keys {
             let wire = garbler_input.get(wire_id);
-            outputs.insert(wire_id.clone(), wire.unwrap().clone());
+            known_wires.insert(wire_id.clone(), wire.unwrap().clone());
         }
         // Insert evaluator wires
         let mut evaluator_hash_keys = evaluator_input.keys().collect::<Vec<_>>();
@@ -67,21 +70,19 @@ pub trait Evaluator {
                 _ => panic!("Invalid evaluator choice"),
             };
             let wire = eg_elliptic::decrypt(&secret_keys[secret_keys_iterator].0, evaluator_cipher);
-            outputs.insert(key.clone(), wire.clone());
+            known_wires.insert(key.clone(), wire.clone());
             secret_keys_iterator += 1;
         }
 
-        for gate in &circuit.gates {
+        for (index, gate) in circuit_build.gates.iter().enumerate() {
             let wi;
             let wj;
-            
-            wi = outputs.get(&gate.wi_id).unwrap().clone();
-            wj = outputs.get(&gate.wj_id).unwrap().clone();
+            wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+            wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+            let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &garbled_gates[index]);
+            known_wires.insert(gate.wo().wire_id().clone(), result.clone());
 
-            let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &gate.table);
-            outputs.insert(gate.output_wire_id.clone(), result.clone());
-            // If last gate, get output
-            if gate == &circuit.gates[circuit.gates.len() - 1] {
+            if *gate.wo().ready_at_layer() == circuit_build.output_layer {
                 if result == conversion_table[0].0 {
                     circuit_result = conversion_table[0].1;
                 }
