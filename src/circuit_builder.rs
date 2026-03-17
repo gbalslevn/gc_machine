@@ -55,7 +55,6 @@ impl CircuitBuilder {
 
     pub fn get_circuit_build(&mut self) -> CircuitBuild {
         self.numerate_gate_branches();
-        // let mut gates_list: Vec<GateBuild> = self.gates.values().cloned().collect();
         self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
         CircuitBuild {
             gates: self.gates.clone(),
@@ -72,7 +71,7 @@ impl CircuitBuilder {
         }
     }
 
-    // An if block where a block of gates, derived from the output of them, is added depending on a boolean. MUX always has an else, but in this case we just set the else to do nothing by providing current output.
+    // An if block where a block of gates, derived from the output of them, is added depending on a boolean. MUX always has an else.
     pub fn build_if(
         &mut self,
         boolean: &WireBuild,
@@ -126,8 +125,7 @@ impl CircuitBuilder {
 
     pub fn build_xnor(&mut self, wi: &WireBuild, wj: &WireBuild) -> WireBuild {
         let xor = self.build_gate(wi, wj, GateType::XOR);
-        let xor_with_constant =
-            self.build_gate(xor.wo(), &self.true_constant.clone(), GateType::XOR);
+        let xor_with_constant = self.build_gate(xor.wo(), &self.true_constant.clone(), GateType::XOR);
         let xnor_output = xor_with_constant.wo().clone();
 
         xnor_output
@@ -165,7 +163,7 @@ impl CircuitBuilder {
         self.proceed_with_branch(0, &mut vec![], &final_gate_id, &gate_index_map); // initial call to recursive loop
     }
 
-    // Adds branch for dependent gates of start_gate_id and splits if reaching a branch
+    // Adds branch for dependent gates of start_gate_id and splits in a recursive call if reaching a branch
     fn proceed_with_branch(&mut self, branch_id: usize, branch_route: &mut Vec<BigUint>, start_gate_id: &BigUint, gate_lookup : &HashMap<BigUint, usize>) {
         let mut visited_gates: HashSet<BigUint> = HashSet::new(); // Only add branch id once
         let mut stack = vec![start_gate_id.clone()];
@@ -209,7 +207,7 @@ impl CircuitBuilder {
         }
     }
 
-    // Adds branch for gates leading to the gate where the branching happens
+    // Adds branch for gates leading to the gate where the branching happened
     fn add_branch_until_brancing(
         &mut self,
         branch_gate_id: &BigUint,
@@ -257,7 +255,6 @@ impl CircuitBuilder {
         self.increment_outputs_created();
 
         let gate: GateBuild = GateBuild::new(gate_type, wi.clone(), wj.clone(), wo);
-        // self.gates.insert(gate.wo().wire_id().clone(), gate.clone());
         self.gates.push(gate.clone());
         gate
     }
