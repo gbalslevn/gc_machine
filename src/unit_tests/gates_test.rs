@@ -190,7 +190,7 @@ fn nor_tt_gen_is_correct() {
     let one_bit = 1.to_biguint().unwrap();
     let w = Wire::new(zero_bit.clone(), one_bit.clone());
     let gate_gen = OriginalGateGen::new(OriginalWireGen::new());
-    let tt = gate_gen.get_tt(&w, &w, &w, &GateType::OR);
+    let tt = gate_gen.get_tt(&w, &w, &w, &GateType::NOR);
     for (il, ir, out) in tt {
         if il == zero_bit && ir == zero_bit {
             assert_eq!(out, one_bit)
