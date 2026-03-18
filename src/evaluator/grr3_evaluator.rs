@@ -16,7 +16,7 @@ impl GRR3Evaluator {
 impl Evaluator for GRR3Evaluator {
     fn evaluate_and_gate(&mut self, wi: &BigUint, wj: &BigUint, table: &Vec<BigUint>) -> BigUint {
         let key = gc_kdf_128(wi, wj, self.get_index());
-        self.index += &key;
+        self.increment_index();
         let pos = get_position(wi, wj);
         if pos == 0 {
             key.clone()

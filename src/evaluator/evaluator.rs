@@ -74,7 +74,6 @@ pub trait Evaluator {
             secret_keys_iterator += 1;
         }
 
-
         for (index, gate) in circuit_build.gates.iter().enumerate() {
             let wi;
             let wj;
