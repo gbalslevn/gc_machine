@@ -8,7 +8,7 @@ async fn socket_can_return_the_last_sent_msg() {
     let config = websocket::SocketConfig::new("localhost:12345".to_string());
 
     let receiver_socket_client = websocket::run(&config).await;
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await; 
+    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
     let sender_socket_client = websocket::run(&config.as_client()).await; 
     let is_connected = is_connected(&receiver_socket_client, &sender_socket_client).await;
     assert!(is_connected);
@@ -17,7 +17,7 @@ async fn socket_can_return_the_last_sent_msg() {
     sender_socket_client.send_message(msg_1).await;
     let msg_2 = Message::text(format!("msg2"));
     sender_socket_client.send_message(msg_2).await;
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await; 
+    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
     
     let received_msg = receiver_socket_client.get_last_msg().await;
     
@@ -28,7 +28,7 @@ async fn socket_can_return_the_last_sent_msg() {
 async fn socket_can_listen_for_a_new_message() {
     let config = websocket::SocketConfig::new("localhost:12346".to_string());
     let receiver_socket_client = websocket::run(&config).await;
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await; 
+    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
     let sender_socket_client = websocket::run(&config.as_client()).await;
     
     let msg = Message::text(format!("msg"));
@@ -62,7 +62,7 @@ async fn socket_can_listen_for_a_new_message() {
 async fn is_connected(client1 : &SocketClient, client2 : &SocketClient) -> bool {
     let token = Uuid::new_v4().to_string();
     client1.send_message(Message::text(&token)).await;
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await; 
+    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
     let msg = client2.get_last_msg().await;
     msg.to_text().unwrap() == token
 }

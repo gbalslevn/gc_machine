@@ -49,9 +49,9 @@ fn garbler_half_gate(sa: bool, wi: &BigUint, index: &BigUint, tg: &BigUint) -> B
 }
 
 fn evaluator_half_gate(sb: bool, wi: &BigUint, wj: &BigUint, index: &BigUint, te: &BigUint) -> BigUint {
+    let mut ge = gc_kdf_hg(wj, index);
     if sb {
-        gc_kdf_hg(wj, index) ^ te ^ wi
-    } else {
-        gc_kdf_hg(wj, index)
+        ge = ge ^ te ^ wi
     }
+    ge
 }

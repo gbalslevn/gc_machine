@@ -17,7 +17,11 @@ pub trait Evaluator {
     ) -> BigUint {
         match gate_type {
             GateType::AND => self.evaluate_and_gate(wi, wj, table),
+            GateType::NAND => self.evaluate_and_gate(wi, wj, table),
             GateType::XOR => self.evaluate_xor_gate(wi, wj, table),
+            GateType::XNOR => self.evaluate_xor_gate(wi, wj, table),
+            GateType::OR => self.evaluate_and_gate(wi, wj, table),
+            GateType::NOR => self.evaluate_and_gate(wi, wj, table),
         }
     }
 
