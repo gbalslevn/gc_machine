@@ -12,7 +12,7 @@ pub struct FreeXORWireGen {
 
 impl FreeXORWireGen {
     pub fn delta(&self) -> &BigUint {
-        &self.delta // Why does each each wire need to hold delta? Perhaps the gate should and we make a standard wire struct for all gates. Even better the garbler should hold it. 
+        &self.delta
     }
 }
 
@@ -30,10 +30,13 @@ impl WireGen for FreeXORWireGen {
         Wire::new(w0, w1)
     }
     fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
-        let delta = self.delta();
         match gate {
-            GateType::AND=>generate_and_wires(delta, &wi, &wj, gate_id),
-            GateType::XOR=>generate_xor_wires(delta, &wi, &wj, gate_id),
+            GateType::AND=>generate_and_wires(self, &wi, &wj, gate_id),
+            GateType::NAND=>generate_nand_wires(self, &wi, &wj, gate_id),
+            GateType::XOR=>generate_xor_wires(self, &wi, &wj, gate_id),
+            GateType::XNOR=>generate_xnor_wires(self, &wi, &wj, gate_id),
+            GateType::OR=>generate_or_wires(self, &wi, &wj, gate_id),
+            GateType::NOR=>generate_nor_wires(self, &wi, &wj, gate_id),
         }
     }
     fn get_rng(&self) -> &ChaCha20Rng {
@@ -44,24 +47,54 @@ impl WireGen for FreeXORWireGen {
     }
 }
 
-pub fn generate_and_wires(delta: &BigUint, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
+pub fn generate_and_wires(wire_gen: &mut FreeXORWireGen, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
     let w0c;
     let w1c;
     let w00 = get_00_wire(&wi, &wj, gate_id);
     if !wi.w1().bit(0) && !wj.w1().bit(0) {
-        w0c = &w00 ^ delta.clone();
+        w0c = &w00 ^ wire_gen.delta();
         w1c = w00;
     } else {
-        w1c = &w00 ^ delta.clone();
+        w1c = &w00 ^ wire_gen.delta();
         w0c = w00;
     }
     Wire::new(w0c, w1c)
 }
 
-pub fn generate_xor_wires(delta: &BigUint, wi: &Wire, wj: &Wire, _gate_id: &BigUint) -> Wire {
+pub fn generate_nand_wires(wire_gen: &mut FreeXORWireGen, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
+    let wire = generate_and_wires(wire_gen, wi, wj, gate_id);
+    Wire::new(wire.w0() ^ wire_gen.delta(), wire.w1() ^ wire_gen.delta())
+}
+
+pub fn generate_xor_wires(wire_gen: &mut FreeXORWireGen, wi: &Wire, wj: &Wire, _gate_id: &BigUint) -> Wire {
     let w0c = wi.w0() ^ wj.w0();
-    let w1c = &w0c ^ delta.clone();
+    let w1c = &w0c ^ wire_gen.delta();
     Wire::new(w0c, w1c)
+}
+
+pub fn generate_xnor_wires(wire_gen: &mut FreeXORWireGen, wi: &Wire, wj: &Wire, _gate_id: &BigUint) -> Wire {
+    let w1c = wi.w0() ^ wj.w0();
+    let w0c =  &w1c ^ wire_gen.delta();
+    Wire::new(w0c, w1c)
+}
+
+pub fn generate_or_wires(wire_gen: &mut FreeXORWireGen, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
+    let w0c;
+    let w1c;
+    let w00 = get_00_wire(&wi, &wj, gate_id);
+    if !wi.w0().bit(0) && !wj.w0().bit(0) {
+        w1c = &w00 ^ wire_gen.delta();
+        w0c = w00;
+    } else {
+        w0c = &w00 ^ wire_gen.delta();
+        w1c = w00;
+    }
+    Wire::new(w0c, w1c)
+}
+
+pub fn generate_nor_wires(wire_gen: &mut FreeXORWireGen, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
+    let wire = generate_nand_wires(wire_gen, wi, wj, gate_id);
+    Wire::new(wire.w0() ^ wire_gen.delta(), wire.w1() ^ wire_gen.delta())
 }
 
 pub fn get_00_wire(wi: &Wire, wj: &Wire, gate_id: &BigUint) -> BigUint {

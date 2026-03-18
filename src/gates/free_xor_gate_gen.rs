@@ -18,12 +18,31 @@ impl<W: WireGen> GateGen<W> for FreeXORGateGen<W> {
         let tt = self.get_tt(&wi, &wj, &wo, &gate);
         match gate {
             GateType::AND=> {
-                let table = generate_and_table(&tt,  &self.index);
+                let table = generate_table(&tt,  &self.index);
                 let gate = Gate { gate_type: GateType::AND, table, wi, wj, wo };
                 self.increment_index();
                 gate
             }
-            GateType::XOR=>Gate { gate_type: GateType::XOR, table: Vec::new(), wi, wj, wo }
+            GateType::NAND=> {
+                let table = generate_table(&tt,  &self.index);
+                let gate = Gate { gate_type: GateType::NAND, table, wi, wj, wo };
+                self.increment_index();
+                gate
+            }
+            GateType::XOR=>Gate { gate_type: GateType::XOR, table: Vec::new(), wi, wj, wo },
+            GateType::XNOR=>Gate { gate_type: GateType::XNOR, table: Vec::new(), wi, wj, wo },
+            GateType::OR=> {
+                let table = generate_table(&tt,  &self.index);
+                let gate = Gate { gate_type: GateType::OR, table, wi, wj, wo };
+                self.increment_index();
+                gate
+            },
+            GateType::NOR=> {
+                let table = generate_table(&tt,  &self.index);
+                let gate = Gate { gate_type: GateType::NOR, table, wi, wj, wo };
+                self.increment_index();
+                gate
+            },
         }
     }
 
@@ -37,7 +56,7 @@ impl<W: WireGen> GateGen<W> for FreeXORGateGen<W> {
     }
 }
 
-fn generate_and_table(tt : &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint) -> Vec<BigUint> {
+fn generate_table(tt: &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint) -> Vec<BigUint> {
     let mut table = vec![BigUint::from(0u8); 3];
     // Creating symmetric key from left input, right input and gate id then encrypting the tt output with the key
     for (il, ir, out) in tt {
