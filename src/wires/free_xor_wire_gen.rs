@@ -93,7 +93,7 @@ pub fn generate_or_wires(wire_gen: &mut FreeXORWireGen, wi: &Wire, wj: &Wire, ga
 }
 
 pub fn generate_nor_wires(wire_gen: &mut FreeXORWireGen, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
-    let wire = generate_nand_wires(wire_gen, wi, wj, gate_id);
+    let wire = generate_or_wires(wire_gen, wi, wj, gate_id);
     Wire::new(wire.w0() ^ wire_gen.delta(), wire.w1() ^ wire_gen.delta())
 }
 
