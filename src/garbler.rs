@@ -30,7 +30,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         Vec<BigUint>, // Constant wires
         HashMap<BigUint, BigUint>, // Garbler input wires
         HashMap<BigUint, (CipherText, CipherText)>, // Evaluator input wires
-        [(BigUint, u8); 2],
+        Vec<[(BigUint, u8); 2]> // Output conversion table
     ) {
         let mut garbled_gates: Vec<Vec<BigUint>> = Vec::new();
         let mut constant_wires: Vec<BigUint> = vec![];
@@ -39,15 +39,14 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
         let mut wi;
         let mut wj;
-        let mut output_conversion: [(BigUint, u8); 2] =
-            [(BigUint::from(0u32), 0), (BigUint::from(0u32), 0)];
+        let mut new_output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
         let gates = circuit_build.get_gates();
 
         // insert constants for true and false wire into known_wires, to enable eg. NOT gates
         self.insert_constant_wires(&mut known_wires, &mut constant_wires);
         let mut rng = self.wire_gen.get_rng().clone();
         for (gate_index, gate) in gates.iter().enumerate() {
-            let gate_is_input_layer = gate.wo().ready_at_layer() == &1.to_biguint().unwrap();
+            let gate_is_input_layer = gate.wo().ready_at_layer() == &1;
             if gate_is_input_layer {
                 // Generate wires if not already generated (copied wires are already generated)
                 let wi_id = gate.wi().wire_id().clone();
@@ -89,14 +88,16 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
             let output_wire_id = gate.wo().wire_id().clone();
             known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
             let table = new_gate.to_table();
-            let is_last_gate = gate == &gates[gates.len() - 1];
-            if is_last_gate {
-                output_conversion = [(new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)];
+            
+            // Put all output wires in to the output_conversion table
+            if gate.wo().ready_at_layer() == &circuit_build.output_layer {
+                new_output_conversion.push([(new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)]);
             }
-
+            
+            // Store the ciphertexts for the gate
             garbled_gates.push(table);
         }
-        (garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, output_conversion)
+        (garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, new_output_conversion)
     }
 
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> Vec<u8> {

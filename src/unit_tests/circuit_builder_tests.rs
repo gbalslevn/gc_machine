@@ -9,7 +9,7 @@ fn gates_are_sorted_by_increasing_output_layer() {
     circuit_builder.build_or(&input_wires[0], &input_wires[1]);
     let cb = circuit_builder.get_circuit_build();
     let gates = cb.get_gates();
-    let mut current_output_layer = &1.to_biguint().unwrap();
+    let mut current_output_layer = &1;
     
     for gate in gates {
         assert!(gate.wo().ready_at_layer() >= &current_output_layer);
