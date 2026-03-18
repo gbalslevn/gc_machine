@@ -12,7 +12,7 @@ pub struct CircuitBuilder {
     gates: Vec<GateBuild>,
     outputs_created: BigUint,
     true_constant: WireBuild,
-    output_layer: BigUint,
+    output_layer: i32,
     branches: HashMap<BigUint, BranchEntry>, // Markers for a branch with the mux output gate as key
     branch_counter: usize,
 }
@@ -27,7 +27,7 @@ pub struct BranchEntry {
 #[derive(Debug, Clone)]
 pub struct CircuitBuild {
     pub gates: Vec<GateBuild>,
-    pub output_layer: BigUint,
+    pub output_layer: i32,
 }
 
 impl CircuitBuild {
@@ -40,8 +40,8 @@ impl CircuitBuilder {
     pub fn new() -> Self {
         let gates = Vec::new();
         let branches = HashMap::new();
-        let true_constant = WireBuild::new(0.to_biguint().unwrap(), 1.to_biguint().unwrap());
-        let output_layer = 0.to_biguint().unwrap();
+        let true_constant = WireBuild::new(0, 1.to_biguint().unwrap());
+        let output_layer = 0;
 
         CircuitBuilder {
             gates: gates,
@@ -144,7 +144,7 @@ impl CircuitBuilder {
     pub fn build_input_wires(&mut self, amount: u32) -> Vec<WireBuild> {
         let mut input_wires = vec![];
         for _i in 0..amount {
-            let input_wire = WireBuild::new(0.to_biguint().unwrap(), self.outputs_created.clone());
+            let input_wire = WireBuild::new(0, self.outputs_created.clone());
             input_wires.push(input_wire);
             self.outputs_created += 1.to_biguint().unwrap();
         }
@@ -249,7 +249,7 @@ impl CircuitBuilder {
     // Builds a gate with a new id and the output wire containing when the gate should be calculated
     fn build_gate(&mut self, wi: &WireBuild, wj: &WireBuild, gate_type: GateType) -> GateBuild {
         let compute_layer =
-            wi.ready_at_layer.clone().max(wj.ready_at_layer.clone()) + 1.to_biguint().unwrap();
+            wi.ready_at_layer.clone().max(wj.ready_at_layer.clone()) + 1;
         self.output_layer = compute_layer.clone();
         let wo = WireBuild::new(compute_layer, self.outputs_created.clone());
         self.increment_outputs_created();
@@ -265,18 +265,18 @@ impl CircuitBuilder {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct WireBuild {
-    ready_at_layer: BigUint,
+    ready_at_layer: i32,
     wire_id: BigUint,
 }
 
 impl WireBuild {
-    pub fn new(ready_at_layer: BigUint, wire_id: BigUint) -> Self {
+    pub fn new(ready_at_layer: i32, wire_id: BigUint) -> Self {
         WireBuild {
             ready_at_layer,
             wire_id,
         }
     }
-    pub fn ready_at_layer(&self) -> &BigUint {
+    pub fn ready_at_layer(&self) -> &i32 {
         &self.ready_at_layer
     }
     pub fn wire_id(&self) -> &BigUint {
