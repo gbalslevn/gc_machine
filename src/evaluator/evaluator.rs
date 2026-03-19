@@ -88,7 +88,7 @@ pub trait Evaluator {
             known_wires.insert(gate.wo().wire_id().clone(), result.clone());
 
             // Store all result wires
-            if gate.wo().ready_at_layer() == &circuit_build.output_layer {
+            if circuit_build.output_wires.contains(gate.wo()) {
                 result_wires.push(result.clone());
             }
         }

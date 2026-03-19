@@ -90,9 +90,10 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
             let table = new_gate.to_table();
             
             // Put all output wires in to the output_conversion table
-            if gate.wo().ready_at_layer() == &circuit_build.output_layer {
+            if circuit_build.output_wires.contains(gate.wo()) {
                 new_output_conversion.push([(new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)]);
             }
+
             
             // Store the ciphertexts for the gate
             garbled_gates.push(table);
