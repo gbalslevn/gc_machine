@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
     gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText},
 };
-use crate::circuit_builder::{CircuitBuild, WireBuild};
+use crate::circuit_builder::{CircuitBuild};
 
 pub trait Evaluator {
     fn evaluate_gate(

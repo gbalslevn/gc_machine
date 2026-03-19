@@ -14,7 +14,7 @@ use gc_machine::gates::free_xor_gate_gen::FreeXORGateGen;
 use gc_machine::gates::grr3_gate_gen::GRR3GateGen;
 use gc_machine::gates::half_gates_gate_gen::HalfGatesGateGen;
 use gc_machine::gates::point_and_permute_gate_gen::PointAndPermuteGateGen;
-use gc_machine::ot::eg_elliptic::{self, ObliviousKeyPair, RealKeyPair};
+use gc_machine::ot::eg_elliptic::{self};
 use gc_machine::wires::free_xor_wire_gen::FreeXORWireGen;
 use gc_machine::wires::grr3_wire_gen::GRR3WireGen;
 use gc_machine::wires::half_gates_wire_gen::HalfGatesWireGen;

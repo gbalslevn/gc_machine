@@ -113,13 +113,13 @@ impl CircuitBuilder {
             deque.push_back(self.build_and(&first, &second));
         }
         let output = deque.pop_front().unwrap();
-        self.output_wires = vec![output.clone()];
+        self.set_output_wires(vec![output.clone()]);
         output
     }
 
     pub fn build_and_output(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
         let and = self.build_gate(input_wi, input_wj, GateType::AND);
-        self.output_wires = vec![and.wo().clone()];
+        self.set_output_wires(vec![and.wo().clone()]);
         and.wo().clone()
     }
 
@@ -157,6 +157,10 @@ impl CircuitBuilder {
             self.outputs_created += 1.to_biguint().unwrap();
         }
         input_wires
+    }
+
+    fn set_output_wires(&mut self, output_wires: Vec<WireBuild>) {
+        self.output_wires = output_wires;
     }
 
     fn next_branch_id(&mut self) -> usize {
