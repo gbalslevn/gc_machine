@@ -375,3 +375,23 @@ fn output_multiple_wires() {
     let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
     let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_values, conversion_table);
 }
+
+#[test]
+fn evaluate_adder() {
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = OriginalEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+
+    let a = 3.to_biguint().unwrap();
+    let b = 3.to_biguint().unwrap();
+    let required_bits = 2;
+
+    let input_wires_garbler = circuit_builder.build_input_wires(required_bits);
+    let input_wires_evaluator = circuit_builder.build_input_wires(required_bits);
+
+    circuit_builder.build_adder(input_wires_garbler, input_wires_evaluator);
+    println!("circuit: {:#?}", circuit_builder.get_circuit_build());
+}
+
