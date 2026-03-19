@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
     gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText},
 };
-use crate::circuit_builder::{CircuitBuild, WireBuild};
+use crate::circuit_builder::{CircuitBuild};
 
 pub trait Evaluator {
     fn evaluate_gate(
@@ -17,7 +17,11 @@ pub trait Evaluator {
     ) -> BigUint {
         match gate_type {
             GateType::AND => self.evaluate_and_gate(wi, wj, table),
+            GateType::NAND => self.evaluate_and_gate(wi, wj, table),
             GateType::XOR => self.evaluate_xor_gate(wi, wj, table),
+            GateType::XNOR => self.evaluate_xor_gate(wi, wj, table),
+            GateType::OR => self.evaluate_and_gate(wi, wj, table),
+            GateType::NOR => self.evaluate_and_gate(wi, wj, table),
         }
     }
 
@@ -84,7 +88,7 @@ pub trait Evaluator {
             known_wires.insert(gate.wo().wire_id().clone(), result.clone());
 
             // Store all result wires
-            if gate.wo().ready_at_layer() == &circuit_build.output_layer {
+            if circuit_build.output_wires.contains(gate.wo()) {
                 result_wires.push(result.clone());
             }
         }

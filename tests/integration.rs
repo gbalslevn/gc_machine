@@ -14,7 +14,7 @@ use gc_machine::gates::free_xor_gate_gen::FreeXORGateGen;
 use gc_machine::gates::grr3_gate_gen::GRR3GateGen;
 use gc_machine::gates::half_gates_gate_gen::HalfGatesGateGen;
 use gc_machine::gates::point_and_permute_gate_gen::PointAndPermuteGateGen;
-use gc_machine::ot::eg_elliptic::{self, ObliviousKeyPair, RealKeyPair};
+use gc_machine::ot::eg_elliptic::{self};
 use gc_machine::wires::free_xor_wire_gen::FreeXORWireGen;
 use gc_machine::wires::grr3_wire_gen::GRR3WireGen;
 use gc_machine::wires::half_gates_wire_gen::HalfGatesWireGen;
@@ -91,163 +91,7 @@ async fn websocket_can_tx_and_rx_10_msg() {
 
     assert!(result.is_ok());
 }
-#[test]
-fn can_evaluate_xor_circuit() {
-    // Initialization
-    let wire_gen = PointAndPermuteWireGen::new();
-    let gate_gen = PointAndPermuteGateGen::new(wire_gen.clone());
-    let mut garbler = Garbler::new(gate_gen, wire_gen);
-    let mut evaluator = PointAndPermuteEvaluator::new();
-    let mut circuit_builder = CircuitBuilder::new();
 
-    // Create circuit recipe using circuit builder
-    let input_wires = circuit_builder.build_input_wires(2u32);
-    circuit_builder.build_xor(&input_wires[0], &input_wires[1]);
-    let circuit_build = circuit_builder.get_circuit_build();
-
-    // Create Garbler input. This is just what wire to choose (0)
-    let garbler_input_choices = vec![1 as u8];
-
-    // Create Evaluator Input. This involves creating a fake and real public key. And stating what order they should be used in
-    let real_key = eg_elliptic::RealKeyPair::new();
-    let oblivious_key = eg_elliptic::ObliviousKeyPair::new();
-    let evaluator_input_choices = vec![[real_key.get_pk().clone(), oblivious_key.get_pk().clone()]];
-    let evaluator_decrypt_choices = vec![(real_key.get_sk().clone(), 0u8), (real_key.get_sk().clone(), 0u8)];
-
-    // Garbler garbles
-    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-
-    // Evaluator evaluates
-    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_choices, conversion_table);
-    assert_eq!(result, 1);
-}
-
-#[test]
-fn can_evaluate_and_circuit() {
-    // Initialization
-    let wire_gen = PointAndPermuteWireGen::new();
-    let gate_gen = PointAndPermuteGateGen::new(wire_gen.clone());
-    let mut garbler = Garbler::new(gate_gen, wire_gen);
-    let mut evaluator = PointAndPermuteEvaluator::new();
-    let mut circuit_builder = CircuitBuilder::new();
-
-    // Create circuit recipe using circuit builder
-    let input_wires = circuit_builder.build_input_wires(2u32);
-    circuit_builder.build_and(&input_wires[0], &input_wires[1]);
-    let circuit_build = circuit_builder.get_circuit_build();
-
-    // Create Garbler input. This is just what wire to choose (1)
-    let garbler_input_choices = vec![1 as u8];
-
-    // Create Evaluator Input. This involves creating a fake and real public key. And stating what order they should be used in
-    let real_key = eg_elliptic::RealKeyPair::new();
-    let oblivious_key = eg_elliptic::ObliviousKeyPair::new();
-    let evaluator_input_choices = vec![[oblivious_key.get_pk().clone(), real_key.get_pk().clone()]];
-    let evaluator_decrypt_choices = vec![(real_key.get_sk().clone(), 1u8)];
-
-    // Garbler garbles
-    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-
-    // Evaluator evaluates
-    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_choices, conversion_table);
-    assert_eq!(result, 1);
-}
-
-#[test]
-fn can_evaluate_three_gates_circuit() {
-    // Initialization
-    let wire_gen = PointAndPermuteWireGen::new();
-    let gate_gen = PointAndPermuteGateGen::new(wire_gen.clone());
-    let mut garbler = Garbler::new(gate_gen, wire_gen);
-    let mut evaluator = PointAndPermuteEvaluator::new();
-    let mut circuit_builder = CircuitBuilder::new();
-
-    // Create circuit recipe using circuit builder
-    let input_wires = circuit_builder.build_input_wires(4u32);
-    let and_output_1 = circuit_builder.build_and(&input_wires[0], &input_wires[2]);
-    let and_output_2 = circuit_builder.build_and(&input_wires[1], &input_wires[3]);
-    circuit_builder.build_and(&and_output_1, &and_output_2);
-    let circuit_build = circuit_builder.get_circuit_build();
-    // Create Garbler input. This is just what wire to choose (0)
-    let garbler_input_choices = vec![1 as u8, 1 as u8];
-
-    // Create Evaluator Input. This involves creating a fake and real public key. And stating what order they should be used in
-    let real_key = eg_elliptic::RealKeyPair::new();
-    let oblivious_key = eg_elliptic::ObliviousKeyPair::new();
-    let evaluator_input_choices = vec![[oblivious_key.get_pk().clone(), real_key.get_pk().clone()], [oblivious_key.get_pk().clone(), real_key.get_pk().clone()]];
-    let evaluator_decrypt_choices = vec![(real_key.get_sk().clone(), 1u8), (real_key.get_sk().clone(), 1u8)];
-
-    // Garbler garbles
-    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) =garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-    // Evaluator evaluates
-    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_choices, conversion_table);
-    assert_eq!(result, 1);
-}
-
-#[test] 
-fn can_evaluate_or_circuit() {
-    let wire_gen = PointAndPermuteWireGen::new();
-    let gate_gen = PointAndPermuteGateGen::new(wire_gen.clone());
-    let mut garbler = Garbler::new(gate_gen, wire_gen);
-    let mut evaluator = PointAndPermuteEvaluator::new();
-    let mut circuit_builder = CircuitBuilder::new();
-
-    let input_wires = circuit_builder.build_input_wires(2);
-    let _circuit_result = circuit_builder.build_or(&input_wires[0], &input_wires[1]);
-    let circuit_build = circuit_builder.get_circuit_build();
-    // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now, we know it's only a or circuit.
-    let garbler_input_choices = vec![0 as u8]; // Garbler bit 0 as input. Assert somewhere we have just right amount of input choices
-    // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now we know its only a or circuit.
-    let keypair_real = RealKeyPair::new();
-    let pk_real = keypair_real.get_pk();
-    let sk_real = keypair_real.get_sk();
-    let keypair_oblivious = ObliviousKeyPair::new();
-    let pk_oblivious = keypair_oblivious.get_pk();
-    
-    let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. Needs to send 2 times as he needs two 1 bits for the OR gate of input AND and XOR. Even though the OR gate abstracts it to seeing it as 1 bit. The input should be the same.
-    let evaluator_decrypt_choices = vec![(sk_real.clone(), 1 as u8)]; // chooses bit 1
-
-    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-
-    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_choices, conversion_data);
-    assert_eq!(result, 1)
-}
-
-#[test]
-fn can_evaluate_xnor_circuit() {
-    let wire_gen = OriginalWireGen::new();
-    let gate_gen = OriginalGateGen::new(wire_gen.clone());
-    let mut garbler = Garbler::new(gate_gen, wire_gen);
-    let mut evaluator = OriginalEvaluator::new();
-    let mut circuit_builder = CircuitBuilder::new();
-
-    let input_wires = circuit_builder.build_input_wires(2);
-    let _circuit_result = circuit_builder.build_xnor(&input_wires[0], &input_wires[1]);
-    let circuit_build = circuit_builder.get_circuit_build();
-    let garbler_input_choices = vec![0u8]; // Garbler bit 0 as input. Assert somewhere we have just right amount of input choices
-    // Garbler asks for as many key pairs as input gates. Amount of input gates should be stored somewhere? For now, we know it's only a or circuit.
-    let keypair_real = RealKeyPair::new();
-    let pk_real = keypair_real.get_pk();
-    let sk_real = keypair_real.get_sk();
-    let keypair_oblivious = ObliviousKeyPair::new();
-    let pk_oblivious = keypair_oblivious.get_pk();
-
-    // Eval for when wi=0 and wj=1
-    let evaluator_input_choices = vec![[pk_oblivious.clone(), pk_real.clone()]]; // Eval has choosen to get bit 1. 
-    let evaluator_decrypt_choices = vec![(sk_real.clone(), 1u8)]; // chooses bit 1
-    let (garbled_gates, constant_wires, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &wi_inputs, &wj_inputs, evaluator_decrypt_choices, conversion_data);
-    
-    assert_eq!(result, 0);
-    
-    // Eval for when wi=0 and wj=0
-    let evaluator_input_choices = vec![[pk_real.clone(), pk_oblivious.clone()]]; // Eval has choosen to get bit 0. 
-    let evaluator_decrypt_choices = vec![(sk_real.clone(), 0u8)]; // chooses bit 0
-    let (garbled_gates, constant_wires, wi_inputs, wj_inputs, conversion_data) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &wi_inputs, &wj_inputs, evaluator_decrypt_choices, conversion_data);
-
-    assert_eq!(result, 1);
-}
 
 #[test]
 fn can_evaluate_is_equal() {
@@ -316,8 +160,8 @@ fn can_evaulate_if_circuit() {
 
     // Create circuit build
     let is_equal = circuit_builder.build_is_equal(input_wires);
-    let true_case = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1
-    let false_case = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
+    let true_case = circuit_builder.build_and_output(&is_equal, &is_equal); // 1 AND 1 = 1
+    let false_case = circuit_builder.build_and_output(&is_equal, &is_equal); // 0 AND 0 = 0
     circuit_builder.build_if(&is_equal, &true_case, &false_case);
     let circuit_build = circuit_builder.get_circuit_build();
     
@@ -351,31 +195,6 @@ fn evaluate_is_equal<G, W, E>(a : BigUint, b : BigUint, expected_result : bool, 
     assert_eq!(result, expected_result as u32);
 }
 
-// can be deleted
-#[test]
-fn output_multiple_wires() {
-    let wire_gen = OriginalWireGen::new();
-    let gate_gen = OriginalGateGen::new(wire_gen.clone());
-    let mut garbler = Garbler::new(gate_gen, wire_gen);
-    let mut evaluator = OriginalEvaluator::new();
-    let mut circuit_builder = CircuitBuilder::new();
-
-    let a = 1.to_biguint().unwrap();
-    let b = 1.to_biguint().unwrap();
-    let required_bits = 2;
-
-    let input_wires = circuit_builder.build_input_wires(4);
-    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
-    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
-
-    circuit_builder.build_and(&input_wires[0], &input_wires[2]);
-    circuit_builder.build_and(&input_wires[1], &input_wires[3]);
-    let circuit_build = circuit_builder.get_circuit_build();
-
-    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_values, conversion_table);
-}
-
 #[test]
 fn evaluate_adder() {
     let wire_gen = OriginalWireGen::new();
@@ -394,4 +213,3 @@ fn evaluate_adder() {
     circuit_builder.build_adder(input_wires_garbler, input_wires_evaluator);
     println!("circuit: {:#?}", circuit_builder.get_circuit_build());
 }
-

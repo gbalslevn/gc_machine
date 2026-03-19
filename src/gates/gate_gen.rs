@@ -1,12 +1,16 @@
 use num_bigint::{BigUint};
-
+use strum_macros::{Display, EnumIter};
 use crate::{wires::wire_gen::{Wire, WireGen}};
 
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Display, EnumIter)]
 pub enum GateType {
-    XOR, 
-    AND
+    XOR,
+    XNOR,
+    AND,
+    NAND,
+    OR,
+    NOR
 }
 
 pub trait GateGen<W: WireGen> {
@@ -15,15 +19,32 @@ pub trait GateGen<W: WireGen> {
     fn generate_gate(&mut self, gate : GateType, wi: Wire, wj: Wire) -> Gate;
     fn get_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire, gate: &GateType) -> [(BigUint, BigUint, BigUint); 4] {
         match gate {
-            GateType::AND=>self.get_and_tt(wi, wj, wo),
             GateType::XOR=>self.get_xor_tt(wi, wj, wo),
+            GateType::XNOR=>self.get_xnor_tt(wi, wj, wo),
+            GateType::AND=>self.get_and_tt(wi, wj, wo),
+            GateType::NAND=>self.get_nand_tt(wi, wj, wo),
+            GateType::OR=>self.get_or_tt(wi, wj, wo),
+            GateType::NOR=>self.get_nor_tt(wi, wj, wo),
         }
     }
     fn get_xor_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire) -> [(BigUint, BigUint, BigUint); 4] {
-        [(wi.w0().clone(), wj.w0().clone(), wo.w0().clone()), (wi.w0().clone(), wj.w1().clone(), wo.w1().clone()), (wi.w1().clone(), wj.w0().clone(), wo.w1().clone()), (wi.w1().clone(), wj.w1().clone(), wo.w0().clone())] // should avoid using clone if wanting performancee
+        [(wi.w0().clone(), wj.w0().clone(), wo.w0().clone()), (wi.w0().clone(), wj.w1().clone(), wo.w1().clone()), (wi.w1().clone(), wj.w0().clone(), wo.w1().clone()), (wi.w1().clone(), wj.w1().clone(), wo.w0().clone())] // should avoid using clone if wanting performance
     }
+    fn get_xnor_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire) -> [(BigUint, BigUint, BigUint); 4] {
+        [(wi.w0().clone(), wj.w0().clone(), wo.w1().clone()), (wi.w0().clone(), wj.w1().clone(), wo.w0().clone()), (wi.w1().clone(), wj.w0().clone(), wo.w0().clone()), (wi.w1().clone(), wj.w1().clone(), wo.w1().clone())]
+    }
+
     fn get_and_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire) -> [(BigUint, BigUint, BigUint); 4] {
         [(wi.w0().clone(), wj.w0().clone(), wo.w0().clone()), (wi.w0().clone(), wj.w1().clone(), wo.w0().clone()), (wi.w1().clone(), wj.w0().clone(), wo.w0().clone()), (wi.w1().clone(), wj.w1().clone(), wo.w1().clone())]
+    }
+    fn get_nand_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire) -> [(BigUint, BigUint, BigUint); 4] {
+        [(wi.w0().clone(), wj.w0().clone(), wo.w1().clone()), (wi.w0().clone(), wj.w1().clone(), wo.w1().clone()), (wi.w1().clone(), wj.w0().clone(), wo.w1().clone()), (wi.w1().clone(), wj.w1().clone(), wo.w0().clone())]
+    }
+    fn get_or_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire) -> [(BigUint, BigUint, BigUint); 4] {
+        [(wi.w0().clone(), wj.w0().clone(), wo.w0().clone()), (wi.w0().clone(), wj.w1().clone(), wo.w1().clone()), (wi.w1().clone(), wj.w0().clone(), wo.w1().clone()), (wi.w1().clone(), wj.w1().clone(), wo.w1().clone())]
+    }
+    fn get_nor_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire) -> [(BigUint, BigUint, BigUint); 4] {
+        [(wi.w0().clone(), wj.w0().clone(), wo.w1().clone()), (wi.w0().clone(), wj.w1().clone(), wo.w0().clone()), (wi.w1().clone(), wj.w0().clone(), wo.w0().clone()), (wi.w1().clone(), wj.w1().clone(), wo.w0().clone())]
     }
     fn get_index(&self) -> &BigUint;
     fn increment_index(&mut self) -> &BigUint;

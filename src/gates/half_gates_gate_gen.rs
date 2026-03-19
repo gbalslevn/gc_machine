@@ -27,8 +27,41 @@ impl GateGen<HalfGatesWireGen> for HalfGatesGateGen {
                 self.increment_index();
                 gate
             }
+            GateType::NAND => {
+                let tg = self.wire_gen.tg().clone();
+                let te = self.wire_gen.te().clone();
+                self.wire_gen.reset_gate_values();
+                let table = vec!(tg, te);
+                let gate = Gate { gate_type: GateType::NAND, table, wi, wj, wo };
+                self.increment_index();
+                self.increment_index();
+                gate
+            }
             GateType::XOR => {
                 Gate { gate_type: GateType::XOR, table: Vec::new(), wi, wj, wo }
+            }
+            GateType::XNOR => {
+                Gate { gate_type: GateType::XNOR, table: Vec::new(), wi, wj, wo }
+            }
+            GateType::OR => {
+                let tg = self.wire_gen.tg().clone();
+                let te = self.wire_gen.te().clone();
+                self.wire_gen.reset_gate_values();
+                let table = vec!(tg, te);
+                let gate = Gate { gate_type: GateType::OR, table, wi, wj, wo };
+                self.increment_index();
+                self.increment_index();
+                gate
+            }
+            GateType::NOR => {
+                let tg = self.wire_gen.tg().clone();
+                let te = self.wire_gen.te().clone();
+                self.wire_gen.reset_gate_values();
+                let table = vec!(tg, te);
+                let gate = Gate { gate_type: GateType::NOR, table, wi, wj, wo };
+                self.increment_index();
+                self.increment_index();
+                gate
             }
         }
     }
