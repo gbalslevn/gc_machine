@@ -1,6 +1,9 @@
 
 use crate::websocket::{self, SocketClient};
+use crate::websocket_2;
+use libp2p::swarm::SwarmEvent;
 use tokio_tungstenite::tungstenite::Message;
+use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 
 #[tokio::test]

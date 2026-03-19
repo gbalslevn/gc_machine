@@ -10,6 +10,7 @@ pub mod global_mem_alloc;
 pub mod ot;
 pub mod circuit_builder;
 pub mod garbler;
+pub mod websocket_2;
 
 #[cfg(test)] // Only compile when testing
 mod unit_tests; // Finds unit tests folder

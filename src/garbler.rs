@@ -134,10 +134,10 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         input_choice: &[PublicKey; 2],
         rng : &mut ChaCha20Rng
     ) -> (CipherText, CipherText) {
-        let pk_0 = &input_choice[0];
-        let wj_0_ct = eg_elliptic::encrypt(rng, pk_0, wire.w0());
-        let pk_1 = &input_choice[1];
-        let wj_1_ct = eg_elliptic::encrypt(rng, pk_1, wire.w1());
+        let pk_0 = input_choice[0];
+        let wj_0_ct = eg_elliptic::encrypt(rng, &pk_0, wire.w0());
+        let pk_1 = input_choice[1];
+        let wj_1_ct = eg_elliptic::encrypt(rng, &pk_1, wire.w1());
 
         let wj_encrypted = (wj_0_ct, wj_1_ct);
         wj_encrypted
