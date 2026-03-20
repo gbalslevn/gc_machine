@@ -19,7 +19,7 @@ rustls = "0.23.37"
 k256 = "0.13.4"
 getrandom = "0.4.2"
 rand_chacha = "0.3.1"
-libp2p = { version = "0.56.0", features = ["noise", "ping", "tcp", "tokio", "yamux", "tls", "quic"] }
+libp2p = { version = "0.56.0", features = ["noise", "ping", "tcp", "tokio", "yamux", "tls", "quic", "macros"] }
 libp2p-stream = "0.4.0-alpha"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing = "0.1.44"

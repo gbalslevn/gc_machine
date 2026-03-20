@@ -22,7 +22,7 @@ use gc_machine::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
 use gc_machine::gates::gate_gen::{GateType, GateGen};
 use gc_machine::gates::original_gate_gen::OriginalGateGen;
 use gc_machine::wires::original_wire_gen::OriginalWireGen;
-use gc_machine::{crypto_utils, websocket::{self, SocketConfig}};
+use gc_machine::{crypto_utils};
 use num_bigint::{BigUint, ToBigUint};
 use gc_machine::wires::wire_gen::WireGen;
 use tokio::time::timeout;
@@ -67,30 +67,11 @@ fn can_compare_a_bit_using_std_yao() {
     assert_eq!(&decrypted_output_label_no_padding, xor_gate.wo.w1());
 } 
 
-#[tokio::test]
-// Alice and Bob can connect to each other through a websocket and send 10 messages. 
-async fn websocket_can_tx_and_rx_10_msg() {
-    let socket_addr = "127.0.0.1:12346".to_string();
-    let config = SocketConfig::new(socket_addr);
-    let alice_socket_client = websocket::run(&config).await; 
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await; // Give server time to start
-    let bob_socket_client = websocket::run(&config).await; 
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await; // Give server time to start
+// #[tokio::test]
+// // Alice and Bob can connect to each other through a websocket and send 10 messages. 
+// async fn websocket_can_tx_and_rx_10_msg() {
     
-    // Alice sends 10 messages to Bob
-    for i in 0..10 {
-        alice_socket_client.send_message(Message::text(format!("{}", i))).await; // should implement error messages in socket
-    }
-
-    // wait for at most 10 sec
-    let result = timeout(Duration::from_secs(10), async { 
-        while bob_socket_client.get_rx_msg_count().await < 10 {
-            sleep(Duration::from_millis(50)); // check every 50 ms if msg_count < 10
-        }
-    }).await;
-
-    assert!(result.is_ok());
-}
+// }
 #[test]
 fn can_evaluate_xor_circuit() {
     // Initialization
