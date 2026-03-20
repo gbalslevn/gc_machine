@@ -1,5 +1,5 @@
 use std::{collections::HashMap};
-
+use std::collections::VecDeque;
 use k256::PublicKey;
 use num_bigint::{BigUint, ToBigUint};
 use rand_chacha::ChaCha20Rng;
@@ -23,8 +23,8 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
     pub fn create_circuit(
         &mut self,
         circuit_build: &CircuitBuild,
-        garblers_input_choices: &Vec<u8>,
-        evaluators_input_choices: Vec<[PublicKey; 2]>,
+        garblers_input_choices: &mut VecDeque<u8>,
+        mut evaluators_input_choices: VecDeque<[PublicKey; 2]>,
     ) -> (
         Vec<Vec<BigUint>>, // Ciphertexts
         Vec<BigUint>, // Constant wires
@@ -56,7 +56,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
                 if wi_is_new_wire {
                     wi = self.wire_gen.generate_input_wire();
                     known_wires.insert(wi_id.clone(), wi.clone());
-                    let garbler_input_choice = garblers_input_choices[gate_index];
+                    let garbler_input_choice = garblers_input_choices.pop_front().unwrap();
                     let selected_wire = match garbler_input_choice {
                         0 => wi.w0(),
                         1 => wi.w1(),
@@ -69,7 +69,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
                     known_wires.insert(wj_id.clone(), wj.clone());
                     // Encrypt with received publickeys from OT. The real and the oblivious
                     let wj_encrypted =
-                        self.gen_encrypted_wire(&wj, &evaluators_input_choices[gate_index], &mut rng);
+                        self.gen_encrypted_wire(&wj, &evaluators_input_choices.pop_front().unwrap(), &mut rng);
                     evaluator_inputs.insert(wj_id.clone(), wj_encrypted.clone());
 
                 }
@@ -101,14 +101,14 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         (garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, new_output_conversion)
     }
 
-    pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> Vec<u8> {
-        let mut list = vec![];
+    pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {
+        let mut list = VecDeque::new();;
         for i in 0..required_bits {
             let bit = input.bit(i) as u8;
             if bit == 0 {
-                list.push(0 as u8);
+                list.push_back(0 as u8);
             } else {
-                list.push(1 as u8)
+                list.push_back(1 as u8);
             }
         }
         list

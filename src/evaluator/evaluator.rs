@@ -1,6 +1,6 @@
 use k256::{PublicKey, SecretKey};
 use num_bigint::{BigUint, ToBigUint};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use crate::{
     gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText},
@@ -110,8 +110,8 @@ pub trait Evaluator {
         &self,
         input: &BigUint,
         required_bits: u64,
-    ) -> (Vec<[PublicKey; 2]>, Vec<(SecretKey, u8)>) {
-        let mut input_choices = vec![];
+    ) -> (VecDeque<[PublicKey; 2]>, Vec<(SecretKey, u8)>) {
+        let mut input_choices = VecDeque::new();
         let mut decrypt_choices = vec![];
         for i in 0..required_bits {
             let keypair_real = eg_elliptic::RealKeyPair::new();
@@ -129,7 +129,7 @@ pub trait Evaluator {
                 choice = [pk_obl.clone(), pk_real.clone()];
                 decrypt_choice = (sk_real.clone(), 1 as u8);
             }
-            input_choices.push(choice);
+            input_choices.push_back(choice);
             decrypt_choices.push(decrypt_choice);
         }
 

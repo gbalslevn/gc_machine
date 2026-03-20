@@ -155,7 +155,7 @@ fn can_evaulate_if_circuit() {
     let required_bits = max(a.bits(), b.bits());
     let input_wires = circuit_builder.build_input_wires((required_bits * 2) as u32);
 
-    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+    let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
 
     // Create circuit build
@@ -166,7 +166,7 @@ fn can_evaulate_if_circuit() {
     let circuit_build = circuit_builder.get_circuit_build();
     
     // Garbler create circuit
-    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
 
     // Checks the return of the if statement
     let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_values, conversion_table);
@@ -180,18 +180,52 @@ fn evaluate_is_equal<G, W, E>(a : BigUint, b : BigUint, expected_result : bool, 
     let mut circuit_builder = CircuitBuilder::new();
     let input_wires = circuit_builder.build_input_wires((required_bits * 2) as u32);
 
-    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+    let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
 
     // Create circuit build
     circuit_builder.build_is_equal(input_wires);
     let circuit_build = circuit_builder.get_circuit_build();
-    println!("Output wires in circuitBuild: {:#?}", circuit_build.output_wires);
 
     // Garbler create circuit
-    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &garbler_input_choices, evaluator_input_choices);
+    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
     let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_values, conversion_table);
     // Testing a=a
 
     assert_eq!(result, expected_result as u32);
+}
+
+#[test]
+fn evaluate_adder() {
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = OriginalEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+
+    let a = 1.to_biguint().unwrap();
+    let b = 1876876323.to_biguint().unwrap();
+    let required_bits = max(a.bits(), b.bits());
+
+    let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
+    let input_wires_evaluator = circuit_builder.build_input_wires(required_bits as u32);
+
+    circuit_builder.build_adder(input_wires_garbler, input_wires_evaluator);
+    let circuit_build = circuit_builder.get_circuit_build();
+    println!("Circuit build: {:#?}", circuit_build);
+
+    // Garbler input
+    let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+
+    // Evaluator input
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
+
+    // Garble circuit
+    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
+
+    // Evaluate circuit
+    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_values, conversion_table);
+
+    println!("Result: {:#?}", result);
+    //println!("Output wires: {:#?}", circuit_build.output_wires);
 }
