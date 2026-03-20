@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::gates::gate_gen::GateType;
 use num_bigint::{BigUint, ToBigUint};
+use crate::wires::wire_gen::Wire;
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id.
@@ -100,24 +101,39 @@ impl CircuitBuilder {
     }
 
     pub fn build_adder(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+        let result_wires = self.adder_helper(input_wires_a, input_wires_b);
+        self.set_output_wires(result_wires.clone());
+        result_wires
+    }
+
+    fn adder_helper(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
         let mut result_wires: Vec<WireBuild> = Vec::new();
-        // Build 1 half adder for first bits of each input
+        // Build 1 HALF ADDER for first bits of each input
         let mut sum = self.build_xor(&input_wires_a[0], &input_wires_b[0]);
         result_wires.push(sum.clone());
         let mut carry = self.build_and(&input_wires_a[0], &input_wires_b[0]);
-        // Build full adders for all bits but the first
+        if input_wires_a.len() == 1 {
+            result_wires.push(carry.clone());
+        }
+
+        // Build FULL ADDERS for all bits but the first
         for index in 1..input_wires_a.len() {
-            // SUM
+            // SUM - is added to the result wire
             let a_xor_b = self.build_xor(&input_wires_a[index], &input_wires_b[index]);
             sum = self.build_xor(&a_xor_b, &carry.clone());
             result_wires.push(sum.clone());
-            // CARRY
+            // CARRY - is not added to the result wire
             let first_and = self.build_and(&a_xor_b, &carry);
             let second_and = self.build_and(&input_wires_a[index], &input_wires_b[index]);
             carry = self.build_or(&first_and, &second_and);
         }
+        // The last carry bit needs to be appended to the result (though not in the case where we add 1-bit numbers)
+        if input_wires_a.len() != 1 {
+            result_wires.push(carry.clone());
+        }
         result_wires
     }
+
 
     pub fn build_is_equal(&mut self, input_wires: Vec<WireBuild>) -> WireBuild {
         // Compares each bit in a tree like structure
