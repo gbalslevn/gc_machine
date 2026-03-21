@@ -1,30 +1,33 @@
 
-use crate::websocket;
+use crate::{evaluator::{self, original_evaluator::OriginalEvaluator}, garbler::Garbler, gates::{gate_gen::{Gate, GateGen}, original_gate_gen::OriginalGateGen}, peer::{self, Peer}, websocket, wires::{original_wire_gen::OriginalWireGen, wire_gen::WireGen}};
 use std::time::Duration;
 use libp2p::{PeerId};
 
 #[tokio::test]
 // When it says hello, the other party replies with hello
-async fn can_send_and_receive_reply() {
-    let SAY_HELLO_ENUM = b"SAY_HELLO".to_vec();
-    let client_a = websocket::new().await.expect("Could not start client_a");
+async fn can_send_and_receive_hello_query() {
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let garbler = Garbler::new(gate_gen, wire_gen);
+    let evaluator = OriginalEvaluator::new();
+    let client_a = Peer::new(garbler, evaluator).await;
 
-    let mut client_b = websocket::new().await.expect("Could not start client_b");
+    let client_b = websocket::run().await.expect("Could not start client_b");
     client_b.dial(client_a.get_address()).await.expect("Dialing failed");
     tokio::time::sleep(Duration::from_millis(200)).await;
     
-    let response = client_b.send_message(client_a.get_peer_id(), SAY_HELLO_ENUM).await.expect("send_message failed");
-    assert_eq!(String::from_utf8_lossy(&response), "Hello")
+    let response = client_b.send_query(client_a.get_peer_id(), websocket::Query::Hello).await.expect("send_message failed");
+    assert_eq!(response, websocket::Response::Greeting("Hello".to_string()))
 }
 
 #[tokio::test]
 async fn cannot_send_msg_to_unconnected_peer_id() {
-    let SAY_HELLO_ENUM = b"SAY_HELLO".to_vec();
-    let mut client_a = websocket::new().await.expect("Could not start client_a");
+    
+    let client_a = websocket::run().await.expect("Could not start client_a");
     
     let unconnected_peer_id = PeerId::random();
     
-    let response = client_a.send_message(unconnected_peer_id, SAY_HELLO_ENUM).await;
+    let response = client_a.send_query(unconnected_peer_id, websocket::Query::Hello).await;
     
     if let Err(e) = response {
         let err_string = format!("{:?}", e);

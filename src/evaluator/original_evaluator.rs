@@ -1,6 +1,7 @@
 use crate::evaluator::evaluator::Evaluator;
 use crate::crypto_utils::gc_kdf;
 use num_bigint::BigUint;
+#[derive(Clone)]
 pub struct OriginalEvaluator {
     index: BigUint,
 }

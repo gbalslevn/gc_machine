@@ -1,5 +1,6 @@
 use std::cmp::max;
 use std::ops::Shr;
+use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 use gc_machine::circuit_builder::{CircuitBuilder};
@@ -15,6 +16,7 @@ use gc_machine::gates::grr3_gate_gen::GRR3GateGen;
 use gc_machine::gates::half_gates_gate_gen::HalfGatesGateGen;
 use gc_machine::gates::point_and_permute_gate_gen::PointAndPermuteGateGen;
 use gc_machine::ot::eg_elliptic::{self, ObliviousKeyPair, RealKeyPair};
+use gc_machine::peer::{CircuitPrepeation, Peer};
 use gc_machine::wires::free_xor_wire_gen::FreeXORWireGen;
 use gc_machine::wires::grr3_wire_gen::GRR3WireGen;
 use gc_machine::wires::half_gates_wire_gen::HalfGatesWireGen;
@@ -22,7 +24,7 @@ use gc_machine::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
 use gc_machine::gates::gate_gen::{GateType, GateGen};
 use gc_machine::gates::original_gate_gen::OriginalGateGen;
 use gc_machine::wires::original_wire_gen::OriginalWireGen;
-use gc_machine::{crypto_utils};
+use gc_machine::{crypto_utils, websocket};
 use num_bigint::{BigUint, ToBigUint};
 use gc_machine::wires::wire_gen::WireGen;
 use tokio::time::timeout;
@@ -230,6 +232,41 @@ fn can_evaluate_xnor_circuit() {
     assert_eq!(result, 1);
 }
 
+#[tokio::test]
+async fn can_eval_circuit_over_socket() {
+    // Create two peers which connects to each other
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let evaluator = OriginalEvaluator::new();
+    let evaluator_peer = get_peer(gate_gen.clone(), wire_gen.clone(), evaluator.clone()).await;
+    let garbler_peer = get_peer(gate_gen, wire_gen, evaluator).await;
+
+    garbler_peer.connect(evaluator_peer.get_address()).await.expect("Could not connect to evaluator_peer");
+    tokio::time::sleep(Duration::from_millis(200)).await; // Wait for it to connect
+
+    // Create a circuit build which both peers in some way agree on
+    let garbler_input = 12.to_biguint().unwrap();
+    let evaluator_input = 12.to_biguint().unwrap();
+    let required_bits = max(&garbler_input, &evaluator_input).bits(); // They somehow know the max amount of bits needed 
+    let mut builder = CircuitBuilder::new();
+    let input_wires = builder.build_input_wires((required_bits * 2) as u32);
+    builder.build_is_equal(input_wires);
+    let cb = builder.get_circuit_build();
+    
+    // They both prepare to start the protocol
+    garbler_peer.prepare_protocol(garbler_input, cb, required_bits).await;
+    evaluator_peer.prepare_protocol(evaluator_input, cb, required_bits); 
+    // let (public_keys, secret_keys) = evaluator_peer.create_evaluator_input(&evaluator_input, required_bits).await; // We should avoid having to call this 
+
+    let response = garbler_peer.execute_protocol(evaluator_peer.get_peer_id()).await.expect("send_message failed");
+    
+    if let websocket::Response::ProvideGC(gates, constant_wires, garbler_input, evaluator_input, conversion_table) = response {
+        garbler_peer
+    } else {
+        panic!("Got a different response")
+    }
+}
+
 #[test]
 fn can_evaluate_is_equal() {
     let wire_gen = OriginalWireGen::new();
@@ -330,4 +367,12 @@ fn evaluate_is_equal<G, W, E>(a : BigUint, b : BigUint, expected_result : bool, 
     // Testing a=a
 
     assert_eq!(result, expected_result as u8);
+}
+
+async fn get_peer<G, W, E>(gate_gen : G, wire_gen : W, evaluator : E) -> Arc<Peer<G, W, E>> where 
+    G: GateGen<W> + Send + Sync + 'static,
+    W: WireGen + Send + Sync + 'static,
+    E: Evaluator + Send + Sync + 'static, {
+    let garbler = Garbler::new(gate_gen, wire_gen);
+    Peer::new(garbler, evaluator).await
 }
