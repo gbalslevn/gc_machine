@@ -3,7 +3,6 @@ use rand_chacha::ChaCha20Rng;
 use crate::gates::gate_gen::GateType;
 use crate::wires::wire_gen::{Wire, WireGen};
 use crate::crypto_utils::{self, gc_kdf_128, generate_label_lsb};
-use crate::wires::free_xor_wire_gen::FreeXORWireGen;
 
 #[derive(Clone)]
 pub struct GRR3WireGen {

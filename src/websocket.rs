@@ -1,186 +1,145 @@
-use futures_util::SinkExt;
-use futures_util::{StreamExt, stream::SplitSink, stream::SplitStream};
-use std::collections::VecDeque;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, accept_async, client_async_tls};
+use std::{collections::VecDeque, error::Error, time::Duration};
+use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
+use k256::PublicKey;
+use libp2p::{Multiaddr, PeerId, StreamProtocol, Swarm, tcp, tls, yamux};
+use libp2p_stream::{self as stream};
+use tracing_subscriber::{EnvFilter, filter::LevelFilter};
+use serde::{Serialize, Deserialize};
 
-// Websocket using tokio-tungstenite
-// https://crates.io/crates/tokio-tungstenite
+use crate::{garbler::Circuit};
 
-#[derive(Debug)]
-pub enum SocketCommand {
-    GetRxMsgCount(futures_channel::oneshot::Sender<usize>),
-    SendMessage(Message),
-    HandleMessage(Message),
-    Listen(futures_channel::oneshot::Sender<Message>),
-    GetLastMsg(futures_channel::oneshot::Sender<Message>),
+pub enum SwarmCmd {
+    Dial(Multiaddr),
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Query {
+    Hello,
+    ExecuteProtocol,
+    EvaluateGC(Circuit), 
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub enum Response {
+    Greeting(String),
+    EvalInput(VecDeque<[PublicKey; 2]>), 
+    GCResult(u32)
+}
+
 #[derive(Clone)]
-pub struct SocketConfig {
-    address: String,
-    force_client_connection: bool,
-}
-
-impl SocketConfig {
-    pub fn new(address: String) -> Self {
-        // if address.parse::<SocketAddr>().is_err() {
-        //     panic!("Invalid socket address");
-        // } 
-        Self {
-            address,
-            force_client_connection: false,
-        }
-    }
-    // Ensures socket connects to a listening socket and does not create its own.
-    pub fn as_client(mut self) -> Self {
-        self.force_client_connection = true;
-        self
-    }
-    // webpki uses certs from web. Can also use native certs, which is certs on the users machine. Could run into problems if no cert is on the machine. 
-}
-
 pub struct SocketClient {
-    tx: mpsc::Sender<SocketCommand>,
+    pub control: stream::Control,
+    peer_id: PeerId, 
+    pub address : Multiaddr,
+    pub swarm_control: tokio::sync::mpsc::Sender<SwarmCmd>,
+    pub protocol : StreamProtocol
 }
 
-// Contains method for interacting with the socket. It recognizes commands as enum of SocketCommand
 impl SocketClient {
-    pub fn new(tx: mpsc::Sender<SocketCommand>) -> Self {
-        Self { tx }
-    }
-    pub async fn get_rx_msg_count(&self) -> usize {
-        let (reply_tx, reply_rx) = futures_channel::oneshot::channel(); // A channel to send a single value async from one thread to another
+    pub fn new(control: stream::Control, peer_id : PeerId, address : Multiaddr, swarm_control : tokio::sync::mpsc::Sender<SwarmCmd>) -> Self {
+        let protocol: StreamProtocol = StreamProtocol::new("/msg");
 
-        self.tx
-            .send(SocketCommand::GetRxMsgCount(reply_tx))
-            .await
-            .expect("Socket task died");
-
-        let result = reply_rx.await.expect("Socket dropped the reply channel");
-        result
+        Self {control, peer_id, address, swarm_control, protocol}
     }
-    pub async fn send_message(&self, msg: Message) {
-        self.tx
-            .send(SocketCommand::SendMessage(msg))
-            .await
-            .expect("Socket task died");
-    }
-    // Listens for the next message and returns it
-    pub async fn listen_for_next_msg(&self) -> Message {
-        let (reply_tx, reply_rx) = futures_channel::oneshot::channel();
-        self.tx
-            .send(SocketCommand::Listen(reply_tx))
-            .await
-            .expect("Socket task died");
-        let result = reply_rx.await.expect("Socket dropped the reply channel");
-        result
-    }
-    pub async fn get_last_msg(&self) -> Message {
-        let (reply_tx, reply_rx) = futures_channel::oneshot::channel(); // A channel to send a single value async from one thread to another
 
-        self.tx
-            .send(SocketCommand::GetLastMsg(reply_tx))
-            .await
-            .expect("Socket task died");
+    pub fn get_control(&self) -> stream::Control {
+        self.control.clone()
+    }
 
-        let result = reply_rx.await.expect("Socket dropped the reply channel");
-        result
+    pub fn get_protocol(&self) -> StreamProtocol {
+        self.protocol.clone()
+    }
+
+    pub fn get_address(&self) -> Multiaddr {
+        self.address.clone()
+    }
+
+    pub fn get_peer_id(&self) -> PeerId {
+        self.peer_id
+    }
+
+    pub async fn dial(&self, addr: Multiaddr) -> Result<(), Box<dyn Error>> {
+        self.swarm_control.send(SwarmCmd::Dial(addr)).await?;
+        Ok(())
+    }
+
+    /// sends a message and gets a response
+    pub async fn send_query(&self, peer: PeerId, query: Query) -> Result<Response, Box<dyn Error>> {
+        let mut stream = self.control.clone().open_stream(peer, self.get_protocol()).await?;
+
+        let request_bytes = postcard::to_allocvec(&query)?;
+        stream.write_all(&request_bytes).await?; 
+        stream.close().await?;
+
+        let mut response_bytes = Vec::new();
+        stream.read_to_end(&mut response_bytes).await?;
+        let response: Response = postcard::from_bytes(&response_bytes)?;
+
+        Ok(response)
     }
 }
 
-// Starts websocket on provided address and returns a SocketClient which can be used to communicate with the socket.
-pub async fn run(config: &SocketConfig) -> SocketClient {
-    let (internal_tx, mut internal_rx) = mpsc::channel::<SocketCommand>(32);
-    let config = config.clone();
-    let async_socket_logic = async move {
-        let (mut socket_tx, mut socket_rx) = connect(config.address, config.force_client_connection).await; // Tries to connect to the socket address. If no channel exists, it starts its own socket and listens for connections. 
-        let mut msg_counter = 0;
-        let mut message_queue = VecDeque::<Message>::new();
-        let mut listening_channel: Option<futures_channel::oneshot::Sender<Message>> = None;
+pub async fn run() -> Result<SocketClient, Box<dyn Error>> {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env()?,
+        )
+        .try_init();
+
+    let mut swarm = create_swarm()?;
+    let peer_id = *swarm.local_peer_id();
+    let control = swarm.behaviour().new_control();
+    
+    let (addr_sender, addr_receiver) = tokio::sync::oneshot::channel(); // A way to save our address
+    let mut addr_sender = Some(addr_sender);
+    let (cmd_sender, mut cmd_receiver) = tokio::sync::mpsc::channel::<SwarmCmd>(8); // To send commands to the swarm like dial
+    
+    // Listen for connections, move into background
+    let address = "/ip4/0.0.0.0/tcp/0";
+    swarm.listen_on(address.parse()?)?;
+    tokio::spawn(async move {
         loop {
-            tokio::select! { // Waits on multiple concurrent branches
-                // Listens for messages from the socket
-                Some(Ok(msg)) = socket_rx.next() => {
-                    msg_counter += 1;
-                    if let Some(channel) = listening_channel.take() { // For now we only have oneshot listening. Maybe we should also have listening where you can get multiple messages
-                        let _ = channel.send(msg);
-                    } else {
-                        // internal_tx.send(SocketCommand::HandleMessage(msg)).await.unwrap();
-                        message_queue.push_back(msg.clone());
-                    }
-                }
-                // Forwards messages from internal_rx. The internal channel for the Socket itself.
-                Some(cmd) = internal_rx.recv() => {
-                    // Internal methods to control the Socket
+            tokio::select! {
+                // Listen for commands from the PeerClient
+                Some(cmd) = cmd_receiver.recv() => {
                     match cmd {
-                        SocketCommand::GetRxMsgCount(reply_channel) => {
-                        let _ = reply_channel.send(msg_counter);
+                        SwarmCmd::Dial(addr) => {
+                            if let Err(e) = swarm.dial(addr) {
+                                tracing::error!("Dial failed: {:?}", e);
+                            }
                         }
-                        SocketCommand::SendMessage(msg) => { // sends message to other party
-                            socket_tx.send(msg).await.unwrap();
-                        }
-                        SocketCommand::HandleMessage(msg) => {
-                            message_queue.push_back(msg.clone());
-                        }
-                        SocketCommand::Listen(reply_channel) => {
-                            println!("Started listening");
-                            listening_channel = Some(reply_channel);
-                        }
-                        SocketCommand::GetLastMsg(reply_channel) => {
-                            let _ = reply_channel.send(message_queue.pop_back().expect("Could not get the latest message from queue"));
+                    }
+                }
+                event = swarm.select_next_some() => {
+                    if let libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } = event {
+                        if let Some(s) = addr_sender.take() {
+                            let _ = s.send(address);
                         }
                     }
                 }
             }
         }
-    };
-    tokio::spawn(async_socket_logic); // Spawns the async task as a thread 
-    SocketClient::new(internal_tx)
+    });
+
+    let listen_addr = tokio::time::timeout(Duration::from_secs(2), addr_receiver).await??;
+    let client = SocketClient::new(control.clone(), peer_id, listen_addr, cmd_sender);
+
+    Ok(client)
 }
 
-// Tries to connect to a Socket on the given address. If unsuccesfull it starts its own Socket on the address and listens for connections
-async fn connect(
-    address: String,
-    connect_with_force: bool,
-) -> (
-    SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
-    SplitStream<WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
-) {
-    let (socket_tx, socket_rx);
-    // Try to connect to the address, if address does not exist, create own Socket. P2P paradigm
-    match TcpStream::connect(&address).await {
-        Ok(tcp) => {
-            // A Socket existed and we connect to it
-            let url = format!("ws://{}", address); // use wss:// if we want tls
-            let (stream, _) = client_async_tls(&url, tcp)
-                .await
-                .expect(&format!("Client failed to connect on {}", &url));
-            // Tcp is normally full-duplex, meaning data can flow in both directions, but in rust a peer owns both the read half and write half of the stream. There is a ownership problem. The borrow checker problem. You would therefore not be able to listen for messages while you send messages. To fix this we need to split the stream such that a peer can both read and write at the same time.
-            (socket_tx, socket_rx) = stream.split();
-        }
-        Err(_) => {
-            if connect_with_force {
-                panic!("Could not connect to socket on {}", address);
-            }
-            // We need to create our own Socket which listens for a connection
-            let listener = TcpListener::bind(&address).await.expect("Could not start new socket. Perhaps address is invalid or another peer is in process of starting on the same address.");
-            let (connection, _) = listener.accept().await.expect("No connections to accept");
-            let maybe_tls = MaybeTlsStream::Plain(connection);
-            let stream = accept_async(maybe_tls).await;
-            let stream = stream.expect("Failed to handshake with connection"); // Test the stream was established
-            match stream.get_ref() {
-                MaybeTlsStream::Plain(_) => println!("Warning: Unencrypted connection!"),
-                MaybeTlsStream::Rustls(_) => println!("Success: Connection is encrypted."),
-                _ => println!("Other TLS provider used."),
-            }
-            (socket_tx, socket_rx) = stream.split();
-        }
-    }
-    (socket_tx, socket_rx)
+// Creates a node
+fn create_swarm() -> Result<Swarm<stream::Behaviour>, Box<dyn Error>> {
+    let swarm = libp2p::SwarmBuilder::with_new_identity()
+        .with_tokio()
+        .with_tcp(
+            tcp::Config::default(),
+            tls::Config::new,
+            yamux::Config::default,
+        )?
+        .with_behaviour(|_| stream::Behaviour::new())?
+        .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(10)))
+        .build();
+    Ok(swarm)
 }
-
-
-// Great discusssion on tls 
-// https://github.com/snapview/tungstenite-rs/issues/127

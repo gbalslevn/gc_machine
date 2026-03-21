@@ -1,68 +1,36 @@
 
-use crate::websocket::{self, SocketClient};
-use tokio_tungstenite::tungstenite::Message;
-use uuid::Uuid;
+use crate::{evaluator::{original_evaluator::OriginalEvaluator}, garbler::Garbler, gates::{gate_gen::GateGen, original_gate_gen::OriginalGateGen}, peer::Peer, websocket, wires::{original_wire_gen::OriginalWireGen, wire_gen::WireGen}};
+use std::time::Duration;
+use libp2p::{PeerId};
 
 #[tokio::test]
-async fn socket_can_return_the_last_sent_msg() {
-    let config = websocket::SocketConfig::new("localhost:12345".to_string());
+// When it says hello, the other party replies with hello
+async fn can_send_and_receive_hello_query() {
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let garbler = Garbler::new(gate_gen, wire_gen);
+    let evaluator = OriginalEvaluator::new();
+    let client_a = Peer::new(garbler, evaluator).await;
 
-    let receiver_socket_client = websocket::run(&config).await;
-    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
-    let sender_socket_client = websocket::run(&config.as_client()).await; 
-    let is_connected = is_connected(&receiver_socket_client, &sender_socket_client).await;
-    assert!(is_connected);
+    let client_b = websocket::run().await.expect("Could not start client_b");
+    client_b.dial(client_a.get_address()).await.expect("Dialing failed");
+    tokio::time::sleep(Duration::from_millis(200)).await;
     
-    let msg_1 = Message::text(format!("msg1"));
-    sender_socket_client.send_message(msg_1).await;
-    let msg_2 = Message::text(format!("msg2"));
-    sender_socket_client.send_message(msg_2).await;
-    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
-    
-    let received_msg = receiver_socket_client.get_last_msg().await;
-    
-    assert!(received_msg.to_text().unwrap() == "msg2")
+    let response = client_b.send_query(client_a.get_peer_id(), websocket::Query::Hello).await.expect("send_message failed");
+    assert_eq!(response, websocket::Response::Greeting("Hello".to_string()))
 }
 
 #[tokio::test]
-async fn socket_can_listen_for_a_new_message() {
-    let config = websocket::SocketConfig::new("localhost:12346".to_string());
-    let receiver_socket_client = websocket::run(&config).await;
-    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
-    let sender_socket_client = websocket::run(&config.as_client()).await;
+async fn cannot_send_msg_to_unconnected_peer_id() {
     
-    let msg = Message::text(format!("msg"));
-    sender_socket_client.send_message(msg).await;
-
-    let received_msg = receiver_socket_client.listen_for_next_msg().await;
-
-    assert!(received_msg.to_text().unwrap() == "msg");
-}
-
-// #[tokio::test]
-// #[should_panic(expected = "Invalid socket address")]
-// async fn invalid_address_to_socket_throws_error() {
-//     let invalid_address = "gustav".to_string();
-//     let config = SocketConfig::new(invalid_address);
-//     let _socket_client = websocket::run(config).await;
-// }
-
-// #[tokio::test]
-// #[should_panic(expected = "Socket has no connections")]
-// async fn sending_a_message_without_being_connected_throws_error() {
-//     let config = SocketConfig::new(SOCKET_ADDRESS.to_string());
-//     tokio::time::sleep(std::time::Duration::from_millis(50)).await; 
-//     let sender_socket_client = websocket::run(config).await;
+    let client_a = websocket::run().await.expect("Could not start client_a");
     
-//     let msg = Message::text(format!("msg"));
-//     sender_socket_client.send_message(msg).await;
-// }
-
-// Sends a message back and forth between the two to ensure they are connected
-async fn is_connected(client1 : &SocketClient, client2 : &SocketClient) -> bool {
-    let token = Uuid::new_v4().to_string();
-    client1.send_message(Message::text(&token)).await;
-    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
-    let msg = client2.get_last_msg().await;
-    msg.to_text().unwrap() == token
+    let unconnected_peer_id = PeerId::random();
+    
+    let response = client_a.send_query(unconnected_peer_id, websocket::Query::Hello).await;
+    
+    if let Err(e) = response {
+        let err_string = format!("{:?}", e);
+        assert!(err_string.contains("NotConnected"))
+    }
 }

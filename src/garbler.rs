@@ -3,10 +3,26 @@ use std::collections::VecDeque;
 use k256::PublicKey;
 use num_bigint::{BigUint, ToBigUint};
 use rand_chacha::ChaCha20Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     circuit_builder::CircuitBuild, gates::gate_gen::{GateGen}, ot::eg_elliptic::{self, CipherText}, wires::wire_gen::{Wire, WireGen}
 };
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Circuit {
+    pub gates : Vec<Vec<BigUint>>, 
+    pub constant_wires : Vec<BigUint>,
+    pub garbler_input : HashMap<BigUint, BigUint>,
+    pub evaluator_input : HashMap<BigUint, (CipherText, CipherText)>,
+    pub output_conversion : Vec<[(BigUint, u8); 2]>
+}
+
+impl Circuit {
+    pub fn new(gates : Vec<Vec<BigUint>>, constant_wires : Vec<BigUint>, garbler_input : HashMap<BigUint, BigUint>, evaluator_input : HashMap<BigUint, (CipherText, CipherText)>, output_conversion : Vec<[(BigUint, u8); 2]>) -> Self {
+        Circuit { gates, constant_wires, garbler_input, evaluator_input, output_conversion}
+    }
+}
 
 pub struct Garbler<G: GateGen<W>, W: WireGen> {
     gate_gen: G,
@@ -25,13 +41,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         circuit_build: &CircuitBuild,
         garblers_input_choices: &mut VecDeque<u8>,
         mut evaluators_input_choices: VecDeque<[PublicKey; 2]>,
-    ) -> (
-        Vec<Vec<BigUint>>, // Ciphertexts
-        Vec<BigUint>, // Constant wires
-        HashMap<BigUint, BigUint>, // Garbler input wires
-        HashMap<BigUint, (CipherText, CipherText)>, // Evaluator input wires
-        Vec<[(BigUint, u8); 2]> // Output conversion table
-    ) {
+    ) -> Circuit {
         let mut garbled_gates: Vec<Vec<BigUint>> = Vec::new();
         let mut constant_wires: Vec<BigUint> = vec![];
         let mut garbler_inputs: HashMap<BigUint, BigUint> = HashMap::new();
@@ -45,7 +55,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         // insert constants for true and false wire into known_wires, to enable eg. NOT gates
         self.insert_constant_wires(&mut known_wires, &mut constant_wires);
         let mut rng = self.wire_gen.get_rng().clone();
-        for (gate_index, gate) in gates.iter().enumerate() {
+        for gate in gates {
             let gate_is_input_layer = gate.wo().ready_at_layer() == &1;
             if gate_is_input_layer {
                 // Generate wires if not already generated (copied wires are already generated)
@@ -98,11 +108,11 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
             // Store the ciphertexts for the gate
             garbled_gates.push(table);
         }
-        (garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, new_output_conversion)
+        Circuit::new(garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, new_output_conversion)
     }
 
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {
-        let mut list = VecDeque::new();;
+        let mut list = VecDeque::new();
         for i in 0..required_bits {
             let bit = input.bit(i) as u8;
             if bit == 0 {
@@ -136,10 +146,10 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         input_choice: &[PublicKey; 2],
         rng : &mut ChaCha20Rng
     ) -> (CipherText, CipherText) {
-        let pk_0 = &input_choice[0];
-        let wj_0_ct = eg_elliptic::encrypt(rng, pk_0, wire.w0());
-        let pk_1 = &input_choice[1];
-        let wj_1_ct = eg_elliptic::encrypt(rng, pk_1, wire.w1());
+        let pk_0 = input_choice[0];
+        let wj_0_ct = eg_elliptic::encrypt(rng, &pk_0, wire.w0());
+        let pk_1 = input_choice[1];
+        let wj_1_ct = eg_elliptic::encrypt(rng, &pk_1, wire.w1());
 
         let wj_encrypted = (wj_0_ct, wj_1_ct);
         wj_encrypted
