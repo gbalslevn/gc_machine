@@ -1,13 +1,12 @@
-use std::{collections::HashMap, error::Error, time::Duration};
+use std::{collections::VecDeque, error::Error, time::Duration};
 use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use k256::PublicKey;
 use libp2p::{Multiaddr, PeerId, StreamProtocol, Swarm, tcp, tls, yamux};
 use libp2p_stream::{self as stream};
-use num_bigint::BigUint;
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 use serde::{Serialize, Deserialize};
 
-use crate::ot::eg_elliptic::CipherText;
+use crate::{garbler::Circuit};
 
 pub enum SwarmCmd {
     Dial(Multiaddr),
@@ -17,14 +16,14 @@ pub enum SwarmCmd {
 pub enum Query {
     Hello,
     ExecuteProtocol,
-    EvalGC(Vec<Vec<BigUint>>, Vec<BigUint>, HashMap<BigUint, BigUint>, HashMap<BigUint, (CipherText, CipherText)>, [(BigUint, u8); 2]), 
+    EvaluateGC(Circuit), 
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Response {
     Greeting(String),
-    ProvideEvalInput(Vec<[PublicKey; 2]>), 
-    ProvideGCResult(u8)
+    EvalInput(VecDeque<[PublicKey; 2]>), 
+    GCResult(u32)
 }
 
 #[derive(Clone)]

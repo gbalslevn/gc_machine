@@ -1,5 +1,5 @@
 
-use crate::{evaluator::{self, original_evaluator::OriginalEvaluator}, garbler::Garbler, gates::{gate_gen::{Gate, GateGen}, original_gate_gen::OriginalGateGen}, peer::{self, Peer}, websocket, wires::{original_wire_gen::OriginalWireGen, wire_gen::WireGen}};
+use crate::{evaluator::{original_evaluator::OriginalEvaluator}, garbler::Garbler, gates::{gate_gen::GateGen, original_gate_gen::OriginalGateGen}, peer::Peer, websocket, wires::{original_wire_gen::OriginalWireGen, wire_gen::WireGen}};
 use std::time::Duration;
 use libp2p::{PeerId};
 

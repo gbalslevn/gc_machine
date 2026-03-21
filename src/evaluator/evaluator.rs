@@ -1,11 +1,11 @@
 use k256::{PublicKey, SecretKey};
 use num_bigint::{BigUint, ToBigUint};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use crate::{
     gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText},
 };
-use crate::circuit_builder::CircuitBuild;
+use crate::circuit_builder::{CircuitBuild};
 
 pub trait Evaluator {
     fn evaluate_gate(
@@ -17,7 +17,11 @@ pub trait Evaluator {
     ) -> BigUint {
         match gate_type {
             GateType::AND => self.evaluate_and_gate(wi, wj, table),
+            GateType::NAND => self.evaluate_and_gate(wi, wj, table),
             GateType::XOR => self.evaluate_xor_gate(wi, wj, table),
+            GateType::XNOR => self.evaluate_xor_gate(wi, wj, table),
+            GateType::OR => self.evaluate_and_gate(wi, wj, table),
+            GateType::NOR => self.evaluate_and_gate(wi, wj, table),
         }
     }
 
@@ -42,10 +46,10 @@ pub trait Evaluator {
         garbler_input: &HashMap<BigUint, BigUint>,
         evaluator_input: &HashMap<BigUint, (CipherText, CipherText)>,
         secret_keys: Vec<(SecretKey, u8)>,
-        conversion_table: &[(BigUint, u8); 2],
-    ) -> u8 {
+        new_conversion_table: Vec<[(BigUint, u8); 2]>
+    ) -> u32 {
         let mut known_wires: HashMap<BigUint, BigUint> = HashMap::new(); // id, wire
-        let mut circuit_result = 3; // need to return circuit result in a better way without init it
+        let mut result_wires: Vec<BigUint> = Vec::new();
 
         // Insert constant values
         known_wires.insert(0.to_biguint().unwrap(), constant_wires[0].to_biguint().unwrap());
@@ -74,6 +78,7 @@ pub trait Evaluator {
             secret_keys_iterator += 1;
         }
 
+        // Evaluate each gate
         for (index, gate) in circuit_build.gates.iter().enumerate() {
             let wi;
             let wj;
@@ -82,24 +87,31 @@ pub trait Evaluator {
             let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &garbled_gates[index]);
             known_wires.insert(gate.wo().wire_id().clone(), result.clone());
 
-            if *gate.wo().ready_at_layer() == circuit_build.output_layer {
-                if result == conversion_table[0].0 {
-                    circuit_result = conversion_table[0].1;
-                }
-                if result == conversion_table[1].0 {
-                    circuit_result = conversion_table[1].1;
-                }
+            // Store all result wires
+            if circuit_build.output_wires.contains(gate.wo()) {
+                result_wires.push(result.clone());
             }
         }
-        circuit_result
+
+        Self::interpret_result(result_wires, &new_conversion_table)
+    }
+
+    fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>) -> u32 {
+        let mut result: u32 = 0;
+        for (index, result_wire) in result_wires.iter().enumerate() {
+            if output_conversion[index][1].0 == *result_wire {
+                result += 2u32.pow(index as u32);
+            }
+        }
+        result
     }
 
     fn create_circuit_input(
         &self,
         input: &BigUint,
         required_bits: u64,
-    ) -> (Vec<[PublicKey; 2]>, Vec<(SecretKey, u8)>) {
-        let mut input_choices = vec![];
+    ) -> (VecDeque<[PublicKey; 2]>, Vec<(SecretKey, u8)>) {
+        let mut input_choices = VecDeque::new();
         let mut decrypt_choices = vec![];
         for i in 0..required_bits {
             let keypair_real = eg_elliptic::RealKeyPair::new();
@@ -117,7 +129,7 @@ pub trait Evaluator {
                 choice = [pk_obl.clone(), pk_real.clone()];
                 decrypt_choice = (sk_real.clone(), 1 as u8);
             }
-            input_choices.push(choice);
+            input_choices.push_back(choice);
             decrypt_choices.push(decrypt_choice);
         }
 

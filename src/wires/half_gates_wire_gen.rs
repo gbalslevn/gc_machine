@@ -40,7 +40,11 @@ impl WireGen for HalfGatesWireGen {
     fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, gate_id: &BigUint) -> Wire {
         match gate {
             GateType::AND=>generate_and_wires(self, &wi, &wj, gate_id),
+            GateType::NAND=>generate_nand_wires(self, &wi, &wj, gate_id),
             GateType::XOR=>generate_xor_wires(self, &wi, &wj, gate_id),
+            GateType::XNOR=>generate_xnor_wires(self, &wi, &wj, gate_id),
+            GateType::OR=>generate_or_wires(self, &wi, &wj, gate_id),
+            GateType::NOR=>generate_nor_wires(self, &wi, &wj, gate_id),
         }
     }
     fn get_rng(&self) -> &rand_chacha::ChaCha20Rng {
@@ -72,6 +76,11 @@ pub fn generate_and_wires(wire_gen: &mut HalfGatesWireGen, wi: &Wire, wj: &Wire,
     Wire::new(w0c, w1c)
 }
 
+pub fn generate_nand_wires(wire_gen: &mut HalfGatesWireGen, wi: &Wire, wj: &Wire, index: &BigUint) -> Wire {
+    let wire = generate_and_wires(wire_gen, wi, wj, index);
+    Wire::new(wire.w0() ^ wire_gen.delta(), wire.w1() ^ wire_gen.delta())
+}
+
 pub fn generate_garb_half_gate(pa: bool, pb: bool, delta: &BigUint, wi0_hash: BigUint, wi1_hash: BigUint) -> (BigUint, BigUint) {
     let mut tg = &wi0_hash ^ wi1_hash;
     if pb {
@@ -96,6 +105,24 @@ pub fn generate_xor_wires(wire_gen: &mut HalfGatesWireGen, wi: &Wire, wj: &Wire,
     let w0c = wi.w0() ^ wj.w0();
     let w1c = &w0c ^ wire_gen.delta();
     Wire::new(w0c, w1c)
+}
+
+pub fn generate_xnor_wires(wire_gen: &mut HalfGatesWireGen, wi: &Wire, wj: &Wire, _gate_id: &BigUint) -> Wire {
+    let w0c = wi.w0() ^ wj.w0() ^ wire_gen.delta();
+    let w1c = &w0c ^ wire_gen.delta();
+    Wire::new(w0c, w1c)
+}
+
+// For OR gate we do NOT(NOT(A) AND NOT(B))
+pub fn generate_or_wires(wire_gen: &mut HalfGatesWireGen, wi: &Wire, wj: &Wire, index: &BigUint) -> Wire {
+    let nor_wire = generate_nor_wires(wire_gen, wi, wj, index);
+    Wire::new(nor_wire.w0() ^ wire_gen.delta(), nor_wire.w1() ^ wire_gen.delta())
+}
+
+pub fn generate_nor_wires(wire_gen: &mut HalfGatesWireGen, wi: &Wire, wj: &Wire, index: &BigUint) -> Wire {
+    let wi_neg = Wire::new(wi.w0() ^ wire_gen.delta(), wi.w1() ^ wire_gen.delta());
+    let wj_neg = Wire::new(wj.w0() ^ wire_gen.delta(), wj.w1() ^ wire_gen.delta());
+    generate_and_wires(wire_gen, &wi_neg, &wj_neg, index)
 }
 
 pub fn get_00_wire(wi: &Wire, wj: &Wire, gate_id: &BigUint) -> BigUint {

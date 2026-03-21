@@ -1,15 +1,15 @@
 use std::collections::{HashMap, HashSet};
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::{BigUint};
 use crate::circuit_builder::{CircuitBuild, CircuitBuilder, GateBuild};
 
 #[test]
 fn gates_are_sorted_by_increasing_output_layer() {
     let mut circuit_builder = CircuitBuilder::new();
     let input_wires = circuit_builder.build_input_wires(2);
-    circuit_builder.build_or(&input_wires[0], &input_wires[1]);
+    circuit_builder.build_is_equal(input_wires);
     let cb = circuit_builder.get_circuit_build();
     let gates = cb.get_gates();
-    let mut current_output_layer = &1.to_biguint().unwrap();
+    let mut current_output_layer = &1;
     
     for gate in gates {
         assert!(gate.wo().ready_at_layer() >= &current_output_layer);
@@ -54,12 +54,12 @@ fn get_nested_if_build() -> (CircuitBuild, Vec<GateBuild>) {
     let wz = &inputs[3];
 
     // First if: 
-    let and_0 = builder.build_and(wi, wi);
-    let and_1 = builder.build_and(wj, wj);
+    let and_0 = builder.build_and_output(wi, wi);
+    let and_1 = builder.build_and_output(wj, wj);
     let if_out = builder.build_if(cond, &and_0, &and_1);
 
     // Second if, nested
-    let and_2 = builder.build_and(&wz, &wz);
+    let and_2 = builder.build_and_output(&wz, &wz);
     builder.build_if(cond, &if_out, &and_2);
 
     let cb = builder.get_circuit_build();

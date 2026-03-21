@@ -6,15 +6,15 @@ use num_bigint::{BigUint, ToBigUint};
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id.
-// This way we can provide two wire id's from other gates as input, and ensure to provide the correct values. The wire id does not neccesarilly correlate to the id of the gate genereated in wire_gen.
+// This way we can provide two wire id's from other gates as input, and ensure to provide the correct values. The wire id does not neccesarilly correlate to the id of the gate generated in wire_gen.
 
 pub struct CircuitBuilder {
     gates: Vec<GateBuild>,
     outputs_created: BigUint,
     true_constant: WireBuild,
-    output_layer: BigUint,
     branches: HashMap<BigUint, BranchEntry>, // Markers for a branch with the mux output gate as key
     branch_counter: usize,
+    output_wires: Vec<WireBuild>,
 }
 
 #[derive(Clone)]
@@ -27,7 +27,7 @@ pub struct BranchEntry {
 #[derive(Debug, Clone)]
 pub struct CircuitBuild {
     pub gates: Vec<GateBuild>,
-    pub output_layer: BigUint,
+    pub output_wires: Vec<WireBuild>,
 }
 
 impl CircuitBuild {
@@ -40,16 +40,17 @@ impl CircuitBuilder {
     pub fn new() -> Self {
         let gates = Vec::new();
         let branches = HashMap::new();
-        let true_constant = WireBuild::new(0.to_biguint().unwrap(), 1.to_biguint().unwrap());
-        let output_layer = 0.to_biguint().unwrap();
+        let true_constant = WireBuild::new(0, 1.to_biguint().unwrap());
+        let branch_counter = 0;
+        let output_wires = Vec::new();
 
         CircuitBuilder {
             gates: gates,
             outputs_created: 2.to_biguint().unwrap(),
-            true_constant: true_constant,
-            output_layer: output_layer,
+            true_constant,
             branches,
-            branch_counter: 0,
+            branch_counter,
+            output_wires
         }
     }
 
@@ -58,7 +59,7 @@ impl CircuitBuilder {
         self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
         CircuitBuild {
             gates: self.gates.clone(),
-            output_layer: self.output_layer.clone(),
+            output_wires: self.output_wires.clone(),
         }
     }
 
@@ -70,6 +71,7 @@ impl CircuitBuilder {
             println!("{}", gate);
         }
     }
+
 
     // An if block where a block of gates, derived from the output of them, is added depending on a boolean. MUX always has an else.
     pub fn build_if(
@@ -97,6 +99,41 @@ impl CircuitBuilder {
         output.wo
     }
 
+    pub fn build_adder(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+        let result_wires = self.adder_helper(input_wires_a, input_wires_b);
+        self.set_output_wires(result_wires.clone());
+        result_wires
+    }
+
+    fn adder_helper(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+        let mut result_wires: Vec<WireBuild> = Vec::new();
+        // Build 1 HALF ADDER for first bits of each input
+        let mut sum = self.build_xor(&input_wires_a[0], &input_wires_b[0]);
+        result_wires.push(sum.clone());
+        let mut carry = self.build_and(&input_wires_a[0], &input_wires_b[0]);
+        if input_wires_a.len() == 1 {
+            result_wires.push(carry.clone());
+        }
+
+        // Build FULL ADDERS for all bits but the first
+        for index in 1..input_wires_a.len() {
+            // SUM - is added to the result wire
+            let a_xor_b = self.build_xor(&input_wires_a[index], &input_wires_b[index]);
+            sum = self.build_xor(&a_xor_b, &carry.clone());
+            result_wires.push(sum.clone());
+            // CARRY - is not added to the result wire
+            let first_and = self.build_and(&a_xor_b, &carry);
+            let second_and = self.build_and(&input_wires_a[index], &input_wires_b[index]);
+            carry = self.build_or(&first_and, &second_and);
+        }
+        // The last carry bit needs to be appended to the result (though not in the case where we add 1-bit numbers)
+        if input_wires_a.len() != 1 {
+            result_wires.push(carry.clone());
+        }
+        result_wires
+    }
+
+
     pub fn build_is_equal(&mut self, input_wires: Vec<WireBuild>) -> WireBuild {
         // Compares each bit in a tree like structure
         if input_wires.len() % 2 == 1 {
@@ -112,10 +149,17 @@ impl CircuitBuilder {
             deque.push_back(self.build_and(&first, &second));
         }
         let output = deque.pop_front().unwrap();
+        self.set_output_wires(vec![output.clone()]);
         output
     }
 
-    pub fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+    pub fn build_and_output(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+        let and = self.build_gate(input_wi, input_wj, GateType::AND);
+        self.set_output_wires(vec![and.wo().clone()]);
+        and.wo().clone()
+    }
+
+    fn build_or(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
         let xor_0 = self.build_gate(input_wi, input_wj, GateType::XOR);
         let and_0 = self.build_gate(input_wi, input_wj, GateType::AND);
         let xor_1 = self.build_gate(xor_0.wo(), and_0.wo(), GateType::XOR);
@@ -123,7 +167,7 @@ impl CircuitBuilder {
         xor_1.wo().clone()
     }
 
-    pub fn build_xnor(&mut self, wi: &WireBuild, wj: &WireBuild) -> WireBuild {
+    fn build_xnor(&mut self, wi: &WireBuild, wj: &WireBuild) -> WireBuild {
         let xor = self.build_gate(wi, wj, GateType::XOR);
         let xor_with_constant = self.build_gate(xor.wo(), &self.true_constant.clone(), GateType::XOR);
         let xnor_output = xor_with_constant.wo().clone();
@@ -131,12 +175,12 @@ impl CircuitBuilder {
         xnor_output
     }
 
-    pub fn build_and(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+    fn build_and(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
         let and = self.build_gate(input_wi, input_wj, GateType::AND);
         and.wo().clone()
     }
 
-    pub fn build_xor(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
+    fn build_xor(&mut self, input_wi: &WireBuild, input_wj: &WireBuild) -> WireBuild {
         let xor = self.build_gate(input_wi, input_wj, GateType::XOR);
         xor.wo().clone()
     }
@@ -144,11 +188,15 @@ impl CircuitBuilder {
     pub fn build_input_wires(&mut self, amount: u32) -> Vec<WireBuild> {
         let mut input_wires = vec![];
         for _i in 0..amount {
-            let input_wire = WireBuild::new(0.to_biguint().unwrap(), self.outputs_created.clone());
+            let input_wire = WireBuild::new(0, self.outputs_created.clone());
             input_wires.push(input_wire);
             self.outputs_created += 1.to_biguint().unwrap();
         }
         input_wires
+    }
+
+    fn set_output_wires(&mut self, output_wires: Vec<WireBuild>) {
+        self.output_wires = output_wires;
     }
 
     fn next_branch_id(&mut self) -> usize {
@@ -156,7 +204,7 @@ impl CircuitBuilder {
         self.branch_counter
     }
 
-    // Traverses backwards from the output gate to propogate all correct branches to each gate
+    // Traverses backwards from the output gate to propagate all correct branches to each gate
     fn numerate_gate_branches(&mut self) {
         let final_gate_id = self.gates[self.gates.len() - 1].wo().wire_id().clone();
         let gate_index_map: HashMap<BigUint, usize> = self.gates.iter().enumerate().map(|(idx, gate)| (gate.wo().wire_id().clone(), idx)).collect();
@@ -249,8 +297,7 @@ impl CircuitBuilder {
     // Builds a gate with a new id and the output wire containing when the gate should be calculated
     fn build_gate(&mut self, wi: &WireBuild, wj: &WireBuild, gate_type: GateType) -> GateBuild {
         let compute_layer =
-            wi.ready_at_layer.clone().max(wj.ready_at_layer.clone()) + 1.to_biguint().unwrap();
-        self.output_layer = compute_layer.clone();
+            wi.ready_at_layer.clone().max(wj.ready_at_layer.clone()) + 1;
         let wo = WireBuild::new(compute_layer, self.outputs_created.clone());
         self.increment_outputs_created();
 
@@ -265,18 +312,18 @@ impl CircuitBuilder {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct WireBuild {
-    ready_at_layer: BigUint,
+    ready_at_layer: i32,
     wire_id: BigUint,
 }
 
 impl WireBuild {
-    pub fn new(ready_at_layer: BigUint, wire_id: BigUint) -> Self {
+    pub fn new(ready_at_layer: i32, wire_id: BigUint) -> Self {
         WireBuild {
             ready_at_layer,
             wire_id,
         }
     }
-    pub fn ready_at_layer(&self) -> &BigUint {
+    pub fn ready_at_layer(&self) -> &i32 {
         &self.ready_at_layer
     }
     pub fn wire_id(&self) -> &BigUint {
