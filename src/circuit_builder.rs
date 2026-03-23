@@ -55,8 +55,10 @@ impl CircuitBuilder {
     }
 
     pub fn get_circuit_build(&mut self) -> CircuitBuild {
-        self.numerate_gate_branches();
-        self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
+        if self.gates.len() > 0 {
+            self.numerate_gate_branches();
+            self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
+        }
         CircuitBuild {
             gates: self.gates.clone(),
             output_wires: self.output_wires.clone(),

@@ -4,10 +4,12 @@ use futures::{AsyncReadExt, AsyncWriteExt, StreamExt, lock::Mutex};
 use k256::{PublicKey, SecretKey};
 use libp2p::{Multiaddr, PeerId, Stream};
 use num_bigint::BigUint;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::EnvFilter;
 
 use crate::{circuit_builder::CircuitBuild, evaluator::{evaluator::Evaluator}, garbler::Garbler, gates::gate_gen::GateGen, websocket::{self, Query, Response, SocketClient}, wires::wire_gen::WireGen};
 
-// Peer can both be a garbler and a evaluator
+// Peer represents an entity which can act as either a garbler or an evaluator
 pub struct Peer<G : GateGen<W>, W : WireGen, E : Evaluator> {
     garbler : Mutex<Garbler<G, W>>, // we use a mutex to enable mutability without having a mutable self
     evaluator : Mutex<E>,
@@ -39,6 +41,7 @@ impl <G : GateGen<W>, W : WireGen, E : Evaluator> Peer<G, W, E> where
         peer
     }
 
+    // Sets the circuit context, which input the peer wants to provide and what the circuitbuild it wants to evaluate, which is neccesary before each protocol execution. 
     pub async fn setup_circuit_context(&self, input : BigUint, build : CircuitBuild, required_bits : u64) {
         let context = CircuitContext { input, build, required_bits, evaluator_keys : vec![] };
         let mut current_context = self.context.lock().await;
@@ -90,18 +93,15 @@ impl <G : GateGen<W>, W : WireGen, E : Evaluator> Peer<G, W, E> where
         self.socket.get_address()
     }
 
-    async fn spawn_query_handler(self : Arc<Self>) {
-        let mut incoming_streams = self.socket.get_control().accept(self.socket.get_protocol()).unwrap();
-        tokio::spawn(async move {
-            while let Some((peer, stream)) = incoming_streams.next().await {
-                let handler_self = Arc::clone(&self);
-                tokio::spawn(async move {
-                    if let Err(e) = handler_self.handle_query(stream).await {
-                        tracing::warn!(%peer, "Handle request error: {e}");
-                    }
-                });
-            }
-        });
+    pub async fn start_logging(&self) -> Result<(), Box<dyn Error>> {
+        let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env()?,
+        )
+        .try_init();
+        Ok(())
     }
 
     async fn insert_secret_keys(&self, evaluator_keys : Vec<(SecretKey, u8)>) {
@@ -116,7 +116,20 @@ impl <G : GateGen<W>, W : WireGen, E : Evaluator> Peer<G, W, E> where
         *current_context = None.into()
     }
 
-    // Req and reply
+    async fn spawn_query_handler(self : Arc<Self>) {
+        let mut incoming_streams = self.socket.get_control().accept(self.socket.get_protocol()).unwrap();
+        tokio::spawn(async move {
+            while let Some((peer, stream)) = incoming_streams.next().await {
+                let handler_self = Arc::clone(&self);
+                tokio::spawn(async move {
+                    if let Err(e) = handler_self.handle_query(stream).await {
+                        tracing::warn!(%peer, "Handle request error: {e}");
+                    }
+                });
+            }
+        });
+    }
+
     async fn handle_query(&self, mut stream: Stream) -> Result<(), Box<dyn Error>> {
         let mut request_data = Vec::new();
         stream.read_to_end(&mut request_data).await?;
@@ -137,7 +150,7 @@ impl <G : GateGen<W>, W : WireGen, E : Evaluator> Peer<G, W, E> where
                 let mut evaluator = self.evaluator.lock().await;
                 let context = self.get_circuit_context().await;
 
-                let result = evaluator.evaluate_circuit(&context.build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, context.evaluator_keys, circuit.output_conversion);
+                let result = evaluator.evaluate_circuit(&context.build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &context.evaluator_keys, &circuit.output_conversion);
                 self.reset_circuit_context().await;
                 Response::GCResult(result)
             }

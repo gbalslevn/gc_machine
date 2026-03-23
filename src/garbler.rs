@@ -30,10 +30,10 @@ pub struct Garbler<G: GateGen<W>, W: WireGen> {
 }
 
 impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
-    pub fn new(gate: G, wire: W) -> Self {
+    pub fn new(gate_gen: G, wire_gen: W) -> Self {
         Self {
-            gate_gen: gate,
-            wire_gen: wire,
+            gate_gen: gate_gen,
+            wire_gen: wire_gen,
         }
     }
     pub fn create_circuit(
@@ -42,6 +42,9 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         garblers_input_choices: &mut VecDeque<u8>,
         mut evaluators_input_choices: VecDeque<[PublicKey; 2]>,
     ) -> Circuit {
+        if garblers_input_choices.len() != evaluators_input_choices.len() {
+            panic!("Garbler and evaluator input length must be equal")
+        }
         let mut garbled_gates: Vec<Vec<BigUint>> = Vec::new();
         let mut constant_wires: Vec<BigUint> = vec![];
         let mut garbler_inputs: HashMap<BigUint, BigUint> = HashMap::new();

@@ -1,7 +1,7 @@
 
 use crate::{evaluator::{original_evaluator::OriginalEvaluator}, garbler::Garbler, gates::{gate_gen::GateGen, original_gate_gen::OriginalGateGen}, peer::Peer, websocket, wires::{original_wire_gen::OriginalWireGen, wire_gen::WireGen}};
 use std::time::Duration;
-use libp2p::{PeerId};
+use libp2p::{Multiaddr, PeerId};
 
 #[tokio::test]
 // When it says hello, the other party replies with hello
@@ -22,12 +22,28 @@ async fn can_send_and_receive_hello_query() {
 
 #[tokio::test]
 async fn cannot_send_msg_to_unconnected_peer_id() {
-    
-    let client_a = websocket::run().await.expect("Could not start client_a");
+
+    let client = websocket::run().await.expect("Could not start client_a");
     
     let unconnected_peer_id = PeerId::random();
     
-    let response = client_a.send_query(unconnected_peer_id, websocket::Query::Hello).await;
+    let response = client.send_query(unconnected_peer_id, websocket::Query::Hello).await;
+    
+    if let Err(e) = response {
+        let err_string = format!("{:?}", e);
+        assert!(err_string.contains("NotConnected"))
+    }
+}
+
+#[tokio::test]
+async fn cannot_dial_to_unconnected_peer() {
+    
+    let client = websocket::run().await.expect("Could not start client_a");
+    
+    let unconnected_peer_id = PeerId::random();
+    let fake_addr: Multiaddr = format!("/ip4/127.0.0.1/tcp/1234/p2p/{}", unconnected_peer_id).parse().unwrap();
+    
+    let response = client.dial(fake_addr).await;
     
     if let Err(e) = response {
         let err_string = format!("{:?}", e);

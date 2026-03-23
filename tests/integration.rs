@@ -74,13 +74,13 @@ async fn can_eval_circuit_over_socket() {
     let wire_gen = OriginalWireGen::new();
     let gate_gen = OriginalGateGen::new(wire_gen.clone());
     let evaluator = OriginalEvaluator::new();
-    let evaluator_peer = get_peer(gate_gen.clone(), wire_gen.clone(), evaluator.clone()).await;
-    let garbler_peer = get_peer(gate_gen, wire_gen, evaluator).await;
+    let evaluator_peer = get_peer(gate_gen.clone(), wire_gen.clone(), evaluator.clone(), false).await;
+    let garbler_peer = get_peer(gate_gen, wire_gen, evaluator, false).await;
 
     garbler_peer.connect(evaluator_peer.get_address()).await.expect("Could not connect to evaluator_peer");
-    tokio::time::sleep(Duration::from_millis(200)).await; // Wait for it to connect
+    tokio::time::sleep(Duration::from_secs(1)).await; // Wait for it to connect
 
-    // Create a circuit build which both peers in some way agree on
+    // Create a circuit build which both peers in some way has agreed on
     let garbler_input = 12.to_biguint().unwrap();
     let evaluator_input = 12.to_biguint().unwrap();
     let required_bits = max(&garbler_input, &evaluator_input).bits(); // They somehow know the max amount of bits needed 
@@ -93,7 +93,7 @@ async fn can_eval_circuit_over_socket() {
     garbler_peer.setup_circuit_context(garbler_input, cb.clone(), required_bits).await;
     evaluator_peer.setup_circuit_context(evaluator_input, cb, required_bits).await; 
 
-    let response = garbler_peer.execute_protocol(evaluator_peer.get_peer_id()).await.expect("send_message failed");
+    let response = garbler_peer.execute_protocol(evaluator_peer.get_peer_id()).await.expect("Execute protocol failed");
     if let Response::GCResult(result) = response {
         assert_eq!(result, 1);
     }
@@ -175,7 +175,7 @@ fn can_evaulate_if_circuit() {
     let circuit = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
 
     // Checks the return of the if statement
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, evaluator_decrypt_values, circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
     assert_eq!(result, 1)
 }
 
@@ -195,7 +195,7 @@ fn evaluate_is_equal<G, W, E>(a : BigUint, b : BigUint, expected_result : bool, 
 
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, evaluator_decrypt_values, circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
     // Testing a=a
 
     assert_eq!(result, expected_result as u32);
@@ -230,16 +230,20 @@ fn evaluate_adder() {
     let circuit = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
 
     // Evaluate circuit
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, evaluator_decrypt_values, circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
 
     println!("Result: {:#?}", result);
     //println!("Output wires: {:#?}", circuit_build.output_wires);
 }
 
-async fn get_peer<G, W, E>(gate_gen : G, wire_gen : W, evaluator : E) -> Arc<Peer<G, W, E>> where 
+async fn get_peer<G, W, E>(gate_gen : G, wire_gen : W, evaluator : E, with_logging : bool) -> Arc<Peer<G, W, E>> where 
     G: GateGen<W> + Send + Sync + 'static,
     W: WireGen + Send + Sync + 'static,
     E: Evaluator + Send + Sync + 'static, {
     let garbler = Garbler::new(gate_gen, wire_gen);
-    Peer::new(garbler, evaluator).await
+    let peer = Peer::new(garbler, evaluator).await;
+    if with_logging {
+        let _ = peer.start_logging().await;
+    }
+    peer
 }

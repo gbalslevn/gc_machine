@@ -45,11 +45,15 @@ pub trait Evaluator {
         constant_wires: &Vec<BigUint>,
         garbler_input: &HashMap<BigUint, BigUint>,
         evaluator_input: &HashMap<BigUint, (CipherText, CipherText)>,
-        secret_keys: Vec<(SecretKey, u8)>,
-        new_conversion_table: Vec<[(BigUint, u8); 2]>
+        secret_keys: &Vec<(SecretKey, u8)>,
+        new_conversion_table: &Vec<[(BigUint, u8); 2]>
     ) -> u32 {
         let mut known_wires: HashMap<BigUint, BigUint> = HashMap::new(); // id, wire
         let mut result_wires: Vec<BigUint> = Vec::new();
+
+        if secret_keys.len() != evaluator_input.len() {
+            panic!("Evaluator input length and its secret keys length must be equal")
+        }
 
         // Insert constant values
         known_wires.insert(0.to_biguint().unwrap(), constant_wires[0].to_biguint().unwrap());
