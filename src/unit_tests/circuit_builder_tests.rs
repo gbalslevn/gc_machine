@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
-use num_bigint::{BigUint};
+use std::{cmp::max, collections::{HashMap, HashSet}};
+use num_bigint::{BigUint, ToBigUint};
 use crate::circuit_builder::{CircuitBuild, CircuitBuilder, GateBuild};
 
 #[test]
@@ -44,6 +44,11 @@ fn branches_assigned_correctly_for_two_ifs() {
     }
 }
 
+#[test]
+fn branches_assigned_correctly_for_two_ifs_with_adders() {
+
+}
+
 fn get_nested_if_build() -> (CircuitBuild, Vec<GateBuild>) {
     let mut builder = CircuitBuilder::new();
     
@@ -54,21 +59,55 @@ fn get_nested_if_build() -> (CircuitBuild, Vec<GateBuild>) {
     let wz = &inputs[3];
 
     // First if: 
-    let and_0 = builder.build_and_output(wi, wi);
-    let and_1 = builder.build_and_output(wj, wj);
+    let and_0 = builder.build_and(wi, wi);
+    let and_1 = builder.build_and(wj, wj);
     let if_out = builder.build_if(cond, &and_0, &and_1);
 
     // Second if, nested
-    let and_2 = builder.build_and_output(&wz, &wz);
+    let and_2 = builder.build_and(&wz, &wz);
     builder.build_if(cond, &if_out, &and_2);
 
     let cb = builder.get_circuit_build();
     let gates = cb.get_gates();
 
     let id_to_gate_index: HashMap<BigUint, usize> = gates.iter().enumerate().map(|(idx, gate)| (gate.wo().wire_id().clone(), idx)).collect();
-    let and_0_build = &gates[id_to_gate_index.get(and_0.wire_id()).unwrap().clone()];
-    let and_1_build = &gates[id_to_gate_index.get(and_1.wire_id()).unwrap().clone()];
-    let and_2_build = &gates[id_to_gate_index.get(and_2.wire_id()).unwrap().clone()];
+    let and_0_build = &gates[id_to_gate_index.get(and_0[0].wire_id()).unwrap().clone()];
+    let and_1_build = &gates[id_to_gate_index.get(and_1[0].wire_id()).unwrap().clone()];
+    let and_2_build = &gates[id_to_gate_index.get(and_2[0].wire_id()).unwrap().clone()];
 
     (cb.clone(), vec![and_0_build.clone(), and_1_build.clone(), and_2_build.clone()])
 }
+
+// fn get_nested_if_build_with_adder() -> (CircuitBuild, Vec<GateBuild>) {
+//     let mut builder = CircuitBuilder::new();
+
+//     let garbler_input = 7.to_biguint().unwrap();
+//     let evaluator_input = 23.to_biguint().unwrap();
+    
+//     let inputs = builder.build_input_wires(1); 
+//     let cond = &inputs[0];
+//     let required_bits = max(garbler_input.bits(), evaluator_input.bits());
+
+//     let mut circuit_builder = CircuitBuilder::new();
+//     let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
+//     let input_wires_evaluator = circuit_builder.build_input_wires(required_bits as u32);
+
+//     // First if: 
+//     let adder_0 = builder.build_adder(input_wires_garbler, input_wires_garbler); // garbler_number + garbler_number
+//     let adder_1 = builder.build_adder(input_wires_garbler, input_wires_evaluator); // garbler_number + evaluator_number
+//     let if_out = builder.build_if(cond, &adder_0, &adder_1);
+
+//     // Second if, nested
+//     let and_2 = builder.build_and(&wz, &wz);
+//     builder.build_if(cond, &if_out, &and_2);
+
+//     let cb = builder.get_circuit_build();
+//     let gates = cb.get_gates();
+
+//     let id_to_gate_index: HashMap<BigUint, usize> = gates.iter().enumerate().map(|(idx, gate)| (gate.wo().wire_id().clone(), idx)).collect();
+//     let and_0_build = &gates[id_to_gate_index.get(and_0.wire_id()).unwrap().clone()];
+//     let and_1_build = &gates[id_to_gate_index.get(and_1.wire_id()).unwrap().clone()];
+//     let and_2_build = &gates[id_to_gate_index.get(and_2.wire_id()).unwrap().clone()];
+
+//     (cb.clone(), vec![and_0_build.clone(), and_1_build.clone(), and_2_build.clone()])
+// }

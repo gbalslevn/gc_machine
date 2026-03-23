@@ -166,8 +166,8 @@ fn can_evaulate_if_circuit() {
 
     // Create circuit build
     let is_equal = circuit_builder.build_is_equal(input_wires);
-    let true_case = circuit_builder.build_and_output(&is_equal, &is_equal); // 1 AND 1 = 1
-    let false_case = circuit_builder.build_and_output(&is_equal, &is_equal); // 0 AND 0 = 0
+    let true_case = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1
+    let false_case = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
     circuit_builder.build_if(&is_equal, &true_case, &false_case);
     let circuit_build = circuit_builder.get_circuit_build();
     
