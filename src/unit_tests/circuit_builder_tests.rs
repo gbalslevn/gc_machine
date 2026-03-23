@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::{BigUint};
 use crate::circuit_builder::{CircuitBuild, CircuitBuilder, GateBuild};
 
 #[test]

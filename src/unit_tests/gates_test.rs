@@ -1,7 +1,7 @@
 use crate::crypto_utils;
 use crate::crypto_utils::gc_kdf_128;
 use crate::gates::free_xor_gate_gen::FreeXORGateGen;
-use crate::gates::gate_gen::{GateType, GateGen, Gate};
+use crate::gates::gate_gen::{GateType, GateGen};
 use crate::gates::grr3_gate_gen::GRR3GateGen;
 use crate::gates::original_gate_gen::OriginalGateGen;
 use crate::gates::point_and_permute_gate_gen::{PointAndPermuteGateGen, get_position};

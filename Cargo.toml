@@ -6,18 +6,22 @@ edition = "2024"
 [dependencies]
 futures-channel = "0.3.32"
 futures-util = "0.3.32"
-num-bigint = "0.4"
+futures = "0.3.30"
+num-bigint = {version = "0.4", features = ["serde"]}
 sha2 = "0.10.9"
 tokio = { version = "1.49.0", features = ["full"] }
-tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
 criterion = "0.3"
 stats_alloc = "0.1.10"
 glass_pumpkin = "1.10.0"
-uuid = {version = "1.21.0", features= ["v4"]}
-rustls = "0.23.37"
-k256 = "0.13.4"
+k256 = {version = "0.13.4", features = ["serde"] }
 getrandom = "0.4.2"
 rand_chacha = "0.3.1"
+libp2p = { version = "0.56.0", features = ["noise", "ping", "tcp", "tokio", "yamux", "tls", "quic", "macros"] }
+libp2p-stream = "0.4.0-alpha"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = "0.1.44"
+serde = { version = "1.0", features = ["derive"] }
+postcard = { version = "1.0", features = ["alloc"] }
 strum_macros = "0.28.0"
 strum = "0.28.0"
 

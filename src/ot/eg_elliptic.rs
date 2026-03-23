@@ -1,10 +1,11 @@
 use k256::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
-use k256::{EncodedPoint, ProjectivePoint, PublicKey, Scalar, SecretKey};
+use k256::{AffinePoint, EncodedPoint, ProjectivePoint, PublicKey, Scalar, SecretKey};
 use k256::elliptic_curve::{Field};
 use num_bigint::BigUint;
 use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::RngCore;
 use crate::crypto_utils;
+use serde::{Serialize, Deserialize};
 
 pub struct RealKeyPair {
     public_key : PublicKey,
@@ -40,10 +41,10 @@ impl ObliviousKeyPair {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct CipherText {
     pub payload : BigUint,
-    pub ephemeral_key : ProjectivePoint
+    pub ephemeral_key : AffinePoint
 }
 
 pub fn gen_keypair(rng : &mut ChaCha20Rng) -> RealKeyPair {
@@ -77,16 +78,17 @@ pub fn gen_obl_keypair(rng : &mut ChaCha20Rng) -> ObliviousKeyPair {
 pub fn encrypt(rng : &mut ChaCha20Rng, pk : &PublicKey, msg : &BigUint) -> CipherText {
     let k = Scalar::random(rng);
     let ephemeral_key = ProjectivePoint::GENERATOR * k;
-    let shared_point = pk.to_projective() * &k;
+    let shared_point: ProjectivePoint = pk.to_projective() * &k;
     let shared_point_as_affine = shared_point.to_affine().to_encoded_point(false);
     let sym_key = crypto_utils::sha256(shared_point_as_affine.as_bytes());
     let payload = msg ^ sym_key; // could also do AES_GCM if we want authenticated encryption, but we are creating a passive secure system, so does not matter
-    CipherText { payload, ephemeral_key }
+    CipherText { payload: payload, ephemeral_key : ephemeral_key.to_affine() }
 }
 
 pub fn decrypt(sk : &SecretKey, ct : &CipherText) -> BigUint {
     let secret_scalar = sk.to_nonzero_scalar();
-    let shared_point = ct.ephemeral_key * secret_scalar.as_ref();
+    let ephemeral_key : ProjectivePoint = ct.ephemeral_key.into();
+    let shared_point = ephemeral_key * secret_scalar.as_ref();
     let shared_point_as_bytes = shared_point.to_affine().to_encoded_point(false).to_bytes();
     let sym_key = crypto_utils::sha256(&shared_point_as_bytes);
 

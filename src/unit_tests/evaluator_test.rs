@@ -1,3 +1,8 @@
+use std::collections::HashMap;
+
+use crate::circuit_builder::CircuitBuilder;
+use crate::ot::eg_elliptic::{self};
+use crate::{crypto_utils};
 use crate::evaluator::evaluator::Evaluator;
 use crate::evaluator::grr3_evaluator::GRR3Evaluator;
 use crate::evaluator::original_evaluator::OriginalEvaluator;
@@ -204,4 +209,18 @@ fn cannot_decrypt_multiple_gates_with_wrong_order() {
     // Evaluator has output wires 0 and 1 and will get 0 as the result.
     let dec3 = evaluator.evaluate_gate(&dec1, &dec2, &gt3.gate_type, &gt3.table);
     assert_ne!(&dec3, gt3.wo.w0());
+}
+
+#[should_panic(expected = "Evaluator input length and its secret keys length must be equal")]
+#[test]
+fn evaluation_panics_if_unequal_input_length() {
+    let mut evaluator = OriginalEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+    let cb = circuit_builder.get_circuit_build();
+
+    let mut rng = crypto_utils::gen_rng();
+    let secret_key = eg_elliptic::gen_keypair(&mut rng).get_sk().clone();
+    let secret_keys = vec![(secret_key, 0 as u8)];
+
+    evaluator.evaluate_circuit(&cb, &vec![], &vec![], &HashMap::new(), &HashMap::new(), &secret_keys, &vec![]);
 }
