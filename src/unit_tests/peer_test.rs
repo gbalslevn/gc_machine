@@ -6,8 +6,8 @@ use crate::{circuit_builder::CircuitBuilder, evaluator::original_evaluator::Orig
 
 #[tokio::test]
 #[should_panic]
-// After a protocol has been executed the circuit context should be empty
-async fn error_if_context_not_setup() {
+// Before each protocol execution the context of the execution should be set, else it panics
+async fn panics_if_context_not_setup() {
     // Create two peers which connects to each other
     let wire_gen = OriginalWireGen::new();
     let gate_gen = OriginalGateGen::new(wire_gen.clone());

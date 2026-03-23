@@ -51,7 +51,6 @@ pub fn gen_keypair(rng : &mut ChaCha20Rng) -> RealKeyPair {
     let sk = SecretKey::random(rng); 
     let sk_as_scalar = sk.to_nonzero_scalar();
     let g = ProjectivePoint::GENERATOR; // Publicly known generator
-    // let g_as_affine = g.to_affine();
     let public_point = g * sk_as_scalar.as_ref(); 
     let public_point_as_key = PublicKey::from_affine(public_point.to_affine()).ok().unwrap();
     RealKeyPair { public_key : public_point_as_key, secret_key : sk}

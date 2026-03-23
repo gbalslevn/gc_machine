@@ -174,7 +174,7 @@ fn can_evaulate_if_circuit() {
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
 
-    // Checks the return of the if statement
+    // Evaluator evaluates circuit. We expect true to return as a = b
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
     assert_eq!(result, 1)
 }
