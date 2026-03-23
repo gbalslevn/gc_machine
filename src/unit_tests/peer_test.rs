@@ -29,8 +29,8 @@ async fn panics_if_context_not_setup() {
     let evaluator_input = 12.to_biguint().unwrap();
     let required_bits = max(&garbler_input, &evaluator_input).bits(); // They somehow know the max amount of bits needed 
     let mut builder = CircuitBuilder::new();
-    let input_wires = builder.build_input_wires((required_bits * 2) as u32);
-    builder.build_is_equal(input_wires);
+    let (input_a, input_b) = builder.set_input_wires(required_bits as u32);
+    builder.build_is_equal(&input_a, &input_b);
     let cb = builder.get_circuit_build();
 
     // Before execution, circuit context should be empty

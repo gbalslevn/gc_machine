@@ -216,6 +216,7 @@ fn cannot_decrypt_multiple_gates_with_wrong_order() {
 fn evaluation_panics_if_unequal_input_length() {
     let mut evaluator = OriginalEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
+    circuit_builder.set_input_wires(1);
     let cb = circuit_builder.get_circuit_build();
 
     let mut rng = crypto_utils::gen_rng();

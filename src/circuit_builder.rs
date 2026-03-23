@@ -13,6 +13,8 @@ pub struct CircuitBuilder {
     outputs_created: BigUint,
     false_constant: WireBuild,
     true_constant: WireBuild,
+    garbler_wires : Vec<WireBuild>,
+    evaluator_wires : Vec<WireBuild>,
     branches: HashMap<BigUint, BranchEntry>, // Markers for a branch with the mux output gate as key
     branch_counter: usize,
     output_wires: Vec<WireBuild>,
@@ -29,6 +31,8 @@ pub struct BranchEntry {
 pub struct CircuitBuild {
     pub gates: Vec<GateBuild>,
     pub output_wires: Vec<WireBuild>,
+    pub garbler_wires : Vec<WireBuild>,
+    pub evaluator_wires : Vec<WireBuild>
 }
 
 impl CircuitBuild {
@@ -43,6 +47,9 @@ impl CircuitBuilder {
         let branches = HashMap::new();
         let false_constant = WireBuild::new(0, 0.to_biguint().unwrap());
         let true_constant = WireBuild::new(0, 1.to_biguint().unwrap());
+        let garbler_wires = Vec::new();
+        let evaluator_wires = Vec::new();
+        
         let branch_counter = 0;
         let output_wires = Vec::new();
 
@@ -51,13 +58,28 @@ impl CircuitBuilder {
             outputs_created: 2.to_biguint().unwrap(),
             false_constant,
             true_constant,
+            garbler_wires,
+            evaluator_wires,
             branches,
             branch_counter,
             output_wires
         }
     }
 
+    // Should perhaps make a method which creates and new build with a certain input
+    // For now you just need to call set input wires
+    pub fn set_input_wires(&mut self, input_length : u32) -> (Vec<WireBuild>, Vec<WireBuild>) {
+        let garbler_wires = self.build_input_wires(input_length);
+        self.garbler_wires = garbler_wires.clone();
+        let evaluator_wires = self.build_input_wires(input_length);
+        self.evaluator_wires = evaluator_wires.clone();
+        (garbler_wires, evaluator_wires)
+    }
+
     pub fn get_circuit_build(&mut self) -> CircuitBuild {
+        if self.garbler_wires.len() == 0 || self.evaluator_wires.len() == 0 {
+            panic!("Input wires not set")
+        }
         if self.gates.len() > 0 {
             self.numerate_gate_branches();
             self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
@@ -65,6 +87,8 @@ impl CircuitBuilder {
         CircuitBuild {
             gates: self.gates.clone(),
             output_wires: self.output_wires.clone(),
+            garbler_wires : self.garbler_wires.clone(),
+            evaluator_wires : self.evaluator_wires.clone(),
         }
     }
 
@@ -86,12 +110,11 @@ impl CircuitBuilder {
         false_output: &Vec<WireBuild>
     ) -> Vec<WireBuild> {
         let true_constant = &self.true_constant.clone();
-        let false_constant = &self.false_constant.clone();
         let mut output = vec![];
-        let required_multiplexers = max(true_output.len(), false_output.len()); 
-        for i in 0..required_multiplexers {
-            let true_bit = true_output.get(i).unwrap_or(false_constant); // unwrap or set to 0 if the output needs padding, is this stupid?
-            let false_bit = false_output.get(i).unwrap_or(false_constant);
+        let (padded_true, padded_false) = self.pad_input(true_output, false_output);
+        for i in 0..padded_false.len() {
+            let true_bit = &padded_true[i];
+            let false_bit = &padded_false[i];
             let neg_boolean = self.build_gate(&boolean, &true_constant, GateType::XOR);
             let and_0 = self.build_gate(true_bit, &neg_boolean, GateType::AND);
             let and_1 = self.build_gate(false_bit, boolean, GateType::AND);
@@ -113,21 +136,18 @@ impl CircuitBuilder {
         output
     }
 
-    pub fn build_adder(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+    pub fn build_adder(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> Vec<WireBuild> {
         let result_wires = self.adder(input_wires_a, input_wires_b);
         self.set_output_wires(result_wires.clone());
         result_wires
     }
 
-
-    pub fn build_is_equal(&mut self, input_wires: Vec<WireBuild>) -> WireBuild {
+    pub fn build_is_equal(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> WireBuild {
         // Compares each bit in a tree like structure
-        if input_wires.len() % 2 == 1 {
-            panic!("Checking for equality requires even number of bits between comparators");
-        }
+        let (padded_a, padded_b) = self.pad_input(input_wires_a, input_wires_b);
         let mut deque: VecDeque<WireBuild> = VecDeque::new();
-        for wires in input_wires.chunks(2) {
-            deque.push_back(self.build_gate(&wires[0], &wires[1], GateType::XNOR));
+        for i in 0..padded_a.len() {
+            deque.push_back(self.build_gate(&padded_a[i], &padded_b[i], GateType::XNOR));
         }
         while deque.len() > 1 {
             let first = deque.pop_front().unwrap();
@@ -143,25 +163,40 @@ impl CircuitBuilder {
         vec![self.build_gate(wi, wj, GateType::AND)]
     }
 
-    fn adder(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+    pub fn build_input_wires(&mut self, amount: u32) -> Vec<WireBuild> {
+        let mut input_wires = vec![];
+        for _i in 0..amount {
+            let input_wire = WireBuild::new(0, self.outputs_created.clone());
+            input_wires.push(input_wire);
+            self.outputs_created += 1.to_biguint().unwrap();
+        }
+        input_wires
+    }
+
+    fn adder(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> Vec<WireBuild> {
         let mut result_wires: Vec<WireBuild> = Vec::new();
+        let (padded_a, padded_b) = self.pad_input(input_wires_a, input_wires_b);
+
         // Build 1 HALF ADDER for first bits of each input
-        let mut sum = self.build_gate(&input_wires_a[0], &input_wires_b[0], GateType::XOR);
+        let mut sum = self.build_gate(&padded_a[0], &padded_b[0], GateType::XOR);
         result_wires.push(sum.clone());
-        let mut carry = self.build_gate(&input_wires_a[0], &input_wires_b[0], GateType::AND);
+        let mut carry = self.build_gate(&padded_a[0], &padded_b[0], GateType::AND);
         if input_wires_a.len() == 1 {
             result_wires.push(carry.clone());
         }
 
+
         // Build FULL ADDERS for all bits but the first
-        for index in 1..input_wires_a.len() {
+        for i in 1..padded_a.len() {
+            let a_wire = &padded_a[i];
+            let b_wire = &padded_b[i];
             // SUM - is added to the result wire
-            let a_xor_b = self.build_gate(&input_wires_a[index], &input_wires_b[index], GateType::XOR);
+            let a_xor_b = self.build_gate(a_wire, b_wire, GateType::XOR);
             sum = self.build_gate(&a_xor_b, &carry.clone(), GateType::XOR);
             result_wires.push(sum);
             // CARRY - is not added to the result wire
             let first_and = self.build_gate(&a_xor_b, &carry, GateType::AND);
-            let second_and = self.build_gate(&input_wires_a[index], &input_wires_b[index], GateType::AND);
+            let second_and = self.build_gate(a_wire, b_wire, GateType::AND);
             carry = self.build_gate(&first_and, &second_and, GateType::OR); 
         }
         // The last carry bit needs to be appended to the result (though not in the case where we add 1-bit numbers)
@@ -171,14 +206,20 @@ impl CircuitBuilder {
         result_wires
     }
 
-    pub fn build_input_wires(&mut self, amount: u32) -> Vec<WireBuild> {
-        let mut input_wires = vec![];
-        for _i in 0..amount {
-            let input_wire = WireBuild::new(0, self.outputs_created.clone());
-            input_wires.push(input_wire);
-            self.outputs_created += 1.to_biguint().unwrap();
+    // Ensures length of input_a and input_b is equal by adding padding
+    fn pad_input(&self, input_a : &Vec<WireBuild>, input_b : &Vec<WireBuild>) -> (Vec<WireBuild>, Vec<WireBuild>) {
+        let required_bits = max(input_a.len(), input_b.len());
+        let false_constant = &self.false_constant.clone();
+        let mut padded_input_a = vec![];
+        let mut padded_input_b = vec![];
+        for i in 0..required_bits {
+            let a_bit = input_a.get(i).unwrap_or(false_constant); // unwrap or set to 0 if the input needs padding, is this stupid?
+            padded_input_a.push(a_bit.clone());
+            let b_bit = input_b.get(i).unwrap_or(false_constant);
+            padded_input_b.push(b_bit.clone());
+
         }
-        input_wires
+        (padded_input_a, padded_input_b)
     }
 
     fn set_output_wires(&mut self, output_wires: Vec<WireBuild>) {

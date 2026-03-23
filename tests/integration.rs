@@ -1,5 +1,5 @@
 use std::cmp::max;
-use std::ops::Shr;
+use std::ops::{Add, Shr};
 use std::sync::Arc;
 use std::time::Duration;
 use gc_machine::circuit_builder::{CircuitBuilder};
@@ -24,7 +24,7 @@ use gc_machine::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
 use gc_machine::gates::gate_gen::{GateType, GateGen};
 use gc_machine::gates::original_gate_gen::OriginalGateGen;
 use gc_machine::wires::original_wire_gen::OriginalWireGen;
-use gc_machine::crypto_utils;
+use gc_machine::{crypto_utils};
 use num_bigint::{BigUint, ToBigUint};
 use gc_machine::wires::wire_gen::WireGen;
 
@@ -85,8 +85,8 @@ async fn can_eval_circuit_over_socket() {
     let evaluator_input = 12.to_biguint().unwrap();
     let required_bits = max(&garbler_input, &evaluator_input).bits(); // They somehow know the max amount of bits needed 
     let mut builder = CircuitBuilder::new();
-    let input_wires = builder.build_input_wires((required_bits * 2) as u32);
-    builder.build_is_equal(input_wires);
+    let (garbler_wires, evaluator_wires) = builder.set_input_wires(required_bits as u32);
+    builder.build_is_equal(&garbler_wires, &evaluator_wires);
     let cb = builder.get_circuit_build();
     
     // They both prepare to start the protocol
@@ -159,20 +159,20 @@ fn can_evaulate_if_circuit() {
     let a = 32.to_biguint().unwrap();
     let b = 32.to_biguint().unwrap();
     let required_bits = max(a.bits(), b.bits());
-    let input_wires = circuit_builder.build_input_wires((required_bits * 2) as u32);
+    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits as u32);
 
-    let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
 
     // Create circuit build
-    let is_equal = circuit_builder.build_is_equal(input_wires);
+    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
     let true_case = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1
     let false_case = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
     circuit_builder.build_if(&is_equal, &true_case, &false_case);
     let circuit_build = circuit_builder.get_circuit_build();
     
     // Garbler create circuit
-    let circuit = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
+    let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
 
     // Evaluator evaluates circuit. We expect true to return as a = b
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
@@ -184,17 +184,17 @@ fn evaluate_is_equal<G, W, E>(a : BigUint, b : BigUint, expected_result : bool, 
     // Garbler's and Evaluator's input
     let required_bits = max(a.bits(), b.bits());
     let mut circuit_builder = CircuitBuilder::new();
-    let input_wires = circuit_builder.build_input_wires((required_bits * 2) as u32);
+    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits as u32);
 
-    let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
 
     // Create circuit build
-    circuit_builder.build_is_equal(input_wires);
+    circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // Garbler create circuit
-    let circuit = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
+    let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
     // Testing a=a
 
@@ -213,27 +213,59 @@ fn evaluate_adder() {
     let b = 1876876323.to_biguint().unwrap();
     let required_bits = max(a.bits(), b.bits());
 
-    let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
-    let input_wires_evaluator = circuit_builder.build_input_wires(required_bits as u32);
+    let (input_wires_garbler, input_wires_evaluator) = circuit_builder.set_input_wires(required_bits as u32);
 
-    circuit_builder.build_adder(input_wires_garbler, input_wires_evaluator);
+    circuit_builder.build_adder(&input_wires_garbler, &input_wires_evaluator);
     let circuit_build = circuit_builder.get_circuit_build();
-    println!("Circuit build: {:#?}", circuit_build);
 
     // Garbler input
-    let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
 
     // Evaluator input
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
 
     // Garble circuit
-    let circuit = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
+    let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
 
     // Evaluate circuit
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
 
-    println!("Result: {:#?}", result);
-    //println!("Output wires: {:#?}", circuit_build.output_wires);
+    assert_eq!(result.to_biguint().unwrap(), a.add(b))
+}
+
+
+// Maybe this test shows we do not need to provide equal amount of bits as input. If we do not then this test can be simplified. Should we use a constant wire for padding? Or another solution. 
+#[test]
+fn can_add_numbers_of_unequal_bitlength() {
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = OriginalEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+
+    let one_bit_number = 0.to_biguint().unwrap(); 
+    let two_bit_number = 2.to_biguint().unwrap(); 
+    let required_bits = max(one_bit_number.bits(), two_bit_number.bits());
+
+    let (input_wires_garbler, input_wires_evaluator) = circuit_builder.set_input_wires(required_bits as u32);
+
+    // Garbler input, holds the one bit number
+    let garbler_input_choices = garbler.create_circuit_input(&one_bit_number, required_bits);
+
+    // Evaluator input, holds the two bit number
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&two_bit_number, required_bits);
+
+    let one_bit_result = circuit_builder.build_adder(&input_wires_garbler, &input_wires_garbler); // garbler holds 0, 0+0 = 0, 1 bit required
+    circuit_builder.build_adder(&one_bit_result, &input_wires_evaluator); // 0+2 = 2, 2 bits required
+    let circuit_build = circuit_builder.get_circuit_build();
+
+    // Garble circuit
+    let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
+
+    // Evaluate circuit
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+
+    assert_eq!(result.to_biguint().unwrap(), two_bit_number)
 }
 
 async fn get_peer<G, W, E>(gate_gen : G, wire_gen : W, evaluator : E, with_logging : bool) -> Arc<Peer<G, W, E>> where 

@@ -59,8 +59,8 @@ impl <G : GateGen<W>, W : WireGen, E : Evaluator> Peer<G, W, E> where
         if let Response::EvalInput(eval_input) = response {
             let circuit_preperation = self.get_circuit_context().await;
             let mut garbler = self.garbler.lock().await;
-            let mut garbler_input =  garbler.create_circuit_input(&circuit_preperation.input, circuit_preperation.required_bits);
-            let circuit = garbler.create_circuit(&circuit_preperation.build, &mut garbler_input, eval_input);
+            let garbler_input =  garbler.create_circuit_input(&circuit_preperation.input, circuit_preperation.required_bits);
+            let circuit = garbler.create_circuit(&circuit_preperation.build, &garbler_input, &eval_input);
 
             // Get evaluator to evaluate circuit 
             let response = self.socket.send_query(peer, websocket::Query::EvaluateGC(circuit)).await;
