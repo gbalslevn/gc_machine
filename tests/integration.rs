@@ -203,8 +203,8 @@ fn evaluate_adder() {
     let mut evaluator = OriginalEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
 
-    let a = 1.to_biguint().unwrap();
-    let b = 1876876323.to_biguint().unwrap();
+    let a = 123.to_biguint().unwrap();
+    let b = 45678.to_biguint().unwrap();
     let required_bits = max(a.bits(), b.bits());
 
     let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
@@ -212,7 +212,6 @@ fn evaluate_adder() {
 
     circuit_builder.build_adder(input_wires_garbler, input_wires_evaluator);
     let circuit_build = circuit_builder.get_circuit_build();
-    println!("Circuit build: {:#?}", circuit_build);
 
     // Garbler input
     let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
@@ -226,6 +225,38 @@ fn evaluate_adder() {
     // Evaluate circuit
     let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_values, conversion_table);
 
-    println!("Result: {:#?}", result);
-    //println!("Output wires: {:#?}", circuit_build.output_wires);
+    assert_eq!(result, 45801);
+}
+
+#[test]
+fn evaluate_multiplier() {
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = OriginalEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+
+    let a = 1234.to_biguint().unwrap();
+    let b = 1234.to_biguint().unwrap();
+    let required_bits = max(a.bits(), b.bits());
+
+    let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
+    let input_wires_evaluator = circuit_builder.build_input_wires(required_bits as u32);
+
+    circuit_builder.build_multiplier(input_wires_garbler, input_wires_evaluator);
+    let circuit_build = circuit_builder.get_circuit_build();
+
+    // Garbler input
+    let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+
+    // Evaluator input
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
+
+    // Garble circuit
+    let (garbled_gates, constant_wires, garbler_input, evaluator_input, conversion_table) = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
+
+    // Evaluate circuit
+    let result = evaluator.evaluate_circuit(&circuit_build, &garbled_gates, &constant_wires, &garbler_input, &evaluator_input, evaluator_decrypt_values, conversion_table);
+
+    assert_eq!(result, 1522756);
 }

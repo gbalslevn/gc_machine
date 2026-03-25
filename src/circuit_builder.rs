@@ -12,6 +12,7 @@ use crate::wires::wire_gen::Wire;
 pub struct CircuitBuilder {
     gates: Vec<GateBuild>,
     outputs_created: BigUint,
+    false_constant: WireBuild,
     true_constant: WireBuild,
     branches: HashMap<BigUint, BranchEntry>, // Markers for a branch with the mux output gate as key
     branch_counter: usize,
@@ -41,6 +42,7 @@ impl CircuitBuilder {
     pub fn new() -> Self {
         let gates = Vec::new();
         let branches = HashMap::new();
+        let false_constant = WireBuild::new(0, 0.to_biguint().unwrap());
         let true_constant = WireBuild::new(0, 1.to_biguint().unwrap());
         let branch_counter = 0;
         let output_wires = Vec::new();
@@ -48,6 +50,7 @@ impl CircuitBuilder {
         CircuitBuilder {
             gates: gates,
             outputs_created: 2.to_biguint().unwrap(),
+            false_constant,
             true_constant,
             branches,
             branch_counter,
@@ -100,12 +103,80 @@ impl CircuitBuilder {
         output.wo
     }
 
+    pub fn build_multiplier(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+        // For every bit b in input_wires_b multiply b with all bits of input_wires_a. Start with the lsb of input_wires_a and for each bit, insert a 0-constant,
+        // starting with no 0-constant for the first bit of input_wires_a. for each bit b insert the result in a vector
+
+        // Create each partial sum represented as a Vec<WireBuild> and store them in a VecDeque<>
+        let mut partial_sums: VecDeque<Vec<WireBuild>> = VecDeque::new();
+        for (index_b, bit_b) in input_wires_b.iter().enumerate() {
+            let mut partial_sum: Vec<WireBuild> = Vec::new();
+            // insert 0-constants as lsb
+            for i in 0..index_b {
+                partial_sum.push(self.false_constant.clone());
+            }
+
+            for (index_a, bit_a) in input_wires_a.iter().enumerate() {
+                let and = self.build_and(bit_a, bit_b);
+                partial_sum.push(and);
+            }
+            // insert 0-constants as msb
+            for j in index_b..input_wires_b.len() {
+                partial_sum.push(self.false_constant.clone());
+            }
+            partial_sums.push_back(partial_sum);
+        }
+        while partial_sums.len() > 1 {
+            let partial_sum_a = partial_sums.pop_front().unwrap();
+            let partial_sum_b = partial_sums.pop_front().unwrap();
+            partial_sums.push_back(self.mult_subroutine(partial_sum_a, partial_sum_b));
+        }
+        let result: Vec<WireBuild> = partial_sums.pop_front().unwrap();
+        self.output_wires = result.clone();
+        result
+    }
+
+    /*
+    Subroutine implementing addition used by the multiplication functionality to add partial sums of the multiplication. It is identical to regular addition with the one caveat
+    that the addition will not produce a 1-carry bit. I.e. the output is representable by the same amount of bits as the two inputs.
+     */
+    fn mult_subroutine(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+        let mut result_wires: Vec<WireBuild> = Vec::new();
+        // Build 1 HALF ADDER for first bits of each input
+        let mut sum = self.build_xor(&input_wires_a[0], &input_wires_b[0]);
+        result_wires.push(sum.clone());
+        let mut carry = self.build_and(&input_wires_a[0], &input_wires_b[0]);
+        if input_wires_a.len() == 1 {
+            result_wires.push(carry.clone());
+        }
+
+        // Build FULL ADDERS for all bits but the first
+        for index in 1..input_wires_a.len() {
+            // SUM - is added to the result wire
+            let a_xor_b = self.build_xor(&input_wires_a[index], &input_wires_b[index]);
+            sum = self.build_xor(&a_xor_b, &carry.clone());
+            result_wires.push(sum.clone());
+            // CARRY - is not added to the result wire
+            let first_and = self.build_and(&a_xor_b, &carry);
+            let second_and = self.build_and(&input_wires_a[index], &input_wires_b[index]);
+            carry = self.build_or(&first_and, &second_and);
+        }
+        result_wires
+    }
+
+
+    /*
+    Routine implementing addition.
+     */
     pub fn build_adder(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
         let result_wires = self.adder_helper(input_wires_a, input_wires_b);
         self.set_output_wires(result_wires.clone());
         result_wires
     }
 
+    /*
+    Subroutine implementing addition.
+     */
     fn adder_helper(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
         let mut result_wires: Vec<WireBuild> = Vec::new();
         // Build 1 HALF ADDER for first bits of each input
@@ -127,7 +198,7 @@ impl CircuitBuilder {
             let second_and = self.build_and(&input_wires_a[index], &input_wires_b[index]);
             carry = self.build_or(&first_and, &second_and);
         }
-        // The last carry bit needs to be appended to the result (though not in the case where we add 1-bit numbers)
+        // The last carry bit needs to be appended to the result (though not in the case where we add 1-bit numbers - in that case the carry bit is handled by the half-adder)
         if input_wires_a.len() != 1 {
             result_wires.push(carry.clone());
         }

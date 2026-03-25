@@ -39,7 +39,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
         let mut wi;
         let mut wj;
-        let mut new_output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
+        let mut output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
         let gates = circuit_build.get_gates();
 
         // insert constants for true and false wire into known_wires, to enable eg. NOT gates
@@ -51,8 +51,8 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
                 // Generate wires if not already generated (copied wires are already generated)
                 let wi_id = gate.wi().wire_id().clone();
                 let wj_id = gate.wj().wire_id().clone();
-                let wi_is_new_wire = !garbler_inputs.contains_key(&wi_id);
-                let wj_is_new_wire = !evaluator_inputs.contains_key(&wj_id);
+                let wi_is_new_wire = !known_wires.contains_key(&wi_id);
+                let wj_is_new_wire = !known_wires.contains_key(&wj_id);
                 if wi_is_new_wire {
                     wi = self.wire_gen.generate_input_wire();
                     known_wires.insert(wi_id.clone(), wi.clone());
@@ -91,18 +91,18 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
             
             // Put all output wires in to the output_conversion table
             if circuit_build.output_wires.contains(gate.wo()) {
-                new_output_conversion.push([(new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)]);
+                output_conversion.push([(new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)]);
             }
 
             
             // Store the ciphertexts for the gate
             garbled_gates.push(table);
         }
-        (garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, new_output_conversion)
+        (garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, output_conversion)
     }
 
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {
-        let mut list = VecDeque::new();;
+        let mut list = VecDeque::new();
         for i in 0..required_bits {
             let bit = input.bit(i) as u8;
             if bit == 0 {
