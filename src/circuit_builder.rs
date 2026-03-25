@@ -212,7 +212,7 @@ impl CircuitBuilder {
             panic!("Checking for equality requires even number of bits between comparators");
         }
         let mut deque: VecDeque<WireBuild> = VecDeque::new();
-        for (index, wire) in input_wires_a.iter().enumerate() {
+        for index in 0..input_wires_a.len() {
             let garbler_input = input_wires_b[index].clone();
             let evaluator_input = input_wires_a[index].clone();
             deque.push_back(self.build_xnor(&garbler_input, &evaluator_input));
