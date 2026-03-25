@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::gates::gate_gen::GateType;
 use num_bigint::{BigUint, ToBigUint};
-use crate::wires::wire_gen::Wire;
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id.
@@ -59,8 +58,10 @@ impl CircuitBuilder {
     }
 
     pub fn get_circuit_build(&mut self) -> CircuitBuild {
-        self.numerate_gate_branches();
-        self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
+        if self.gates.len() > 0 {
+            self.numerate_gate_branches();
+            self.gates.sort_by_key(|gate| gate.wo().ready_at_layer.clone());
+        }
         CircuitBuild {
             gates: self.gates.clone(),
             output_wires: self.output_wires.clone(),

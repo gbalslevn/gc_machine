@@ -5,6 +5,7 @@ use crate::crypto_utils;
 use crate::wires::wire_gen::{Wire, WireGen};
 
 use crate::gates::gate_gen::{Gate, GateType, GateGen};
+#[derive(Clone)]
 pub struct OriginalGateGen<W: WireGen> {
     pub wire_gen: W,
     pub index: BigUint,
