@@ -7,3 +7,5 @@ mod evaluator_test;
 mod ot_test;
 mod circuit_builder_tests;
 mod websocket_test;
+mod peer_test;
+mod garbler_test;
