@@ -104,15 +104,14 @@ impl CircuitBuilder {
         output.wo
     }
 
+    /*
+    Routine implementing multiplication.
+     */
     pub fn build_multiplier(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
-        // For every bit b in input_wires_b multiply b with all bits of input_wires_a. Start with the lsb of input_wires_a and for each bit, insert a 0-constant,
-        // starting with no 0-constant for the first bit of input_wires_a. for each bit b insert the result in a vector
-
-        // Create each partial sum represented as a Vec<WireBuild> and store them in a VecDeque<>
         let mut partial_sums: VecDeque<Vec<WireBuild>> = VecDeque::new();
         for (index_b, bit_b) in input_wires_b.iter().enumerate() {
             let mut partial_sum: Vec<WireBuild> = Vec::new();
-            // insert 0-constants as lsb
+
             for _i in 0..index_b {
                 partial_sum.push(self.false_constant.clone());
             }
@@ -121,7 +120,7 @@ impl CircuitBuilder {
                 let and = self.build_and(bit_a, bit_b);
                 partial_sum.push(and);
             }
-            // insert 0-constants as msb
+
             for _j in index_b..input_wires_b.len() {
                 partial_sum.push(self.false_constant.clone());
             }
