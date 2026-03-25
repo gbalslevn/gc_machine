@@ -111,7 +111,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
             // Store the ciphertexts for the gate
             garbled_gates.push(table);
         }
-        Circuit::new(garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, output_conversion)
+        Circuit::new(garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, new_output_conversion)
     }
 
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {

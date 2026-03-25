@@ -228,7 +228,7 @@ fn evaluate_adder() {
     let circuit = garbler.create_circuit(&circuit_build, &mut garbler_input_choices, evaluator_input_choices);
 
     // Evaluate circuit
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, evaluator_decrypt_values, conversion_table);
 
     assert_eq!(result, 45801);
 }
