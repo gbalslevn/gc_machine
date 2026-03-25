@@ -47,12 +47,9 @@ impl WireGen for HalfGatesWireGen {
             GateType::NOR=>generate_nor_wires(self, &wi, &wj, gate_id),
         }
     }
-    fn get_rng(&self) -> &rand_chacha::ChaCha20Rng {
-        &self.rng
-    }
-    fn new_rng(&mut self) {
-        self.rng = crypto_utils::gen_rng();
-    }
+    fn get_rng(&self) -> &ChaCha20Rng { &self.rng }
+    fn new_rng(&mut self) { self.rng = crypto_utils::gen_rng(); }
+    fn set_rng(&mut self, seed: [u8; 32]) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
 }
 
 pub fn generate_and_wires(wire_gen: &mut HalfGatesWireGen, wi: &Wire, wj: &Wire, index: &BigUint) -> Wire {

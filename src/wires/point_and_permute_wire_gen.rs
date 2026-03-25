@@ -30,6 +30,7 @@ impl WireGen for PointAndPermuteWireGen {
     fn new_rng(&mut self) {
         self.rng = crypto_utils::gen_rng()
     }
+    fn set_rng(&mut self, seed: [u8; 32]) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
 }
 
 fn generate_wire(rng : &mut ChaCha20Rng) -> Wire {

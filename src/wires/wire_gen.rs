@@ -10,6 +10,7 @@ pub trait WireGen {
     fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, index: &BigUint) -> Wire;
     fn get_rng(&self) -> &ChaCha20Rng;
     fn new_rng(&mut self);
+    fn set_rng(&mut self, seed: [u8; 32]);
 }
 
 #[derive(Debug, Clone, PartialEq)]

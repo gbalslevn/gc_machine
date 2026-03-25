@@ -37,6 +37,7 @@ impl WireGen for GRR3WireGen {
     fn new_rng(&mut self) {
         self.rng = crypto_utils::gen_rng()
     }
+    fn set_rng(&mut self, seed: [u8; 32]) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
 }
 
 fn generate_and_wires(rng : &mut ChaCha20Rng, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
