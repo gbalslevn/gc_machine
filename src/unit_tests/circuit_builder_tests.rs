@@ -1,6 +1,6 @@
 use std::{cmp::max, collections::{HashMap, HashSet}};
 use num_bigint::{BigUint, ToBigUint};
-use crate::circuit_builder::{CircuitBuild, CircuitBuilder, GateBuild, WireBuild};
+use crate::circuit_builder::{CircuitBuild, CircuitBuilder, GateBuild};
 
 #[test]
 fn gates_are_sorted_by_increasing_output_layer() {
@@ -9,7 +9,6 @@ fn gates_are_sorted_by_increasing_output_layer() {
     circuit_builder.build_is_equal(&input_a, &input_b);
     circuit_builder.set_input_wires(1);
     let cb = circuit_builder.get_circuit_build();
-    circuit_builder.print_circuit();
     let gates = cb.get_gates();
     let mut current_output_layer = &1;
     
@@ -165,7 +164,6 @@ fn get_nested_if_build_with_adder() -> (CircuitBuild, Vec<GateBuild>, Vec<GateBu
 
     
     let cb = builder.get_circuit_build();
-    builder.print_circuit();
     let gates = cb.get_gates();
 
     let mut adder_0_gates = vec![];
