@@ -83,10 +83,11 @@ async fn can_eval_circuit_over_socket() {
     let garbler_input = 12.to_biguint().unwrap();
     let evaluator_input = 12.to_biguint().unwrap();
     let required_bits = max(&garbler_input, &evaluator_input).bits(); // They somehow know the max amount of bits needed
-    let mut builder = CircuitBuilder::new();
-    let input_wires = builder.build_input_wires((required_bits * 2) as u32);
-    builder.build_is_equal(input_wires);
-    let cb = builder.get_circuit_build();
+    let mut circuit_builder = CircuitBuilder::new();
+    let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
+    let input_wires_evaluator = circuit_builder.build_input_wires(required_bits as u32);
+    circuit_builder.build_is_equal(input_wires_garbler, input_wires_evaluator);
+    let cb = circuit_builder.get_circuit_build();
     
     // They both prepare to start the protocol
     garbler_peer.setup_circuit_context(garbler_input, cb.clone(), required_bits).await;
@@ -158,13 +159,14 @@ fn can_evaulate_if_circuit() {
     let a = 32.to_biguint().unwrap();
     let b = 32.to_biguint().unwrap();
     let required_bits = max(a.bits(), b.bits());
-    let input_wires = circuit_builder.build_input_wires((required_bits * 2) as u32);
+    let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
+    let input_wires_evaluator = circuit_builder.build_input_wires(required_bits as u32);
 
     let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
 
     // Create circuit build
-    let is_equal = circuit_builder.build_is_equal(input_wires);
+    let is_equal = circuit_builder.build_is_equal(input_wires_garbler, input_wires_evaluator);
     let true_case = circuit_builder.build_and_output(&is_equal, &is_equal); // 1 AND 1 = 1
     let false_case = circuit_builder.build_and_output(&is_equal, &is_equal); // 0 AND 0 = 0
     circuit_builder.build_if(&is_equal, &true_case, &false_case);
@@ -183,13 +185,15 @@ fn evaluate_is_equal<G, W, E>(a : BigUint, b : BigUint, expected_result : bool, 
     // Garbler's and Evaluator's input
     let required_bits = max(a.bits(), b.bits());
     let mut circuit_builder = CircuitBuilder::new();
-    let input_wires = circuit_builder.build_input_wires((required_bits * 2) as u32);
+    
+    let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
+    let input_wires_evaluator = circuit_builder.build_input_wires(required_bits as u32);
 
     let mut garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
 
     // Create circuit build
-    circuit_builder.build_is_equal(input_wires);
+    circuit_builder.build_is_equal(input_wires_garbler, input_wires_evaluator);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // Garbler create circuit

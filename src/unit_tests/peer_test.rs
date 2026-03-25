@@ -28,10 +28,11 @@ async fn panics_if_context_not_setup() {
     let garbler_input = 12.to_biguint().unwrap();
     let evaluator_input = 12.to_biguint().unwrap();
     let required_bits = max(&garbler_input, &evaluator_input).bits(); // They somehow know the max amount of bits needed 
-    let mut builder = CircuitBuilder::new();
-    let input_wires = builder.build_input_wires((required_bits * 2) as u32);
-    builder.build_is_equal(input_wires);
-    let cb = builder.get_circuit_build();
+    let mut circuit_builder = CircuitBuilder::new();
+    let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
+    let input_wires_evaluator = circuit_builder.build_input_wires(required_bits as u32);
+    circuit_builder.build_is_equal(input_wires_garbler, input_wires_evaluator);
+    let cb = circuit_builder.get_circuit_build();
 
     // Before execution, circuit context should be empty
     let response = peer_a.execute_protocol(peer_b.get_peer_id()).await;

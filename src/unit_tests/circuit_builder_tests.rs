@@ -5,8 +5,9 @@ use crate::circuit_builder::{CircuitBuild, CircuitBuilder, GateBuild};
 #[test]
 fn gates_are_sorted_by_increasing_output_layer() {
     let mut circuit_builder = CircuitBuilder::new();
-    let input_wires = circuit_builder.build_input_wires(2);
-    circuit_builder.build_is_equal(input_wires);
+    let input_wires_garbler = circuit_builder.build_input_wires(1 as u32);
+    let input_wires_evaluator = circuit_builder.build_input_wires(1 as u32);
+    circuit_builder.build_is_equal(input_wires_garbler, input_wires_evaluator);
     let cb = circuit_builder.get_circuit_build();
     let gates = cb.get_gates();
     let mut current_output_layer = &1;
