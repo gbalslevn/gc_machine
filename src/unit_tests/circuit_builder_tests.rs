@@ -71,7 +71,7 @@ fn branches_assigned_correctly_for_two_ifs_with_adders() {
 
     // Adder 0 should have only branch 2
     for gate in adder_0_gates {
-        let branches : HashSet<usize> = vec![2].into_iter().collect();
+        let branches : HashSet<usize> = vec![0].into_iter().collect();
         assert_eq!(gate.branches(), &branches);
     }
     
@@ -82,12 +82,9 @@ fn branches_assigned_correctly_for_two_ifs_with_adders() {
     }
     
     // Adder 2 should have branch 1, 2
-    println!("******** ADDER 2 TEST ********");
     for gate in adder_2_gates {
-        let branches : HashSet<usize> = vec![1, 2].into_iter().collect();
-        println!("{}", gate);
-        // assert_eq!(gate.branches(), &branches);
-        println!("adder 2 gate test succed")
+        let branches : HashSet<usize> = vec![0, 1].into_iter().collect();
+        assert_eq!(gate.branches(), &branches);
     }
 }
 
@@ -164,7 +161,7 @@ fn get_nested_if_build_with_adder() -> (CircuitBuild, Vec<GateBuild>, Vec<GateBu
 
     // Second if, nested
     let adder_2 = builder.build_adder(&if_out, &input_wires_evaluator); // 2 * garbler_number + evaluator_number
-    // builder.build_if(&cond, &adder_2, &input_wires_evaluator); 
+    builder.build_if(&cond, &adder_2, &input_wires_evaluator); 
 
     
     let cb = builder.get_circuit_build();
