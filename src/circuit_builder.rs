@@ -113,16 +113,16 @@ impl CircuitBuilder {
         for (index_b, bit_b) in input_wires_b.iter().enumerate() {
             let mut partial_sum: Vec<WireBuild> = Vec::new();
             // insert 0-constants as lsb
-            for i in 0..index_b {
+            for _i in 0..index_b {
                 partial_sum.push(self.false_constant.clone());
             }
 
-            for (index_a, bit_a) in input_wires_a.iter().enumerate() {
+            for bit_a in &input_wires_a {
                 let and = self.build_and(bit_a, bit_b);
                 partial_sum.push(and);
             }
             // insert 0-constants as msb
-            for j in index_b..input_wires_b.len() {
+            for _j in index_b..input_wires_b.len() {
                 partial_sum.push(self.false_constant.clone());
             }
             partial_sums.push_back(partial_sum);
