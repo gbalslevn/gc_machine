@@ -151,7 +151,7 @@ fn get_nested_if_build_with_adder() -> (CircuitBuild, Vec<GateBuild>, Vec<GateBu
     let cond = builder.build_is_equal(&vec![cond_wire.clone()], &vec![cond_wire]);
     let required_bits = max(garbler_input.bits(), evaluator_input.bits());
 
-    let (input_wires_garbler, input_wires_evaluator) = builder.set_input_wires(required_bits as u32);
+    let (input_wires_garbler, input_wires_evaluator) = builder.set_input_wires(required_bits);
 
     // First if: 
     let adder_0 = builder.build_adder(&input_wires_garbler, &input_wires_garbler); // garbler_number + garbler_number

@@ -10,7 +10,7 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Circuit {
-    pub gates : Vec<Vec<BigUint>>, 
+    pub gates : Vec<Vec<BigUint>>,
     pub constant_wires : Vec<BigUint>,
     pub garbler_input : HashMap<BigUint, BigUint>,
     pub evaluator_input : HashMap<BigUint, (CipherText, CipherText)>,
@@ -48,7 +48,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
         let mut wi;
         let mut wj;
-        let mut conversion_table: Vec<[(BigUint, u8); 2]> = Vec::new();
+        let mut output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
         let gates = circuit_build.get_gates();
 
         // insert constants for true and false wire into known_wires, to enable eg. NOT gates
@@ -72,13 +72,13 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
             let table = new_gate.to_table();
             
             if circuit_build.output_wires.contains(gate.wo()) {
-                conversion_table.push([(new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)]);
+                output_conversion.push([(new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)]);
             }
 
             // Store the ciphertexts for the gate
             garbled_gates.push(table);
         }
-        Circuit::new(garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, conversion_table)
+        Circuit::new(garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, output_conversion)
     }
 
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {

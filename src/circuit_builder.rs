@@ -80,7 +80,7 @@ impl CircuitBuilder {
     // Tell which wires should be used for garbler and evaluator input
     // Should perhaps make a method which creates a new build with a certain input and deletes the old build.
     // For now you just need to call set input wires
-    pub fn set_input_wires(&mut self, input_length : u32) -> (Vec<WireBuild>, Vec<WireBuild>) {
+    pub fn set_input_wires(&mut self, input_length : u64) -> (Vec<WireBuild>, Vec<WireBuild>) {
         let garbler_wires = self.build_input_wires(input_length);
         self.garbler_wires = garbler_wires.clone();
         let evaluator_wires = self.build_input_wires(input_length);
@@ -104,11 +104,11 @@ impl CircuitBuilder {
         }
     }
 
-    pub fn print_circuit(&self) {
+    pub fn print_circuit(&mut self) {
+        let cb = self.get_circuit_build();
         println!("{:}", " ***** CIRCUIT_BUILD ***** ");
-        println!("Branches: {}", self.branches.len() + 1);
-        println!("Amount of gates: {}", self.gates.len());
-        for gate in &self.gates {
+        println!("Amount of gates: {}", cb.gates.len());
+        for gate in &cb.gates {
             println!("{}", gate);
         }
     }
@@ -152,11 +152,47 @@ impl CircuitBuilder {
         output
     }
 
+    /*
+    Routine implementing multiplication.
+     */
+    pub fn build_multiplier(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+        let mut partial_sums: VecDeque<Vec<WireBuild>> = VecDeque::new();
+        for (index_b, bit_b) in input_wires_b.iter().enumerate() {
+            let mut partial_sum: Vec<WireBuild> = Vec::new();
+
+            for _i in 0..index_b {
+                partial_sum.push(self.false_constant.clone().clone());
+            }
+
+            for bit_a in &input_wires_a {
+                let and = self.build_gate(bit_a, bit_b, GateType::AND);
+                partial_sum.push(and);
+            }
+
+            for _j in index_b..input_wires_b.len() {
+                partial_sum.push(self.false_constant.clone().clone());
+            }
+            partial_sums.push_back(partial_sum);
+        }
+        while partial_sums.len() > 1 {
+            let partial_sum_a = partial_sums.pop_front().unwrap();
+            let partial_sum_b = partial_sums.pop_front().unwrap();
+            partial_sums.push_back(self.adder(&partial_sum_a, &partial_sum_b, false)); // addition should not produce a 1-carry bit
+        }
+        let result: Vec<WireBuild> = partial_sums.pop_front().unwrap();
+        self.output_wires = result.clone();
+        result
+    }
+
+    /*
+    Routine implementing addition.
+     */
     pub fn build_adder(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> Vec<WireBuild> {
-        let result_wires = self.adder(input_wires_a, input_wires_b);
+        let result_wires = self.adder(&input_wires_a, input_wires_b, true);
         self.set_output_wires(result_wires.clone());
         result_wires
     }
+
 
     pub fn build_is_equal(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> WireBuild {
         // Compares each bit in a tree like structure
@@ -179,7 +215,7 @@ impl CircuitBuilder {
         vec![self.build_gate(wi, wj, GateType::AND)]
     }
 
-    pub fn build_input_wires(&mut self, amount: u32) -> Vec<WireBuild> {
+    pub fn build_input_wires(&mut self, amount: u64) -> Vec<WireBuild> {
         let mut input_wires = vec![];
         for _i in 0..amount {
             let input_wire = WireBuild::new(0, self.outputs_created.clone());
@@ -189,7 +225,7 @@ impl CircuitBuilder {
         input_wires
     }
 
-    fn adder(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> Vec<WireBuild> {
+    fn adder(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>, with_carry : bool) -> Vec<WireBuild> {
         let mut result_wires: Vec<WireBuild> = Vec::new();
         let (padded_a, padded_b) = self.pad_input(input_wires_a, input_wires_b);
 
@@ -215,8 +251,8 @@ impl CircuitBuilder {
             let second_and = self.build_gate(a_wire, b_wire, GateType::AND);
             carry = self.build_gate(&first_and, &second_and, GateType::OR); 
         }
-        // The last carry bit needs to be appended to the result (though not in the case where we add 1-bit numbers)
-        if input_wires_a.len() != 1 {
+        // The last carry bit needs to be appended to the result (though not in the case where we add 1-bit numbers or if we use the adder for multiplication)
+        if input_wires_a.len() != 1 && with_carry {
             result_wires.push(carry);
         }
         result_wires

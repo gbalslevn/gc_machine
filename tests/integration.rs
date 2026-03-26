@@ -1,5 +1,5 @@
 use std::cmp::max;
-use std::ops::{Add, Shr};
+use std::ops::{Shr};
 use std::sync::Arc;
 use std::time::Duration;
 use gc_machine::circuit_builder::{CircuitBuilder};
@@ -67,7 +67,6 @@ fn can_compare_a_bit_using_std_yao() {
     assert_eq!(&decrypted_output_label_no_padding, xor_gate.wo.w1());
 } 
 
-
 #[tokio::test]
 async fn can_eval_circuit_over_socket() {
     // Create two peers which connects to each other
@@ -85,13 +84,13 @@ async fn can_eval_circuit_over_socket() {
     let evaluator_input = 12.to_biguint().unwrap();
     let required_bits = max(&garbler_input, &evaluator_input).bits(); // They somehow know the max amount of bits needed 
     let mut builder = CircuitBuilder::new();
-    let (garbler_wires, evaluator_wires) = builder.set_input_wires(required_bits as u32);
+    let (garbler_wires, evaluator_wires) = builder.set_input_wires(required_bits);
     builder.build_is_equal(&garbler_wires, &evaluator_wires);
     let cb = builder.get_circuit_build();
     
     // They both prepare to start the protocol
     garbler_peer.setup_circuit_context(garbler_input, cb.clone(), required_bits).await;
-    evaluator_peer.setup_circuit_context(evaluator_input, cb, required_bits).await; 
+    evaluator_peer.setup_circuit_context(evaluator_input, cb, required_bits).await;
 
     let response = garbler_peer.execute_protocol(evaluator_peer.get_peer_id()).await.expect("Execute protocol failed");
     if let Response::GCResult(result) = response {
@@ -159,7 +158,7 @@ fn can_evaulate_if_circuit() {
     let a = 32.to_biguint().unwrap();
     let b = 32.to_biguint().unwrap();
     let required_bits = max(a.bits(), b.bits());
-    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits as u32);
+    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
 
     let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
@@ -184,7 +183,7 @@ fn evaluate_is_equal<G, W, E>(a : BigUint, b : BigUint, expected_result : bool, 
     // Garbler's and Evaluator's input
     let required_bits = max(a.bits(), b.bits());
     let mut circuit_builder = CircuitBuilder::new();
-    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits as u32);
+    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
 
     let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
@@ -196,9 +195,8 @@ fn evaluate_is_equal<G, W, E>(a : BigUint, b : BigUint, expected_result : bool, 
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
-    // Testing a=a
 
-    assert_eq!(result, expected_result as u32);
+    assert_eq!(result, expected_result as u64);
 }
 
 #[test]
@@ -209,11 +207,11 @@ fn evaluate_adder() {
     let mut evaluator = OriginalEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
 
-    let a = 1.to_biguint().unwrap();
-    let b = 1876876323.to_biguint().unwrap();
+    let a = 123.to_biguint().unwrap();
+    let b = 45678.to_biguint().unwrap();
     let required_bits = max(a.bits(), b.bits());
 
-    let (input_wires_garbler, input_wires_evaluator) = circuit_builder.set_input_wires(required_bits as u32);
+    let (input_wires_garbler, input_wires_evaluator) = circuit_builder.set_input_wires(required_bits);
 
     circuit_builder.build_adder(&input_wires_garbler, &input_wires_evaluator);
     let circuit_build = circuit_builder.get_circuit_build();
@@ -230,7 +228,40 @@ fn evaluate_adder() {
     // Evaluate circuit
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
 
-    assert_eq!(result.to_biguint().unwrap(), a.add(b))
+    assert_eq!(result, 45801);
+}
+
+#[test]
+fn evaluate_multiplier() {
+    let wire_gen = OriginalWireGen::new();
+    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let mut garbler = Garbler::new(gate_gen, wire_gen);
+    let mut evaluator = OriginalEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+
+    let a = 1234.to_biguint().unwrap();
+    let b = 1234.to_biguint().unwrap();
+    let required_bits = max(a.bits(), b.bits());
+
+    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
+
+    circuit_builder.build_multiplier(garbler_wires, evaluator_wires);
+    let circuit_build = circuit_builder.get_circuit_build();
+
+    // Garbler input
+    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+
+    // Evaluator input
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
+
+    // Garble circuit
+    let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
+
+    // Evaluate circuit
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+
+    assert_eq!(result, 1522756);
+
 }
 
 
@@ -247,7 +278,7 @@ fn can_add_numbers_of_unequal_bitlength() {
     let two_bit_number = 2.to_biguint().unwrap(); 
     let required_bits = max(one_bit_number.bits(), two_bit_number.bits());
 
-    let (input_wires_garbler, input_wires_evaluator) = circuit_builder.set_input_wires(required_bits as u32);
+    let (input_wires_garbler, input_wires_evaluator) = circuit_builder.set_input_wires(required_bits);
 
     // Garbler input, holds the one bit number
     let garbler_input_choices = garbler.create_circuit_input(&one_bit_number, required_bits);
@@ -265,10 +296,10 @@ fn can_add_numbers_of_unequal_bitlength() {
     // Evaluate circuit
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
 
-    assert_eq!(result.to_biguint().unwrap(), two_bit_number)
+    assert_eq!(result.to_biguint().unwrap(), two_bit_number);
 }
 
-async fn get_peer<G, W, E>(gate_gen : G, wire_gen : W, evaluator : E, with_logging : bool) -> Arc<Peer<G, W, E>> where 
+async fn get_peer<G, W, E>(gate_gen : G, wire_gen : W, evaluator : E, with_logging : bool) -> Arc<Peer<G, W, E>> where
     G: GateGen<W> + Send + Sync + 'static,
     W: WireGen + Send + Sync + 'static,
     E: Evaluator + Send + Sync + 'static, {
