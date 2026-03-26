@@ -2,23 +2,21 @@ use std::{cmp::max, time::Duration};
 
 use num_bigint::ToBigUint;
 
-use crate::{circuit_builder::CircuitBuilder, evaluator::original_evaluator::OriginalEvaluator, garbler::Garbler, gates::{gate_gen::GateGen, original_gate_gen::OriginalGateGen}, peer::Peer, wires::{original_wire_gen::OriginalWireGen, wire_gen::WireGen}};
+use crate::{circuit_builder::CircuitBuilder, evaluator::original_evaluator::OriginalEvaluator, garbler::Garbler, gates::{gate_gen::GateGen, original_gate_gen::OriginalGateGen}, peer::Peer};
 
 #[tokio::test]
 #[should_panic]
 // Before each protocol execution the context of the execution should be set, else it panics
 async fn panics_if_context_not_setup() {
     // Create two peers which connects to each other
-    let wire_gen = OriginalWireGen::new();
-    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let gate_gen = OriginalGateGen::new();
     let evaluator = OriginalEvaluator::new();
-    let garbler = Garbler::new(gate_gen, wire_gen);
+    let garbler = Garbler::new(gate_gen);
     let peer_a = Peer::new(garbler, evaluator).await;
 
-    let wire_gen = OriginalWireGen::new();
-    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let gate_gen = OriginalGateGen::new();
     let evaluator = OriginalEvaluator::new();
-    let garbler = Garbler::new(gate_gen, wire_gen);
+    let garbler = Garbler::new(gate_gen);
     let peer_b = Peer::new(garbler, evaluator).await;
     
     peer_a.connect(peer_b.get_address()).await.expect("Could not connect");
@@ -28,11 +26,10 @@ async fn panics_if_context_not_setup() {
     let garbler_input = 12.to_biguint().unwrap();
     let evaluator_input = 12.to_biguint().unwrap();
     let required_bits = max(&garbler_input, &evaluator_input).bits(); // They somehow know the max amount of bits needed 
-    let mut circuit_builder = CircuitBuilder::new();
-    let input_wires_garbler = circuit_builder.build_input_wires(required_bits as u32);
-    let input_wires_evaluator = circuit_builder.build_input_wires(required_bits as u32);
-    circuit_builder.build_is_equal(input_wires_garbler, input_wires_evaluator);
-    let cb = circuit_builder.get_circuit_build();
+    let mut builder = CircuitBuilder::new();
+    let (input_a, input_b) = builder.set_input_wires(required_bits);
+    builder.build_is_equal(&input_a, &input_b);
+    let cb = builder.get_circuit_build();
 
     // Before execution, circuit context should be empty
     let response = peer_a.execute_protocol(peer_b.get_peer_id()).await;

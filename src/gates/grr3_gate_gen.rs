@@ -1,15 +1,18 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
 use crate::gates::gate_gen::{Gate, GateType, GateGen};
+use crate::wires::grr3_wire_gen::GRR3WireGen;
 use crate::wires::wire_gen::{Wire, WireGen};
 
-pub struct GRR3GateGen<W: WireGen> {
-    pub wire_gen: W,
-    pub index: BigUint,
+pub struct GRR3GateGen {
+    wire_gen: GRR3WireGen,
+    index: BigUint,
 }
 
-impl<W: WireGen> GateGen<W> for GRR3GateGen<W>  {
-    fn new(wire_gen: W) -> Self {
+impl GateGen for GRR3GateGen  {
+    type W = GRR3WireGen;
+    fn new() -> Self {
+        let wire_gen = GRR3WireGen::new();
         GRR3GateGen { wire_gen, index: BigUint::from(0u32), }
     }
 
@@ -32,6 +35,11 @@ impl<W: WireGen> GateGen<W> for GRR3GateGen<W>  {
         self.increment_index();
         gate
     }
+
+    fn get_wire_gen(&mut self) -> &mut Self::W {
+        &mut self.wire_gen
+    }
+
     fn get_index(&self) -> &BigUint {
         &self.index
     }

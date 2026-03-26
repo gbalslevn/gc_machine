@@ -1,14 +1,13 @@
 
-use crate::{evaluator::{original_evaluator::OriginalEvaluator}, garbler::Garbler, gates::{gate_gen::GateGen, original_gate_gen::OriginalGateGen}, peer::Peer, websocket, wires::{original_wire_gen::OriginalWireGen, wire_gen::WireGen}};
+use crate::{evaluator::{original_evaluator::OriginalEvaluator}, garbler::Garbler, gates::{gate_gen::GateGen, original_gate_gen::OriginalGateGen}, peer::Peer, websocket};
 use std::time::Duration;
 use libp2p::{Multiaddr, PeerId};
 
 #[tokio::test]
 // When it says hello, the other party replies with hello
 async fn can_send_and_receive_hello_query() {
-    let wire_gen = OriginalWireGen::new();
-    let gate_gen = OriginalGateGen::new(wire_gen.clone());
-    let garbler = Garbler::new(gate_gen, wire_gen);
+    let gate_gen = OriginalGateGen::new();
+    let garbler = Garbler::new(gate_gen);
     let evaluator = OriginalEvaluator::new();
     let client_a = Peer::new(garbler, evaluator).await;
 

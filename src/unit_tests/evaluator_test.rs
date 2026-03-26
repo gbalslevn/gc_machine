@@ -30,7 +30,7 @@ fn will_correctly_decrypt_gates_original() {
         let wi = wire_gen.generate_input_wire();
         let wj = wire_gen.generate_input_wire();
 
-        let mut gate_gen = OriginalGateGen::new(wire_gen);
+        let mut gate_gen = OriginalGateGen::new();
 
         let gt = gate_gen.generate_gate(gate, wi, wj);
         let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gt.gate_type);
@@ -51,12 +51,12 @@ fn will_panic_with_wrong_wires_original() {
     let mut wire_gen = OriginalWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = OriginalGateGen::new(wire_gen);
+    let mut gate_gen = OriginalGateGen::new();
     let gt = gate_gen.generate_gate(gate_type, wi, wj);
     let mut evaluator = OriginalEvaluator::new();
 
     // Evaluator has dummy wires
-    let dummy_wires = gate_gen.wire_gen.generate_input_wire();
+    let dummy_wires = gate_gen.get_wire_gen().generate_input_wire();
     evaluator.evaluate_gate(&dummy_wires.w0(), &dummy_wires.w1(), &gt.gate_type, &gt.table);
 }
 
@@ -67,7 +67,7 @@ fn will_correctly_decrypt_gates_point_and_permute() {
         let wi = wire_gen.generate_input_wire();
         let wj = wire_gen.generate_input_wire();
 
-        let mut gate_gen = PointAndPermuteGateGen::new(wire_gen);
+        let mut gate_gen = PointAndPermuteGateGen::new();
 
         let gt = gate_gen.generate_gate(gate, wi, wj);
         let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gt.gate_type);
@@ -88,7 +88,7 @@ fn will_correctly_decrypt_gates_grr3() {
         let wi = wire_gen.generate_input_wire();
         let wj = wire_gen.generate_input_wire();
 
-        let mut gate_gen = GRR3GateGen::new(wire_gen);
+        let mut gate_gen = GRR3GateGen::new();
 
         let gt = gate_gen.generate_gate(gate, wi, wj);
         let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gt.gate_type);
@@ -108,7 +108,7 @@ fn xor_gate_for_free_xor_has_empty_table() {
     let mut wire_gen = FreeXORWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = FreeXORGateGen::new(wire_gen);
+    let mut gate_gen = FreeXORGateGen::new();
     let gt = gate_gen.generate_gate(gate_type, wi, wj);
     assert!(gt.table.len() == 0);
 }
@@ -116,11 +116,11 @@ fn xor_gate_for_free_xor_has_empty_table() {
 #[test]
 fn will_correctly_decrypt_gates_free_xor() {
     for gate in GateType::iter() {
-        let mut wire_gen = FreeXORWireGen::new();
+        let mut gate_gen = FreeXORGateGen::new();
+        let wire_gen = gate_gen.get_wire_gen();
         let wi = wire_gen.generate_input_wire();
         let wj = wire_gen.generate_input_wire();
 
-        let mut gate_gen = FreeXORGateGen::new(wire_gen);
 
         let gt = gate_gen.generate_gate(gate, wi, wj);
         let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gt.gate_type);
@@ -137,11 +137,11 @@ fn will_correctly_decrypt_gates_free_xor() {
 #[test]
 fn will_correctly_decrypt_gates_half_gates() {
     for gate in GateType::iter() {
-        let mut wire_gen = HalfGatesWireGen::new();
+        let mut gate_gen = HalfGatesGateGen::new();
+        let wire_gen = gate_gen.get_wire_gen();
         let wi = wire_gen.generate_input_wire();
         let wj = wire_gen.generate_input_wire();
 
-        let mut gate_gen = HalfGatesGateGen::new(wire_gen);
 
         let gt = gate_gen.generate_gate(gate, wi, wj);
         let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gt.gate_type);
@@ -158,12 +158,12 @@ fn will_correctly_decrypt_gates_half_gates() {
 #[test]
 fn can_decrypt_multiple_gates_with_internal_index() {
     let gate_type = GateType::AND;
-    let mut wire_gen = HalfGatesWireGen::new();
+    let mut gate_gen = HalfGatesGateGen::new();
+    let wire_gen = gate_gen.get_wire_gen();
     let wi1 = wire_gen.generate_input_wire();
     let wj1 = wire_gen.generate_input_wire();
     let wi2 = wire_gen.generate_input_wire();
     let wj2 = wire_gen.generate_input_wire();
-    let mut gate_gen = HalfGatesGateGen::new(wire_gen);
     let gt1 = gate_gen.generate_gate(gate_type, wi1, wj1);
     let gt2 = gate_gen.generate_gate(gate_type, wi2, wj2);
     let gt3 = gate_gen.generate_gate(gate_type, gt1.wo, gt2.wo);
@@ -192,7 +192,7 @@ fn cannot_decrypt_multiple_gates_with_wrong_order() {
     let wj1 = wire_gen.generate_input_wire();
     let wi2 = wire_gen.generate_input_wire();
     let wj2 = wire_gen.generate_input_wire();
-    let mut gate_gen = HalfGatesGateGen::new(wire_gen);
+    let mut gate_gen = HalfGatesGateGen::new();
     let gt1 = gate_gen.generate_gate(gate_type, wi1, wj1);
     let gt2 = gate_gen.generate_gate(gate_type, wi2, wj2);
     let gt3 = gate_gen.generate_gate(gate_type, gt1.wo, gt2.wo);
@@ -216,6 +216,7 @@ fn cannot_decrypt_multiple_gates_with_wrong_order() {
 fn evaluation_panics_if_unequal_input_length() {
     let mut evaluator = OriginalEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
+    circuit_builder.set_input_wires(1);
     let cb = circuit_builder.get_circuit_build();
 
     let mut rng = crypto_utils::gen_rng();

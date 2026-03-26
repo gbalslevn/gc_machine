@@ -101,7 +101,7 @@ pub trait Evaluator {
     }
 
     fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>) -> u32 {
-        let mut result: u32 = 0;
+        let mut result : u32 = 0;
         for (index, result_wire) in result_wires.iter().enumerate() {
             if output_conversion[index][1].0 == *result_wire {
                 result += 2u32.pow(index as u32);

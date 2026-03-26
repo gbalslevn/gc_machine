@@ -7,11 +7,11 @@ use num_bigint::BigUint;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
-use crate::{circuit_builder::CircuitBuild, evaluator::{evaluator::Evaluator}, garbler::Garbler, gates::gate_gen::GateGen, websocket::{self, Query, Response, SocketClient}, wires::wire_gen::WireGen};
+use crate::{circuit_builder::CircuitBuild, evaluator::{evaluator::Evaluator}, garbler::Garbler, gates::gate_gen::GateGen, websocket::{self, Query, Response, SocketClient}};
 
 // Peer represents an entity which can act as either a garbler or an evaluator
-pub struct Peer<G : GateGen<W>, W : WireGen, E : Evaluator> {
-    garbler : Mutex<Garbler<G, W>>, // we use a mutex to enable mutability without having a mutable self
+pub struct Peer<G : GateGen, E : Evaluator> {
+    garbler : Mutex<Garbler<G>>, // we use a mutex to enable mutability without having a mutable self
     evaluator : Mutex<E>,
     socket : SocketClient,
     context : Mutex<Option<CircuitContext>>  
@@ -26,12 +26,11 @@ pub struct CircuitContext {
     evaluator_keys : Vec<(SecretKey, u8)>
 }
 
-impl <G : GateGen<W>, W : WireGen, E : Evaluator> Peer<G, W, E> where 
-    G: GateGen<W> + Send + Sync + 'static,
-    W: WireGen + Send + Sync + 'static,
+impl <G : GateGen, E : Evaluator> Peer<G, E> where 
+    G: GateGen + Send + Sync + 'static,
     E: Evaluator + Send + Sync + 'static, {
 
-    pub async fn new(garbler : Garbler<G, W>, evaluator : E) -> Arc<Self> {
+    pub async fn new(garbler : Garbler<G>, evaluator : E) -> Arc<Self> {
         let socket = websocket::run().await.expect("Failed to start socket");
         
         let peer = Arc::new(Peer { garbler : garbler.into(), evaluator : evaluator.into(), socket, context : None.into() });
@@ -59,8 +58,8 @@ impl <G : GateGen<W>, W : WireGen, E : Evaluator> Peer<G, W, E> where
         if let Response::EvalInput(eval_input) = response {
             let circuit_preperation = self.get_circuit_context().await;
             let mut garbler = self.garbler.lock().await;
-            let mut garbler_input =  garbler.create_circuit_input(&circuit_preperation.input, circuit_preperation.required_bits);
-            let circuit = garbler.create_circuit(&circuit_preperation.build, &mut garbler_input, eval_input);
+            let garbler_input =  garbler.create_circuit_input(&circuit_preperation.input, circuit_preperation.required_bits);
+            let circuit = garbler.create_circuit(&circuit_preperation.build, &garbler_input, &eval_input);
 
             // Get evaluator to evaluate circuit 
             let response = self.socket.send_query(peer, websocket::Query::EvaluateGC(circuit)).await;

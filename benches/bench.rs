@@ -22,8 +22,8 @@ pub fn original_xor_gate(c: &mut Criterion) {
     let mut wire_gen = OriginalWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = OriginalGateGen::new(wire_gen);
-    let mut gt = gate_gen.generate_gate(gate_type, wi.clone(), wj.clone());
+    let mut gate_gen = OriginalGateGen::new();
+    let gt = gate_gen.generate_gate(gate_type, wi.clone(), wj.clone());
 
     // *** Bench garbling ***
     bench_utils::get_memory(|| {
@@ -48,7 +48,7 @@ pub fn grr3_xor_gate(c: &mut Criterion) {
     let mut wire_gen = GRR3WireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = GRR3GateGen::new(wire_gen);
+    let mut gate_gen = GRR3GateGen::new();
     let mut gt = gate_gen.generate_gate(gate_type.clone(), wi.clone(), wj.clone());
     let mut evaluator = GRR3Evaluator::new();
     // *** Bench garbling ***
@@ -75,7 +75,7 @@ pub fn point_and_permute_xor_gate(c: &mut Criterion) {
     let mut wire_gen = PointAndPermuteWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = PointAndPermuteGateGen::new(wire_gen);
+    let mut gate_gen = PointAndPermuteGateGen::new();
     let mut gt = gate_gen.generate_gate(gate_type.clone(), wi.clone(), wj.clone());
     let mut evaluator = PointAndPermuteEvaluator::new();
     // *** Bench garbling ***
