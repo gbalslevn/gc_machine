@@ -13,10 +13,12 @@ pub enum GateType {
     NOR
 }
 
-pub trait GateGen<W: WireGen> {
-    fn new(wire_gen: W) -> Self;
-
+pub trait GateGen {
+    type W: WireGen;
+    fn new() -> Self;
+    fn get_wire_gen(&mut self) -> &mut Self::W;
     fn generate_gate(&mut self, gate : GateType, wi: Wire, wj: Wire) -> Gate;
+    
     fn get_tt(&self, wi: &Wire, wj: &Wire, wo: &Wire, gate: &GateType) -> [(BigUint, BigUint, BigUint); 4] {
         match gate {
             GateType::XOR=>self.get_xor_tt(wi, wj, wo),

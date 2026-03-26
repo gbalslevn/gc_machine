@@ -2,23 +2,21 @@ use std::{cmp::max, time::Duration};
 
 use num_bigint::ToBigUint;
 
-use crate::{circuit_builder::CircuitBuilder, evaluator::original_evaluator::OriginalEvaluator, garbler::Garbler, gates::{gate_gen::GateGen, original_gate_gen::OriginalGateGen}, peer::Peer, wires::{original_wire_gen::OriginalWireGen, wire_gen::WireGen}};
+use crate::{circuit_builder::CircuitBuilder, evaluator::original_evaluator::OriginalEvaluator, garbler::Garbler, gates::{gate_gen::GateGen, original_gate_gen::OriginalGateGen}, peer::Peer};
 
 #[tokio::test]
 #[should_panic]
 // Before each protocol execution the context of the execution should be set, else it panics
 async fn panics_if_context_not_setup() {
     // Create two peers which connects to each other
-    let wire_gen = OriginalWireGen::new();
-    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let gate_gen = OriginalGateGen::new();
     let evaluator = OriginalEvaluator::new();
-    let garbler = Garbler::new(gate_gen, wire_gen);
+    let garbler = Garbler::new(gate_gen);
     let peer_a = Peer::new(garbler, evaluator).await;
 
-    let wire_gen = OriginalWireGen::new();
-    let gate_gen = OriginalGateGen::new(wire_gen.clone());
+    let gate_gen = OriginalGateGen::new();
     let evaluator = OriginalEvaluator::new();
-    let garbler = Garbler::new(gate_gen, wire_gen);
+    let garbler = Garbler::new(gate_gen);
     let peer_b = Peer::new(garbler, evaluator).await;
     
     peer_a.connect(peer_b.get_address()).await.expect("Could not connect");

@@ -47,7 +47,7 @@ pub trait Evaluator {
         evaluator_input: &HashMap<BigUint, (CipherText, CipherText)>,
         secret_keys: &Vec<(SecretKey, u8)>,
         new_conversion_table: &Vec<[(BigUint, u8); 2]>
-    ) -> u64 {
+    ) -> u32 {
         let mut known_wires: HashMap<BigUint, BigUint> = HashMap::new(); // id, wire
         let mut result_wires: Vec<BigUint> = Vec::new();
 
@@ -100,11 +100,11 @@ pub trait Evaluator {
         Self::interpret_result(result_wires, &new_conversion_table)
     }
 
-    fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>) -> u64 {
-        let mut result : u64 = 0;
+    fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>) -> u32 {
+        let mut result : u32 = 0;
         for (index, result_wire) in result_wires.iter().enumerate() {
             if output_conversion[index][1].0 == *result_wire {
-                result += 2u32.pow(index as u32) as u64;
+                result += 2u32.pow(index as u32);
             }
         }
         result

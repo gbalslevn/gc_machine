@@ -1,16 +1,17 @@
 use num_bigint::BigUint;
-use crate::gates::gate_gen::{Gate, GateType, GateGen};
+use crate::gates::gate_gen::{Gate, GateGen, GateType};
 use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
 use crate::wires::wire_gen::{Wire, WireGen};
 
 pub struct HalfGatesGateGen {
-    pub wire_gen: HalfGatesWireGen,
+    wire_gen: HalfGatesWireGen,
     index: BigUint,
-
 }
 
-impl GateGen<HalfGatesWireGen> for HalfGatesGateGen {
-    fn new(wire_gen: HalfGatesWireGen) -> Self {
+impl GateGen for HalfGatesGateGen {
+    type W = HalfGatesWireGen;
+    fn new() -> Self {
+        let wire_gen = HalfGatesWireGen::new();
         HalfGatesGateGen { wire_gen, index: BigUint::from(0u32) }
     }
 
@@ -64,6 +65,10 @@ impl GateGen<HalfGatesWireGen> for HalfGatesGateGen {
                 gate
             }
         }
+    }
+
+    fn get_wire_gen(&mut self) -> &mut Self::W {
+        &mut self.wire_gen
     }
 
     fn get_index(&self) -> &BigUint {

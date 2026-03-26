@@ -7,7 +7,6 @@ fn gates_are_sorted_by_increasing_output_layer() {
     let mut circuit_builder = CircuitBuilder::new();
     let (input_a, input_b) = circuit_builder.set_input_wires(10);
     circuit_builder.build_is_equal(&input_a, &input_b);
-    circuit_builder.set_input_wires(1);
     let cb = circuit_builder.get_circuit_build();
     let gates = cb.get_gates();
     let mut current_output_layer = &1;
@@ -62,6 +61,7 @@ fn branches_assigned_correctly_for_two_ifs() {
 }
 
 #[test]
+// Tests a specific situiation assigns the branches correctly
 fn branches_assigned_correctly_for_two_ifs_with_adders() {
     let (_cb, adder_0_gates, adder_1_gates, adder_2_gates, cond_gate) = get_nested_if_build_with_adder(); 
     

@@ -1,15 +1,18 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
 use crate::gates::gate_gen::{Gate, GateType, GateGen};
+use crate::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
 use crate::wires::wire_gen::{Wire, WireGen};
 
-pub struct PointAndPermuteGateGen<W: WireGen> {
-    pub wire_gen: W,
-    pub index: BigUint,
+pub struct PointAndPermuteGateGen {
+    wire_gen: PointAndPermuteWireGen,
+    index: BigUint,
 }
 
-impl<W: WireGen> GateGen<W> for PointAndPermuteGateGen<W> {
-    fn new(wire_gen: W) -> Self {
+impl GateGen for PointAndPermuteGateGen {
+    type W = PointAndPermuteWireGen;
+    fn new() -> Self {
+        let wire_gen = PointAndPermuteWireGen::new();
         PointAndPermuteGateGen { wire_gen, index: BigUint::from(0u32), }
     }
 
@@ -31,6 +34,11 @@ impl<W: WireGen> GateGen<W> for PointAndPermuteGateGen<W> {
         self.increment_index();
         gate
     }
+
+    fn get_wire_gen(&mut self) -> &mut Self::W {
+        &mut self.wire_gen
+    }
+
     fn get_index(&self) -> &BigUint {
         &self.index
     }

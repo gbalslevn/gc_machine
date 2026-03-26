@@ -2,17 +2,20 @@ use num_bigint::{BigUint};
 use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::RngCore;
 use crate::crypto_utils;
+use crate::wires::original_wire_gen::OriginalWireGen;
 use crate::wires::wire_gen::{Wire, WireGen};
 
 use crate::gates::gate_gen::{Gate, GateType, GateGen};
 #[derive(Clone)]
-pub struct OriginalGateGen<W: WireGen> {
-    pub wire_gen: W,
-    pub index: BigUint,
+pub struct OriginalGateGen {
+    wire_gen: OriginalWireGen,
+    index: BigUint,
 }
 
-impl<W: WireGen> GateGen<W> for OriginalGateGen<W> {
-    fn new(wire_gen: W) -> Self {
+impl GateGen for OriginalGateGen {
+    type W = OriginalWireGen;
+    fn new() -> Self {
+        let wire_gen = OriginalWireGen::new();
         OriginalGateGen { wire_gen, index: BigUint::from(0u32)}
     }
 
@@ -35,6 +38,11 @@ impl<W: WireGen> GateGen<W> for OriginalGateGen<W> {
         self.increment_index();
         gate
     }
+
+    fn get_wire_gen(&mut self) -> &mut Self::W {
+        &mut self.wire_gen
+    }
+    
     fn get_index(&self) -> &BigUint {
         &self.index
     }

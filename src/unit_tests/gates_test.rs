@@ -22,7 +22,7 @@ fn can_decrypt_std_yao_gate_labels() {
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
     let gate = GateType::XOR;
-    let mut gate_gen = OriginalGateGen::new(wire_gen);
+    let mut gate_gen = OriginalGateGen::new();
     let current_index = gate_gen.get_index().clone();
     let xor_gate = gate_gen.generate_gate(gate, wi, wj);
     let mut has_decrypted = false;
@@ -53,7 +53,7 @@ fn output_labels_is_zero_padded_in_std_yao() {
     let mut wire_gen = OriginalWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = OriginalGateGen::new(wire_gen);
+    let mut gate_gen = OriginalGateGen::new();
     let gt = gate_gen.generate_gate(gate, wi, wj);
 
     let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
@@ -77,7 +77,7 @@ fn original_gate_table_has_4_entries() {
     let mut wire_gen = OriginalWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = OriginalGateGen::new(wire_gen);
+    let mut gate_gen = OriginalGateGen::new();
     let gt = gate_gen.generate_gate(gate, wi, wj);
     assert_eq!(gt.table.len(), 4);
 }
@@ -94,7 +94,7 @@ fn xor_tt_gen_is_correct() {
     let zero_bit= 0.to_biguint().unwrap();
     let one_bit = 1.to_biguint().unwrap();
     let w = Wire::new(zero_bit.clone(), one_bit.clone());
-    let gate_gen = OriginalGateGen::new(OriginalWireGen::new());
+    let gate_gen = OriginalGateGen::new();
     let tt = gate_gen.get_tt(&w, &w, &w, &GateType::XOR);
     for (il, ir, out) in tt {
         if il == zero_bit && ir == zero_bit {
@@ -118,7 +118,7 @@ fn xnor_tt_gen_is_correct() {
     let zero_bit= 0.to_biguint().unwrap();
     let one_bit = 1.to_biguint().unwrap();
     let w = Wire::new(zero_bit.clone(), one_bit.clone());
-    let gate_gen = OriginalGateGen::new(OriginalWireGen::new());
+    let gate_gen = OriginalGateGen::new();
     let tt = gate_gen.get_tt(&w, &w, &w, &GateType::XNOR);
     for (il, ir, out) in tt {
         if il == zero_bit && ir == zero_bit {
@@ -141,7 +141,7 @@ fn and_tt_gen_is_correct() {
     let zero_bit = 0.to_biguint().unwrap();
     let one_bit = 1.to_biguint().unwrap();
     let w = Wire::new(zero_bit.clone(), one_bit.clone());
-    let gate_gen = OriginalGateGen::new(OriginalWireGen::new());
+    let gate_gen = OriginalGateGen::new();
     let tt = gate_gen.get_tt(&w, &w, &w, &GateType::AND);
     for (il, ir, out) in tt {
         if il == one_bit && ir == one_bit {
@@ -157,7 +157,7 @@ fn nand_tt_gen_is_correct() {
     let zero_bit = 0.to_biguint().unwrap();
     let one_bit = 1.to_biguint().unwrap();
     let w = Wire::new(zero_bit.clone(), one_bit.clone());
-    let gate_gen = OriginalGateGen::new(OriginalWireGen::new());
+    let gate_gen = OriginalGateGen::new();
     let tt = gate_gen.get_tt(&w, &w, &w, &GateType::NAND);
     for (il, ir, out) in tt {
         if il == one_bit && ir == one_bit {
@@ -173,7 +173,7 @@ fn or_tt_gen_is_correct() {
     let zero_bit = 0.to_biguint().unwrap();
     let one_bit = 1.to_biguint().unwrap();
     let w = Wire::new(zero_bit.clone(), one_bit.clone());
-    let gate_gen = OriginalGateGen::new(OriginalWireGen::new());
+    let gate_gen = OriginalGateGen::new();
     let tt = gate_gen.get_tt(&w, &w, &w, &GateType::OR);
     for (il, ir, out) in tt {
         if il == zero_bit && ir == zero_bit {
@@ -189,7 +189,7 @@ fn nor_tt_gen_is_correct() {
     let zero_bit = 0.to_biguint().unwrap();
     let one_bit = 1.to_biguint().unwrap();
     let w = Wire::new(zero_bit.clone(), one_bit.clone());
-    let gate_gen = OriginalGateGen::new(OriginalWireGen::new());
+    let gate_gen = OriginalGateGen::new();
     let tt = gate_gen.get_tt(&w, &w, &w, &GateType::NOR);
     for (il, ir, out) in tt {
         if il == zero_bit && ir == zero_bit {
@@ -206,7 +206,7 @@ fn gates_uses_point_and_permute_order() {
         let mut wire_gen = PointAndPermuteWireGen::new();
         let wi = wire_gen.generate_input_wire();
         let wj = wire_gen.generate_input_wire();
-        let mut gate_gen = PointAndPermuteGateGen::new(wire_gen);
+        let mut gate_gen = PointAndPermuteGateGen::new();
         let current_index = gate_gen.get_index().clone();
         let gt = gate_gen.generate_gate(gate, wi, wj);
         let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gt.gate_type);
@@ -225,7 +225,7 @@ fn gate_only_3_entries_grr3() {
     let mut wire_gen = GRR3WireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = GRR3GateGen::new(wire_gen);
+    let mut gate_gen = GRR3GateGen::new();
     let gt = gate_gen.generate_gate(gate, wi, wj);
 
     assert_eq!(gt.table.len(), 3);
@@ -237,7 +237,7 @@ fn are_output_labels_correct_grr3() {
         let mut wire_gen = GRR3WireGen::new();
         let wi = wire_gen.generate_input_wire();
         let wj = wire_gen.generate_input_wire();
-        let mut gate_gen = GRR3GateGen::new(wire_gen);
+        let mut gate_gen = GRR3GateGen::new();
         let current_index = gate_gen.get_index().clone();
         let gt = gate_gen.generate_gate(gate, wi, wj);
         let tt = gate_gen.get_tt(&gt.wi, &gt.wj, &gt.wo, &gate);
@@ -260,7 +260,7 @@ fn no_entries_in_xor_gate_free_xor() {
     let mut wire_gen = FreeXORWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = FreeXORGateGen::new(wire_gen);
+    let mut gate_gen = FreeXORGateGen::new();
     let gt = gate_gen.generate_gate(gate, wi, wj);
     assert_eq!(gt.table.len(), 0);
 }
@@ -271,7 +271,7 @@ fn three_entries_in_and_gate_free_xor() {
     let mut wire_gen = FreeXORWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = FreeXORGateGen::new(wire_gen);
+    let mut gate_gen = FreeXORGateGen::new();
     let gt = gate_gen.generate_gate(gate, wi, wj);
     assert_eq!(gt.table.len(), 3);
 }
@@ -282,7 +282,7 @@ fn two_entries_in_and_half_gate() {
     let mut wire_gen = HalfGatesWireGen::new();
     let wi = wire_gen.generate_input_wire();
     let wj = wire_gen.generate_input_wire();
-    let mut gate_gen = HalfGatesGateGen::new(wire_gen);
+    let mut gate_gen = HalfGatesGateGen::new();
     let gt = gate_gen.generate_gate(gate, wi, wj);
     assert_eq!(gt.table.len(), 2);
 }

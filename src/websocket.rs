@@ -22,7 +22,7 @@ pub enum Query {
 pub enum Response {
     Greeting(String),
     EvalInput(VecDeque<[PublicKey; 2]>), 
-    GCResult(u64)
+    GCResult(u32)
 }
 
 #[derive(Clone)]

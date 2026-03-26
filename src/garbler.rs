@@ -23,18 +23,17 @@ impl Circuit {
     }
 }
 
-pub struct Garbler<G: GateGen<W>, W: WireGen> {
-    gate_gen: G,
-    wire_gen: W,
+pub struct Garbler<G: GateGen> {
+    pub gate_gen: G,
 }
 
-impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
-    pub fn new(gate_gen: G, wire_gen: W) -> Self {
+impl<G: GateGen> Garbler<G> {
+    pub fn new(gate_gen: G) -> Self {
         Self {
             gate_gen: gate_gen,
-            wire_gen: wire_gen,
         }
     }
+
     pub fn create_circuit(
         &mut self,
         circuit_build: &CircuitBuild,
@@ -96,14 +95,14 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
 
     // Inserts the garbler and evaluators input wires
     fn insert_input_wires(&mut self, known_wires : &mut HashMap<BigUint, Wire>, build : &CircuitBuild, garblers_input_choices: &mut VecDeque<u8>, evaluators_input_choices : &mut VecDeque<[PublicKey; 2]>) -> (HashMap<BigUint, BigUint>, HashMap<BigUint, (CipherText, CipherText)>) {
-        let mut rng = self.wire_gen.get_rng().clone();
+        let mut rng = self.gate_gen.get_wire_gen().get_rng().clone();
         let garbler_wires = &build.garbler_wires;
         let evaluator_wires = &build.evaluator_wires;
         
         // Insert garbler input and save the garbler input choice in a map of labels
         let mut garbler_inputs = HashMap::new();
         for wirebuild in garbler_wires {
-            let wire = self.wire_gen.generate_input_wire();
+            let wire = self.gate_gen.get_wire_gen().generate_input_wire();
             let garbler_input_choice = garblers_input_choices.pop_front().unwrap();
             let selected_wirelabel = match garbler_input_choice {
                 0 => wire.w0(),
@@ -117,7 +116,7 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
         // Insert evaluator input wires and save each label for the wire as a ciphertext where the evaluator can decrypt from OT
         let mut evaluator_inputs = HashMap::new();
         for wirebuild in evaluator_wires {    
-            let wire = self.wire_gen.generate_input_wire();
+            let wire = self.gate_gen.get_wire_gen().generate_input_wire();
             let wire_encrypted = self.gen_encrypted_wire(&wire, &evaluators_input_choices.pop_front().unwrap(), &mut rng);
             evaluator_inputs.insert(wirebuild.wire_id().clone(), wire_encrypted.clone());
             known_wires.insert(wirebuild.wire_id().clone(), wire.clone());
@@ -128,8 +127,8 @@ impl<G: GateGen<W>, W: WireGen> Garbler<G, W> {
 
     fn insert_constant_wires(&mut self, known_wires: &mut HashMap<BigUint, Wire>) -> Vec<BigUint> {
         let mut constant_wires = vec![];
-        let true_constant = self.wire_gen.generate_input_wire();
-        let false_constant = self.wire_gen.generate_input_wire();
+        let true_constant = self.gate_gen.get_wire_gen().generate_input_wire();
+        let false_constant = self.gate_gen.get_wire_gen().generate_input_wire();
         known_wires.insert(
             0.to_biguint().unwrap(),
             false_constant.clone(),
