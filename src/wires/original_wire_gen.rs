@@ -26,6 +26,7 @@ impl WireGen for OriginalWireGen {
     fn get_rng(&self) -> &ChaCha20Rng {
         &self.rng
     }
+    fn get_seed(&self) -> [u8; 32] { self.rng.get_seed().clone() }
     fn new_rng(&mut self) {
         self.rng = crypto_utils::gen_rng();
     }

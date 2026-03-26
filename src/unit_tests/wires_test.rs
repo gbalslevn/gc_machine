@@ -6,7 +6,6 @@ use crate::wires::original_wire_gen::OriginalWireGen;
 use crate::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
 use crate::wires::grr3_wire_gen::{GRR3WireGen, get_00_wire};
 use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
-// use crate::wires::free_xor_wires::FreeXORWires;
 use crate::wires::wire_gen::{Wire, WireGen};
 
 #[test]
@@ -143,4 +142,22 @@ fn do_lsb_determine_output_wires() {
     let w0 = wg0 ^ we0;
     assert_eq!(wo.w0(), &w0);
     assert_eq!(wo.w1(), &(&w0 ^ wire_gen.delta()));
+}
+
+#[test]
+fn seeds_produce_the_same_wires() {
+    let mut old_wire_gen = OriginalWireGen::new();
+    let old_wires1 = old_wire_gen.generate_input_wire();
+    let old_wires2 = old_wire_gen.generate_input_wire();
+    let seed = old_wire_gen.get_seed();
+
+    let mut new_wire_gen = OriginalWireGen::new();
+    new_wire_gen.set_rng(seed);
+    let new_wires1 = new_wire_gen.generate_input_wire();
+    let new_wires2 = new_wire_gen.generate_input_wire();
+
+    assert_ne!(old_wires1, old_wires2);
+    assert_ne!(new_wires1, new_wires2);
+    assert_eq!(old_wires1, new_wires1);
+    assert_eq!(old_wires2, new_wires2);
 }
