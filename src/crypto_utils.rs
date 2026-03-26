@@ -56,6 +56,10 @@ pub fn gen_rng() -> ChaCha20Rng {
     ChaCha20Rng::from_seed(seed)
 }
 
+pub fn gen_rng_with_seed(seed: [u8; 32]) -> ChaCha20Rng {
+    ChaCha20Rng::from_seed(seed)
+}
+
 pub fn sha256(data : &[u8]) -> BigUint {
     let mut hasher = Sha256::new();
     hasher.update(data);
