@@ -12,10 +12,11 @@ type MuxID = BigUint;
 type BranchID = usize;
 pub struct CircuitBuilder {
     gates: Vec<GateBuild>,
+    stacks: Vec<StackBuild>,
     outputs_created: BigUint,
     false_constant: WireBuild,
     true_constant: WireBuild,
-    garbler_wires : Vec<WireBuild>,
+    garbler_wires: Vec<WireBuild>,
     evaluator_wires : Vec<WireBuild>,
     branches: HashMap<MuxID, BranchEntry>,
     branch_counter: usize,
@@ -26,9 +27,9 @@ pub struct CircuitBuilder {
 pub struct BranchEntry {
     pub true_id: BigUint,
     pub false_id: BigUint,
-    pub boolean_id : BigUint,
+    pub boolean_id: BigUint,
     pub mux_gates: Vec<BigUint>,
-    pub branch_id : BranchID,
+    pub branch_id: BranchID,
 }
 
 impl BranchEntry {
@@ -40,10 +41,10 @@ impl BranchEntry {
 
 #[derive(Clone, Debug)]
 pub struct StackBuild {
-    pub demux_build: DemuxBuild,
+    pub demux_build: Vec<DemuxBuild>,
     pub branch_build_left: BranchBuild,
     pub branch_build_right: BranchBuild,
-    pub mux_build: MuxBuild,
+    pub mux_build: Vec<MuxBuild>,
 }
 
 #[derive(Clone, Debug)]
@@ -64,16 +65,16 @@ pub struct MuxBuild {
 
 #[derive(Clone, Debug)]
 pub struct BranchBuild {
-    pub stack_build: Option<StackBuild>,
-    pub gate_build: Option<Vec<GateBuild>>,
+    // pub stack_build: Option<StackBuild>,
+    // pub gate_build: Option<Vec<GateBuild>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct CircuitBuild {
     pub gates: Vec<GateBuild>,
     pub output_wires: Vec<WireBuild>,
-    pub garbler_wires : Vec<WireBuild>,
-    pub evaluator_wires : Vec<WireBuild>
+    pub garbler_wires: Vec<WireBuild>,
+    pub evaluator_wires: Vec<WireBuild>
 }
 
 impl CircuitBuild {
@@ -85,6 +86,7 @@ impl CircuitBuild {
 impl CircuitBuilder {
     pub fn new() -> Self {
         let gates = Vec::new();
+        let stacks = Vec::new();
         let branches : HashMap<MuxID, BranchEntry> = HashMap::new(); 
         let false_constant = WireBuild::new(0, 0.to_biguint().unwrap());
         let true_constant = WireBuild::new(0, 1.to_biguint().unwrap());
@@ -95,7 +97,8 @@ impl CircuitBuilder {
         let output_wires = Vec::new();
 
         CircuitBuilder {
-            gates: gates,
+            gates,
+            stacks,
             outputs_created: 2.to_biguint().unwrap(),
             false_constant,
             true_constant,
@@ -143,6 +146,23 @@ impl CircuitBuilder {
         }
     }
 
+    pub fn build_conditional(
+        &mut self,
+        conditional: &WireBuild,
+        input_wire: &Vec<WireBuild>
+    ) -> WireBuild {
+
+        // let demuxes = Vec::new();
+        // for wire in input_wire {
+        //     // let demux = DemuxBuild {
+        //     //     seed: conditional.clone(),
+        //     //     input_wire: wire.clone(),
+        //         // output_wire_left: WireBuild {},
+        //         // output_wire_right: WireBuild {},
+        //     };
+        // };
+        todo!()
+    }
 
     // An if block where a block of gates, derived from the output of them, is added depending on a boolean. MUX always has an else.
     pub fn build_if(
