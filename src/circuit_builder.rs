@@ -38,6 +38,36 @@ impl BranchEntry {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct StackBuild {
+    pub demux_build: DemuxBuild,
+    pub branch_build_left: BranchBuild,
+    pub branch_build_right: BranchBuild,
+    pub mux_build: MuxBuild,
+}
+
+#[derive(Clone, Debug)]
+pub struct DemuxBuild {
+    pub seed: WireBuild,
+    pub input_wire: WireBuild,
+    pub output_wire_left: WireBuild,
+    pub output_wire_right: WireBuild,
+}
+
+#[derive(Clone, Debug)]
+pub struct MuxBuild {
+    pub seed: WireBuild,
+    pub input_wire_left: WireBuild,
+    pub input_wire_right: WireBuild,
+    pub output_wire: WireBuild,
+}
+
+#[derive(Clone, Debug)]
+pub struct BranchBuild {
+    pub stack_build: Option<StackBuild>,
+    pub gate_build: Option<Vec<GateBuild>>,
+}
+
 #[derive(Debug, Clone)]
 pub struct CircuitBuild {
     pub gates: Vec<GateBuild>,

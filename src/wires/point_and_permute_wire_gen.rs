@@ -15,6 +15,11 @@ impl WireGen for PointAndPermuteWireGen {
         Self { rng }
     }
 
+    fn new_with_rng(rng: ChaCha20Rng) -> Self {
+        let rng = rng;
+        Self { rng }
+    }
+
     fn generate_input_wire(&mut self) -> Wire {
         generate_wire(&mut self.rng)
     }

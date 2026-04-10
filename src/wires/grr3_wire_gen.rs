@@ -14,6 +14,11 @@ impl WireGen for GRR3WireGen {
         let rng = crypto_utils::gen_rng();
         Self { rng }
     }
+
+    fn new_with_rng(rng: ChaCha20Rng) -> Self {
+        let rng = rng;
+        Self { rng }
+    }
     
     fn generate_input_wire(&mut self) -> Wire {
         let choice = crypto_utils::gen_bool(&mut self.rng);

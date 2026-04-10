@@ -23,6 +23,12 @@ impl WireGen for FreeXORWireGen {
         FreeXORWireGen { delta, rng }
     }
 
+    fn new_with_rng(rng: ChaCha20Rng) -> Self {
+        let mut rng = rng;
+        let delta = generate_label_lsb(&mut rng, true);
+        Self { delta, rng }
+    }
+
     fn generate_input_wire(&mut self) -> Wire {
         let delta = &self.delta;
         let w0 = generate_label(&mut self.rng);
