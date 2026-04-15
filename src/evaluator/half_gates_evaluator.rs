@@ -1,5 +1,5 @@
 use crate::{evaluator::evaluator::Evaluator};
-use crate::crypto_utils::gc_kdf_hg;
+use crate::crypto_utils::{gc_kdf_hg, gc_kdf, gc_kdf_mux};
 use num_bigint::{BigUint};
 
 pub struct HalfGatesEvaluator {
@@ -11,6 +11,24 @@ impl HalfGatesEvaluator {
         HalfGatesEvaluator {
             index: BigUint::from(0u32),
         }
+    }
+
+    pub fn evaluate_demux(&mut self, w: &BigUint, seed: &BigUint, demux: &Vec<BigUint>) -> (BigUint, BigUint) {
+        let pos = get_position(w, seed);
+        let key = gc_kdf(seed, w, self.get_index());
+        self.increment_index();
+        let output = key ^ &demux[pos];
+        let output_bytes = output.to_bytes_be();
+        let if_wire  = BigUint::from_bytes_be(&output_bytes[..16]);  // first 128 bits
+        let else_wire = BigUint::from_bytes_be(&output_bytes[16..]);  // last 128 bits
+        (if_wire, else_wire)
+    }
+
+    pub fn evaluate_mux(&mut self, wi: &BigUint, wj: &BigUint, seed: &BigUint, mux: &Vec<BigUint>) -> BigUint {
+        let pos = get_position(wi, wj);
+        let key = gc_kdf_mux(seed, wi, wj, self.get_index());
+        self.increment_index();
+        key ^ &mux[pos]
     }
 }
 
@@ -54,4 +72,10 @@ fn evaluator_half_gate(sb: bool, wi: &BigUint, wj: &BigUint, index: &BigUint, te
         ge = ge ^ te ^ wi
     }
     ge
+}
+
+fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
+    let l = wi.bit(0) as usize;
+    let r = wj.bit(0) as usize;
+    l * 2 + r
 }
