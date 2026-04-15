@@ -87,58 +87,58 @@ fn panics_if_input_wires_not_set() {
 //     }
 // }
 
-fn get_stacked_if_build() -> (CircuitBuild, Vec<GateBuild>) {
-    let mut builder = CircuitBuilder::new();
-    builder.set_input_wires(1); // Need to set to avoid failing
+// fn get_stacked_if_build() -> (CircuitBuild, Vec<GateBuild>) {
+//     let mut builder = CircuitBuilder::new();
+//     builder.set_input_wires(1); // Need to set to avoid failing
     
-    let inputs = builder.build_input_wires(3); 
-    let cond = &inputs[0];
-    let wi = &inputs[1];
-    let wj = &inputs[2];
+//     let inputs = builder.build_input_wires(3); 
+//     let cond = &inputs[0];
+//     let wi = &inputs[1];
+//     let wj = &inputs[2];
 
-    let and_0 = builder.build_and(wi, wi);
-    let and_1 = builder.build_and(wj, wj);
-    let _if_out = builder.build_stacked_if(cond, &and_0, &and_1);
+//     let and_0 = builder.build_and(wi, wi);
+//     let and_1 = builder.build_and(wj, wj);
+//     let _if_out = builder.build_stacked_if(cond, &and_0, &and_1);
 
-    let cb = builder.get_circuit_build();
-    let gates = cb.get_gates();
+//     let cb = builder.get_circuit_build();
+//     let gates = cb.get_gates();
 
-    let id_to_gate_index: HashMap<BigUint, usize> = gates.iter().enumerate().map(|(idx, gate)| (gate.wo().wire_id().clone(), idx)).collect();
-    let and_0_build = &gates[id_to_gate_index.get(and_0[0].wire_id()).unwrap().clone()];
-    let and_1_build = &gates[id_to_gate_index.get(and_1[0].wire_id()).unwrap().clone()];
+//     let id_to_gate_index: HashMap<BigUint, usize> = gates.iter().enumerate().map(|(idx, gate)| (gate.wo().wire_id().clone(), idx)).collect();
+//     let and_0_build = &gates[id_to_gate_index.get(and_0[0].wire_id()).unwrap().clone()];
+//     let and_1_build = &gates[id_to_gate_index.get(and_1[0].wire_id()).unwrap().clone()];
 
-    (cb.clone(), vec![and_0_build.clone(), and_1_build.clone()])
-}
+//     (cb.clone(), vec![and_0_build.clone(), and_1_build.clone()])
+// }
 
-fn get_nested_stacked_if_build() -> (CircuitBuild, Vec<GateBuild>) {
-    let mut builder = CircuitBuilder::new();
-    builder.set_input_wires(1); // Need to set to avoid failing
+// fn get_nested_stacked_if_build() -> (CircuitBuild, Vec<GateBuild>) {
+//     let mut builder = CircuitBuilder::new();
+//     builder.set_input_wires(1); // Need to set to avoid failing
     
-    let inputs = builder.build_input_wires(4); 
-    let cond = &inputs[0];
-    let wi = &inputs[1];
-    let wj = &inputs[2];
-    let wz = &inputs[3];
+//     let inputs = builder.build_input_wires(4); 
+//     let cond = &inputs[0];
+//     let wi = &inputs[1];
+//     let wj = &inputs[2];
+//     let wz = &inputs[3];
 
-    // First if: 
-    let and_0 = builder.build_and(wi, wi);
-    let and_1 = builder.build_and(wj, wj);
-    let if_out = builder.build_stacked_if(cond, &and_0, &and_1);
+//     // First if: 
+//     let and_0 = builder.build_and(wi, wi);
+//     let and_1 = builder.build_and(wj, wj);
+//     let if_out = builder.build_stacked_if(cond, &and_0, &and_1);
 
-    // Second if, nested
-    let and_2 = builder.build_and(&wz, &wz);
-    builder.build_stacked_if(cond, &if_out, &and_2);
+//     // Second if, nested
+//     let and_2 = builder.build_and(&wz, &wz);
+//     builder.build_stacked_if(cond, &if_out, &and_2);
 
-    let cb = builder.get_circuit_build();
-    let gates = cb.get_gates();
+//     let cb = builder.get_circuit_build();
+//     let gates = cb.get_gates();
 
-    let id_to_gate_index: HashMap<BigUint, usize> = gates.iter().enumerate().map(|(idx, gate)| (gate.wo().wire_id().clone(), idx)).collect();
-    let and_0_build = &gates[id_to_gate_index.get(and_0[0].wire_id()).unwrap().clone()];
-    let and_1_build = &gates[id_to_gate_index.get(and_1[0].wire_id()).unwrap().clone()];
-    let and_2_build = &gates[id_to_gate_index.get(and_2[0].wire_id()).unwrap().clone()];
+//     let id_to_gate_index: HashMap<BigUint, usize> = gates.iter().enumerate().map(|(idx, gate)| (gate.wo().wire_id().clone(), idx)).collect();
+//     let and_0_build = &gates[id_to_gate_index.get(and_0[0].wire_id()).unwrap().clone()];
+//     let and_1_build = &gates[id_to_gate_index.get(and_1[0].wire_id()).unwrap().clone()];
+//     let and_2_build = &gates[id_to_gate_index.get(and_2[0].wire_id()).unwrap().clone()];
 
-    (cb.clone(), vec![and_0_build.clone(), and_1_build.clone(), and_2_build.clone()])
-}
+//     (cb.clone(), vec![and_0_build.clone(), and_1_build.clone(), and_2_build.clone()])
+// }
 
 fn get_nested_stacked_if_build_with_adder() -> (CircuitBuild, Vec<GateBuild>, Vec<GateBuild>, Vec<GateBuild>, GateBuild) {
     let mut builder = CircuitBuilder::new();

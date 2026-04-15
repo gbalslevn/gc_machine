@@ -4,6 +4,8 @@ use k256::PublicKey;
 use num_bigint::{BigUint, ToBigUint};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
+use crate::circuit_builder::WireBuild;
+use crate::crypto_utils::{gc_kdf, gc_kdf_mux};
 use crate::{
     circuit_builder::CircuitBuild, gates::gate_gen::{GateGen}, ot::eg_elliptic::{self, CipherText}, wires::wire_gen::{Wire, WireGen}
 };
@@ -77,6 +79,9 @@ impl<G: GateGen> Garbler<G> {
             // Store the ciphertexts for the gate
             garbled_gates.push(table);
         }
+        for stack in &circuit_build.stacks {
+            todo!();
+        }
         Circuit::new(garbled_gates, constant_wires, garbler_inputs, evaluator_inputs, output_conversion)
     }
 
@@ -91,6 +96,40 @@ impl<G: GateGen> Garbler<G> {
             }
         }
         list
+    }
+
+    fn generate_demux(&self, input_wire: &Wire, conditional: &Wire, if_wire: &Wire, else_wire: &Wire, garbage_if_wire: &Wire, garbage_else_wire: &Wire) -> Vec<BigUint> {
+        let mut table = vec![];
+        let entry_0 = gc_kdf(input_wire.w0(), conditional.w0(), &1.to_biguint().unwrap()) ^ ((if_wire.w0() << 128) | garbage_else_wire.w0());
+        let entry_1 = gc_kdf(input_wire.w1(), conditional.w0(), &1.to_biguint().unwrap()) ^ ((if_wire.w1() << 128) | garbage_else_wire.w1());
+        let entry_2 = gc_kdf(input_wire.w0(), conditional.w1(), &1.to_biguint().unwrap()) ^ ((garbage_if_wire.w0() << 128) | else_wire.w0());
+        let entry_3 = gc_kdf(input_wire.w1(), conditional.w1(), &1.to_biguint().unwrap()) ^ ((garbage_if_wire.w1() << 128) | else_wire.w1());
+        let entry_0_pos = get_position(input_wire.w0(), conditional.w0());
+        let entry_1_pos = get_position(input_wire.w1(), conditional.w0());
+        let entry_2_pos = get_position(input_wire.w0(), conditional.w1());
+        let entry_3_pos = get_position(input_wire.w1(), conditional.w1());
+        table[entry_0_pos] = entry_0;
+        table[entry_1_pos] = entry_1;
+        table[entry_2_pos] = entry_2;
+        table[entry_3_pos] = entry_3;
+        table
+    }
+
+    fn generate_mux(&self, conditional: &Wire, if_wire: &Wire, else_wire: &Wire, garbage_if_wire: &Wire, garbage_else_wire: &Wire) -> Vec<BigUint> {
+        let mut table = vec![];
+        let entry_0 = gc_kdf_mux(conditional.w0(), if_wire.w0(), garbage_else_wire.w0(), &1.to_biguint().unwrap()) ^ ((if_wire.w0() << 128) | garbage_else_wire.w0());
+        let entry_1 = gc_kdf_mux(conditional.w0(),if_wire.w1(), garbage_else_wire.w0(), &1.to_biguint().unwrap()) ^ ((if_wire.w1() << 128) | garbage_else_wire.w1());
+        let entry_2 = gc_kdf_mux(conditional.w1(), garbage_if_wire.w0(), else_wire.w1(), &1.to_biguint().unwrap()) ^ ((garbage_if_wire.w0() << 128) | else_wire.w0());
+        let entry_3 = gc_kdf_mux(conditional.w1(), garbage_if_wire.w1(), else_wire.w1(), &1.to_biguint().unwrap()) ^ ((garbage_if_wire.w1() << 128) | else_wire.w1());
+        let entry_0_pos = get_position(if_wire.w0(), garbage_else_wire.w0());
+        let entry_1_pos = get_position(if_wire.w1(), garbage_else_wire.w1());
+        let entry_2_pos = get_position(garbage_if_wire.w1(), else_wire.w0());
+        let entry_3_pos = get_position(garbage_if_wire.w0(), else_wire.w1());
+        table[entry_0_pos] = entry_0;
+        table[entry_1_pos] = entry_1;
+        table[entry_2_pos] = entry_2;
+        table[entry_3_pos] = entry_3;
+        table
     }
 
     // Inserts the garbler and evaluators input wires
@@ -157,4 +196,10 @@ impl<G: GateGen> Garbler<G> {
         let wj_encrypted = (wj_0_ct, wj_1_ct);
         wj_encrypted
     }
+}
+
+fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
+    let l = wi.bit(0) as usize;
+    let r = wj.bit(0) as usize;
+    l * 2 + r
 }

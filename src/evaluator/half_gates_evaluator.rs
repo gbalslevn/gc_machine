@@ -15,7 +15,7 @@ impl HalfGatesEvaluator {
 
     pub fn evaluate_demux(&mut self, w: &BigUint, seed: &BigUint, demux: &Vec<BigUint>) -> (BigUint, BigUint) {
         let pos = get_position(w, seed);
-        let key = gc_kdf(seed, w, self.get_index());
+        let key = gc_kdf(w, seed, self.get_index());
         self.increment_index();
         let output = key ^ &demux[pos];
         let output_bytes = output.to_bytes_be();
