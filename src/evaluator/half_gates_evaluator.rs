@@ -1,5 +1,5 @@
 use crate::{evaluator::evaluator::Evaluator};
-use crate::crypto_utils::{gc_kdf_hg, gc_kdf};
+use crate::crypto_utils::{gc_kdf_hg, gc_kdf, gc_kdf_mux};
 use num_bigint::{BigUint};
 
 pub struct HalfGatesEvaluator {
@@ -24,6 +24,12 @@ impl HalfGatesEvaluator {
         (if_wire, else_wire)
     }
 
+    pub fn evaluate_mux(&mut self, wi: &BigUint, wj: &BigUint, seed: &BigUint, mux: &Vec<BigUint>) -> BigUint {
+        let pos = get_position(wi, wj);
+        let key = gc_kdf_mux(seed, wi, wj, self.get_index());
+        self.increment_index();
+        key ^ &mux[pos]
+    }
 }
 
 impl Evaluator for HalfGatesEvaluator {
