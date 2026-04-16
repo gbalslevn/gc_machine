@@ -11,7 +11,7 @@ pub trait WireGen {
     fn get_rng(&self) -> &ChaCha20Rng;
     fn get_seed(&self) -> [u8; 32];
     fn new_rng(&mut self);
-    fn set_rng(&mut self, seed: [u8; 32]);
+    fn set_rng(&mut self, seed: &BigUint);
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -67,8 +67,15 @@ pub fn gen_rng() -> ChaCha20Rng {
     ChaCha20Rng::from_seed(seed)
 }
 
-pub fn gen_rng_with_seed(seed: [u8; 32]) -> ChaCha20Rng {
-    ChaCha20Rng::from_seed(seed)
+pub fn gen_rng_with_seed(seed: &BigUint) -> ChaCha20Rng {
+    let seed_bytes = seed.to_bytes_le();
+
+    let mut seed_array = [0u8; 32];
+    let copy_len = seed_bytes.len().min(16);
+    seed_array[..copy_len].copy_from_slice(&seed_bytes[..copy_len]);
+    // Upper 16 bytes (128 bits) remain 0
+
+    ChaCha20Rng::from_seed(seed_array)
 }
 
 pub fn sha256(data : &[u8]) -> BigUint {

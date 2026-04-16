@@ -1,7 +1,10 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
+use crate::crypto_utils::gen_rng_with_seed;
 use crate::gates::gate_gen::{Gate, GateType, GateGen};
+use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
 use crate::wires::free_xor_wire_gen::FreeXORWireGen;
+use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
 use crate::wires::wire_gen::{Wire, WireGen};
 pub struct FreeXORGateGen {
     wire_gen: FreeXORWireGen,
@@ -15,6 +18,13 @@ impl GateGen for FreeXORGateGen {
         let wire_gen = FreeXORWireGen::new();
         FreeXORGateGen { wire_gen, index: BigUint::from(0u32), }
     }
+
+    fn new_with_seed(seed: &BigUint) -> Self {
+        let rng = gen_rng_with_seed(seed);
+        let wire_gen = FreeXORWireGen::new_with_rng(rng);
+        FreeXORGateGen { wire_gen, index: BigUint::from(0u32) }
+    }
+    
     fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire) -> Gate {
         let wo = self.wire_gen.generate_output_wire(&wi, &wj, &gate, &self.index);
         let tt = self.get_tt(&wi, &wj, &wo, &gate);

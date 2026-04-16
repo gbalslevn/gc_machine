@@ -16,6 +16,8 @@ pub enum GateType {
 pub trait GateGen {
     type W: WireGen;
     fn new() -> Self;
+
+    fn new_with_seed(seed: &BigUint) -> Self;
     fn get_wire_gen(&mut self) -> &mut Self::W;
     fn generate_gate(&mut self, gate : GateType, wi: Wire, wj: Wire) -> Gate;
     

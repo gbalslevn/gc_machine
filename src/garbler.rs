@@ -115,6 +115,7 @@ impl<G: GateGen> Garbler<G> {
         table
     }
 
+
     fn generate_mux(&self, conditional: &Wire, if_wire: &Wire, else_wire: &Wire, garbage_if_wire: &Wire, garbage_else_wire: &Wire) -> Vec<BigUint> {
         let mut table = vec![];
         let entry_0 = gc_kdf_mux(conditional.w0(), if_wire.w0(), garbage_else_wire.w0(), &1.to_biguint().unwrap()) ^ ((if_wire.w0() << 128) | garbage_else_wire.w0());

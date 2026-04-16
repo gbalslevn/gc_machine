@@ -1,6 +1,12 @@
 use crate::{evaluator::evaluator::Evaluator};
-use crate::crypto_utils::{gc_kdf_hg, gc_kdf, gc_kdf_mux};
-use num_bigint::{BigUint};
+use crate::crypto_utils::{gc_kdf_hg, gc_kdf, gc_kdf_mux, gen_rng, gen_rng_with_seed};
+use num_bigint::{BigUint, ToBigUint};
+use crate::circuit_builder::CircuitBuild;
+use crate::garbler::Circuit;
+use crate::gates::gate_gen::GateGen;
+use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
+use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
+use crate::wires::wire_gen::WireGen;
 
 pub struct HalfGatesEvaluator {
     index: BigUint,
@@ -22,6 +28,16 @@ impl HalfGatesEvaluator {
         let if_wire  = BigUint::from_bytes_be(&output_bytes[..16]);  // first 128 bits
         let else_wire = BigUint::from_bytes_be(&output_bytes[16..]);  // last 128 bits
         (if_wire, else_wire)
+    }
+
+    pub fn unstack_material(&mut self, seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, circuit_build: CircuitBuild) -> Vec<Vec<BigUint>> {
+        todo!()
+    }
+
+    pub fn generate_subcircuit(seed: &BigUint, circuit_build: CircuitBuild) -> Vec<Vec<BigUint>> {
+        // let index = 0.to_biguint().unwrap();
+        // let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);
+        todo!()
     }
 
     pub fn evaluate_mux(&mut self, wi: &BigUint, wj: &BigUint, seed: &BigUint, mux: &Vec<BigUint>) -> BigUint {
