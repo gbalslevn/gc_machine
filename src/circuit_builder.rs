@@ -222,12 +222,12 @@ impl CircuitBuilder {
         vec![self.build_gate(wi, wj, GateType::AND)]
     }
 
-    pub fn lucky_gate(&mut self, wi: &WireBuild) -> GateBuild {
-        let compute_layer = wi.ready_at_layer.clone().max(wi.ready_at_layer.clone()) + 1;
+    pub fn build_and_gate(&mut self, wi: &WireBuild, wj: &WireBuild) -> GateBuild {
+        let compute_layer = wi.ready_at_layer.clone().max(wj.ready_at_layer.clone()) + 1;
         let wo = WireBuild::new(compute_layer, self.wires_created.clone());
         self.increment_wires_created();
 
-        let gate: GateBuild = GateBuild::new(GateType::XOR, wi.clone(), wi.clone(), wo.clone());
+        let gate: GateBuild = GateBuild::new(GateType::XOR, wi.clone(), wj.clone(), wo.clone());
         self.gates.insert(wo.wire_id().clone(), gate.clone());
         gate
     }
@@ -324,14 +324,13 @@ impl CircuitBuilder {
     // }
 
     // Annotates all provided gates with the branch id
-    fn annotate_with_branch(&mut self, gates : &Vec<GateBuild>, branch_id : &usize) {
-        for gate_to_annotate in gates {
-            if let Some(gate) = self.gates.get_mut(gate_to_annotate.wo().wire_id()) {
-                gate.branches.insert(branch_id.clone());
-            }
-        }
-        
-    }
+    // fn annotate_with_branch(&mut self, gates : &Vec<GateBuild>, branch_id : &usize) {
+    //     for gate_to_annotate in gates {
+    //         if let Some(gate) = self.gates.get_mut(gate_to_annotate.wo().wire_id()) {
+    //             gate.branches.insert(branch_id.clone());
+    //         }
+    //     } 
+    // }
 
     // Builds a gate with a new id and returns the output wire which also contains when the gate should be calculated
     fn build_gate(&mut self, wi: &WireBuild, wj: &WireBuild, gate_type: GateType) -> WireBuild {
