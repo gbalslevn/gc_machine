@@ -38,7 +38,7 @@ impl BranchEntry {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CircuitBuild {
     pub gates: Vec<GateBuild>,
     pub output_wires: Vec<WireBuild>,
@@ -155,7 +155,7 @@ impl CircuitBuilder {
     /*
     Routine implementing multiplication.
      */
-    pub fn build_multiplier(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+    pub fn build_multiplier(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> Vec<WireBuild> {
         let mut partial_sums: VecDeque<Vec<WireBuild>> = VecDeque::new();
         for (index_b, bit_b) in input_wires_b.iter().enumerate() {
             let mut partial_sum: Vec<WireBuild> = Vec::new();
@@ -164,7 +164,7 @@ impl CircuitBuilder {
                 partial_sum.push(self.false_constant.clone().clone());
             }
 
-            for bit_a in &input_wires_a {
+            for bit_a in input_wires_a {
                 let and = self.build_gate(bit_a, bit_b, GateType::AND);
                 partial_sum.push(and);
             }

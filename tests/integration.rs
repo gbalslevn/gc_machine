@@ -231,7 +231,7 @@ fn evaluate_multiplier() {
 
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
 
-    circuit_builder.build_multiplier(garbler_wires, evaluator_wires);
+    circuit_builder.build_multiplier(&garbler_wires, &evaluator_wires);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // Garbler input
