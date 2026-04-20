@@ -4,7 +4,7 @@ use k256::PublicKey;
 use num_bigint::{BigUint, ToBigUint};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
-use crate::circuit_builder::WireBuild;
+use crate::circuit_builder::{SubcircuitBuild, WireBuild};
 use crate::crypto_utils::{gc_kdf, gc_kdf_mux};
 use crate::{
     circuit_builder::CircuitBuild, gates::gate_gen::{GateGen}, ot::eg_elliptic::{self, CipherText}, wires::wire_gen::{Wire, WireGen}
@@ -131,6 +131,10 @@ impl<G: GateGen> Garbler<G> {
         table[entry_2_pos] = entry_2;
         table[entry_3_pos] = entry_3;
         table
+    }
+
+    fn generate_subcircuit(&self, subcircuit: SubcircuitBuild) {
+        todo!()
     }
 
     // Inserts the garbler and evaluators input wires

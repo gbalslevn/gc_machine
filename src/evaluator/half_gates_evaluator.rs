@@ -1,12 +1,13 @@
+use std::collections::HashMap;
 use crate::{evaluator::evaluator::Evaluator};
 use crate::crypto_utils::{gc_kdf_hg, gc_kdf, gc_kdf_mux, gen_rng, gen_rng_with_seed};
 use num_bigint::{BigUint, ToBigUint};
-use crate::circuit_builder::CircuitBuild;
+use crate::circuit_builder::{CircuitBuild, SubcircuitBuild};
 use crate::garbler::Circuit;
 use crate::gates::gate_gen::GateGen;
 use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
 use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
-use crate::wires::wire_gen::WireGen;
+use crate::wires::wire_gen::{Wire, WireGen};
 
 pub struct HalfGatesEvaluator {
     index: BigUint,
@@ -30,14 +31,55 @@ impl HalfGatesEvaluator {
         (if_wire, else_wire)
     }
 
-    pub fn unstack_material(&mut self, seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, circuit_build: CircuitBuild) -> Vec<Vec<BigUint>> {
-        todo!()
+    pub fn unstack_material(&mut self, seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, subcircuit_build: SubcircuitBuild) -> Vec<Vec<BigUint>> {
+        let material = Self::generate_subcircuit(seed, subcircuit_build);
+
+        // This function makes an XOR between each garbled entry in the stacked material m_cond and the generated subcircuit
+        let unstacked_material: Vec<Vec<BigUint>> = m_cond
+            .iter()
+            .zip(material.iter())
+            .map(|(cond_row, mat_row)| {
+                cond_row
+                    .iter()
+                    .zip(mat_row.iter())
+                    .map(|(cond_val, mat_val)| cond_val ^ mat_val)
+                    .collect()
+            })
+            .collect();
+        unstacked_material
     }
 
-    pub fn generate_subcircuit(seed: &BigUint, circuit_build: CircuitBuild) -> Vec<Vec<BigUint>> {
-        // let index = 0.to_biguint().unwrap();
-        // let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);
-        todo!()
+    pub fn generate_subcircuit(seed: &BigUint, subcircuit_build: SubcircuitBuild) -> Vec<Vec<BigUint>> {
+        let index = 0.to_biguint().unwrap();
+        let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);
+
+        let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
+        let input_wires = subcircuit_build.input_wires;
+        for wirebuild in input_wires {
+            let wire = gate_gen.get_wire_gen().generate_input_wire();
+            known_wires.insert(wirebuild.wire_id().clone(), wire.clone());
+        }
+
+        let gates = subcircuit_build.gates;
+        let mut subcircuit: Vec<Vec<BigUint>> = Vec::new();
+        for gate in gates {
+            let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+            let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+
+            let new_gate = gate_gen.generate_gate(
+                gate.gate_type().clone(),
+                wi.clone(),
+                wj.clone()
+            );
+
+            let output_wire_id = gate.wo().wire_id();
+            known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
+            let table = new_gate.to_table();
+
+            // Store the ciphertexts for the gate
+            subcircuit.push(table);
+        }
+        subcircuit
     }
 
     pub fn evaluate_mux(&mut self, wi: &BigUint, wj: &BigUint, seed: &BigUint, mux: &Vec<BigUint>) -> BigUint {
