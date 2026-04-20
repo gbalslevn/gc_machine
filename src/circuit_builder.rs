@@ -20,6 +20,13 @@ pub struct CircuitBuilder {
     evaluator_wires : Vec<WireBuild>,
     output_wires: Vec<WireBuild>,
 }
+
+#[derive(Clone, Debug)]
+pub struct SubcircuitBuild {
+    pub gates: Vec<GateBuild>,
+    pub output_wires: Vec<WireBuild>,
+    pub input_wires: Vec<WireBuild>,
+}
 #[derive(Clone, Debug)]
 pub enum SubCircuit {
     Netlist(Vec<GateBuild>),
