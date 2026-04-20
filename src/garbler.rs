@@ -1,20 +1,14 @@
-use crate::circuit_builder::{BuildType, WireBuild};
+use std::collections::{HashMap, VecDeque};
+
+use crate::circuit_builder::{BuildType};
 use crate::crypto_utils::{gc_kdf, gc_kdf_mux};
-use crate::{
-    circuit_builder::CircuitBuild,
-    gates::gate_gen::GateGen,
-    ot::eg_elliptic::{self, CipherText},
-    wires::wire_gen::{Wire, WireGen},
+use crate::{circuit_builder::CircuitBuild,gates::gate_gen::GateGen,ot::eg_elliptic::{self, CipherText},wires::wire_gen::{Wire, WireGen},
 };
 use k256::PublicKey;
 use num_bigint::{BigUint, ToBigUint};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
-use crate::circuit_builder::{SubcircuitBuild, WireBuild};
-use crate::crypto_utils::{gc_kdf, gc_kdf_mux};
-use crate::{
-    circuit_builder::CircuitBuild, gates::gate_gen::{GateGen}, ot::eg_elliptic::{self, CipherText}, wires::wire_gen::{Wire, WireGen}
-};
+use crate::circuit_builder::{SubcircuitBuild};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Circuit {
