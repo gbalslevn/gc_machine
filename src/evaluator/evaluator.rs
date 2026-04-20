@@ -3,7 +3,7 @@ use num_bigint::{BigUint, ToBigUint};
 use std::collections::{HashMap, VecDeque};
 
 use crate::{
-    gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText},
+    circuit_builder::BuildType, gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText}
 };
 use crate::circuit_builder::{CircuitBuild};
 
@@ -83,17 +83,20 @@ pub trait Evaluator {
         }
 
         // Evaluate each gate
-        for (index, gate) in circuit_build.gates.iter().enumerate() {
-            let wi;
-            let wj;
-            wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-            wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
-            let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &garbled_gates[index]);
-            known_wires.insert(gate.wo().wire_id().clone(), result.clone());
-
-            // Store all result wires
-            if circuit_build.output_wires.contains(gate.wo()) {
-                result_wires.push(result.clone());
+        for (index, build) in circuit_build.builds.iter().enumerate() {
+            if build.get_type() == BuildType::Gate {
+                let gate = build.unwrap_to_gate();
+                let wi;
+                let wj;
+                wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+                wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+                let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &garbled_gates[index]);
+                known_wires.insert(gate.wo().wire_id().clone(), result.clone());
+    
+                // Store all result wires
+                if circuit_build.output_wires.contains(gate.wo()) {
+                    result_wires.push(result.clone());
+                }
             }
         }
 
