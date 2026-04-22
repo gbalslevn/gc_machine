@@ -50,15 +50,16 @@ impl HalfGatesEvaluator {
     }
 
     pub fn generate_subcircuit(seed: &BigUint, subcircuit_build: SubcircuitBuild) -> Vec<Vec<BigUint>> {
-        let index = 0.to_biguint().unwrap();
         let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);
 
         let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
-        let input_wires = subcircuit_build.input_wires;
-        for wirebuild in input_wires {
-            let wire = gate_gen.get_wire_gen().generate_input_wire();
-            known_wires.insert(wirebuild.wire_id().clone(), wire.clone());
-        }
+        let input_wire = subcircuit_build.input_wires;
+        let wire = gate_gen.get_wire_gen().generate_input_wire();
+        known_wires.insert(input_wire.wire_id().clone(), wire);
+        // for wirebuild in input_wires {
+        //     let wire = gate_gen.get_wire_gen().generate_input_wire();
+        //     known_wires.insert(wirebuild.wire_id().clone(), wire.clone());
+        // }
 
         let gates = subcircuit_build.gates;
         let mut subcircuit: Vec<Vec<BigUint>> = Vec::new();

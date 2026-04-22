@@ -9,6 +9,7 @@ use num_bigint::{BigUint, ToBigUint};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use crate::circuit_builder::{SubcircuitBuild};
+use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Circuit {
@@ -98,7 +99,18 @@ impl<G: GateGen> Garbler<G> {
                     // Store the ciphertexts for the gate
                     garbled_gates.push(table);
                 }
-                BuildType::Stack => { todo!() }
+                BuildType::Stack => {
+                    let stack = build.unwrap_to_stack();
+                    let input_wire = known_wires.get(&stack.input_wire.wire_id()).unwrap().clone();
+                    let output_wire = known_wires.get(&stack.output_wire.wire_id()).unwrap().clone();
+                    let seed = known_wires.get(&stack.conditional.wire_id()).unwrap().clone();
+
+                    let c0 = self.generate_subcircuit(seed.w0(), &stack.if_circuit);
+                    let c0_garbage = self.generate_subcircuit(seed.w1(), &stack.if_circuit);
+                    let c1 = self.generate_subcircuit(seed.w1(), &stack.else_circuit);
+                    let c1_garbage = self.generate_subcircuit(seed.w0(), &stack.else_circuit);
+
+                }
             }
         }
         Circuit::new(
@@ -196,8 +208,39 @@ impl<G: GateGen> Garbler<G> {
         table
     }
 
-    fn generate_subcircuit(&self, subcircuit: SubcircuitBuild) {
-        todo!()
+    fn generate_subcircuit(&self, seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> (Wire, Vec<Vec<BigUint>>, Wire) {
+        let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);
+
+        let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
+        let input_wire = &subcircuit_build.input_wires;
+        let wire = gate_gen.get_wire_gen().generate_input_wire();
+        known_wires.insert(input_wire.wire_id().clone(), wire);
+        // for wirebuild in input_wires {
+        //     let wire = gate_gen.get_wire_gen().generate_input_wire();
+        //     known_wires.insert(wirebuild.wire_id().clone(), wire.clone());
+        // }
+
+        let gates = &subcircuit_build.gates;
+        let mut output_wire= 0.to_biguint().unwrap();
+        let mut subcircuit: Vec<Vec<BigUint>> = Vec::new();
+        for gate in gates {
+            let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+            let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+
+            let new_gate = gate_gen.generate_gate(
+                gate.gate_type().clone(),
+                wi.clone(),
+                wj.clone()
+            );
+            let output_wire_id = gate.wo().wire_id();
+            output_wire = output_wire_id.clone();
+            known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
+            let table = new_gate.to_table();
+
+            // Store the ciphertexts for the gate
+            subcircuit.push(table);
+        }
+        (known_wires.get(input_wire.wire_id()).unwrap().clone(), subcircuit, known_wires.get(&output_wire).unwrap().clone())
     }
 
     // Inserts the garbler and evaluators input wires

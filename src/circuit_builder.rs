@@ -24,8 +24,8 @@ pub struct CircuitBuilder {
 #[derive(Clone, Debug)]
 pub struct SubcircuitBuild {
     pub gates: Vec<GateBuild>,
-    pub output_wires: Vec<WireBuild>,
-    pub input_wires: Vec<WireBuild>,
+    pub output_wires: WireBuild,
+    pub input_wires: WireBuild,
 }
 #[derive(Clone, Debug)]
 pub enum SubCircuit {
@@ -127,6 +127,8 @@ impl CircuitBuilder {
             gate.branches.push(branch_id + 1);
             self.gates.insert(gate.wo().wire_id().clone(), gate.clone());
         }
+        let c0 = SubcircuitBuild {gates: if_circuit.clone(), output_wires: if_circuit[0].wo.clone(), input_wires: if_circuit[0].wi.clone()};
+        
         
         else_circuit.sort_by_key(|gate| gate.wo().ready_at_layer);
         let else_output_layer = else_circuit[else_circuit.len() - 1].wo().ready_at_layer;
@@ -135,13 +137,15 @@ impl CircuitBuilder {
             gate.branches.push(branch_id);
             self.gates.insert(gate.wo().wire_id().clone(), gate.clone());
         }
+        let c1 = SubcircuitBuild {gates: else_circuit.clone(), output_wires: else_circuit[0].wo.clone(), input_wires: else_circuit[0].wi.clone()};
+
 
         // Create output wire
         let compute_layer = if_output_layer.clone().max(else_output_layer.clone()) + 1;
         let output_wire = WireBuild::new(compute_layer, self.wires_created.clone());
         self.increment_wires_created();
 
-        let stack_build = StackBuild { input_wire : input_wire.clone(), output_wire : output_wire.clone(), conditional : cond.clone(), if_circuit : if_circuit.clone(), else_circuit: else_circuit.clone(), id: branch_id};
+        let stack_build = StackBuild { input_wire : input_wire.clone(), output_wire : output_wire.clone(), conditional : cond.clone(), if_circuit : c0, else_circuit: c1, id: branch_id};
         self.stacks.insert(branch_id, stack_build);
         
         output.push(output_wire);
@@ -433,8 +437,8 @@ pub struct StackBuild {
     pub input_wire: WireBuild,
     pub output_wire: WireBuild,
     pub conditional: WireBuild,
-    pub if_circuit: Vec<GateBuild>,
-    pub else_circuit: Vec<GateBuild>,
+    pub if_circuit: SubcircuitBuild,
+    pub else_circuit: SubcircuitBuild,
     pub id : StackID
 }
 
