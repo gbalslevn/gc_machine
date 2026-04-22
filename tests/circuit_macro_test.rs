@@ -8,7 +8,7 @@ fn add(garbler_input: usize, evaluator_input: usize) -> usize {
 
 #[test]
 fn can_produce_adder() {
-    let cb: CircuitBuild = circuit! { add() };
+    let cb: CircuitBuild = circuit! { add };
 
     // Manual equivalent for assertion
     let mut manuel = CircuitBuilder::new();
@@ -25,7 +25,7 @@ fn multiplication(garbler_input: usize, evaluator_input: usize) -> usize {
 
 #[test]
 fn can_produce_multiplication() {
-    let cb: CircuitBuild = circuit! { multiplication() };
+    let cb: CircuitBuild = circuit! { multiplication };
 
     // Manual equivalent for assertion
     let mut manual = CircuitBuilder::new();
@@ -42,7 +42,7 @@ fn is_equal(garbler_input: usize, evaluator_input: usize) -> bool {
 
 #[test]
 fn can_produce_is_equal() {
-    let cb: CircuitBuild = circuit! { is_equal() };
+    let cb: CircuitBuild = circuit! { is_equal };
 
     // Manual equivalent for assertion
     let mut manual = CircuitBuilder::new();
