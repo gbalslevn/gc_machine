@@ -1,13 +1,6 @@
-use std::collections::HashMap;
 use crate::{evaluator::evaluator::Evaluator};
-use crate::crypto_utils::{gc_kdf_hg, gc_kdf, gc_kdf_mux, gen_rng, gen_rng_with_seed};
-use num_bigint::{BigUint, ToBigUint};
-use crate::circuit_builder::{CircuitBuild, SubcircuitBuild};
-use crate::garbler::Circuit;
-use crate::gates::gate_gen::GateGen;
-use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
-use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
-use crate::wires::wire_gen::{Wire, WireGen};
+use crate::crypto_utils::{gc_kdf_hg};
+use num_bigint::{BigUint};
 
 pub struct HalfGatesEvaluator {
     index: BigUint,

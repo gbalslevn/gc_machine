@@ -2,14 +2,14 @@ use std::cmp::max;
 use std::ops::{Shr};
 use std::sync::Arc;
 use std::time::Duration;
-use gc_machine::circuit_builder::{self, CircuitBuilder};
+use gc_machine::circuit_builder::{CircuitBuilder};
 use gc_machine::evaluator::evaluator::Evaluator;
 use gc_machine::evaluator::free_xor_evaluator::FreeXOREvaluator;
 use gc_machine::evaluator::grr3_evaluator::GRR3Evaluator;
 use gc_machine::evaluator::half_gates_evaluator::HalfGatesEvaluator;
 use gc_machine::evaluator::original_evaluator::OriginalEvaluator;
 use gc_machine::evaluator::point_and_permute_evaluator::PointAndPermuteEvaluator;
-use gc_machine::garbler::{Circuit, Garbler};
+use gc_machine::garbler::{Garbler};
 use gc_machine::gates::free_xor_gate_gen::FreeXORGateGen;
 use gc_machine::gates::grr3_gate_gen::GRR3GateGen;
 use gc_machine::gates::half_gates_gate_gen::HalfGatesGateGen;
@@ -213,6 +213,19 @@ fn can_evaluate_stacked_if_circuit() {
     let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
     assert_eq!(result, false as u32) 
 }
+
+#[test]
+fn can_evaluate_dynamically_reassigning_a_value() {
+    // Should do, this ensures we can handle multiple wire input
+    // let x = 2;
+    // if(true) {
+    //   x = 4
+    // } else {
+    //   x = 6
+    // }
+}
+
+
 
 #[track_caller]
 fn evaluate_is_equal<G, E>(a : BigUint, b : BigUint, expected_result : bool, garbler : &mut Garbler<G>, evaluator : &mut E) where G: GateGen, E: Evaluator, {

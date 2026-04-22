@@ -3,7 +3,7 @@ use num_bigint::{BigUint, ToBigUint};
 use std::collections::{HashMap, VecDeque};
 
 use crate::{
-    circuit_builder::{BuildType, GateBuild, SubcircuitBuild}, crypto_utils::{gc_kdf, gc_kdf_mux}, garbler::{Circuit, Stack}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self, CipherText}, wires::wire_gen::{Wire, WireGen}
+    circuit_builder::{BuildType, SubcircuitBuild}, crypto_utils::{gc_kdf, gc_kdf_mux}, garbler::{Circuit}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self}, wires::wire_gen::{Wire, WireGen}
 };
 use crate::circuit_builder::{CircuitBuild};
 

@@ -117,9 +117,9 @@ impl<G: GateGen> Garbler<G> {
                     let seed = known_wires.get(&stack.conditional.wire_id()).unwrap().clone();
 
                     let (c0_input_wire,c0,c0_output_wire ) = self.generate_subcircuit(seed.w0(), &stack.if_circuit);
-                    let (c0_garbage_input_wire,c0_garbage,c0_garbage_output_wire ) = self.generate_subcircuit(seed.w1(), &stack.if_circuit);
+                    let (c0_garbage_input_wire, __c0_garbage,c0_garbage_output_wire ) = self.generate_subcircuit(seed.w1(), &stack.if_circuit);
                     let (c1_input_wire,c1,c1_output_wire ) = self.generate_subcircuit(seed.w1(), &stack.else_circuit);
-                    let (c1_garbage_input_wire,c1_garbage,c1_garbage_output_wire ) = self.generate_subcircuit(seed.w0(), &stack.else_circuit);
+                    let (c1_garbage_input_wire, __c1_garbage,c1_garbage_output_wire ) = self.generate_subcircuit(seed.w0(), &stack.else_circuit);
 
                     let demux = self.generate_demux(&input_wire, &seed, &c0_input_wire, &c1_input_wire, &c0_garbage_input_wire, &c1_garbage_input_wire);
                     let stacked_m = self.stack_material(&c0, &c1);

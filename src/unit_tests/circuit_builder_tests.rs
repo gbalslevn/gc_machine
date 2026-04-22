@@ -1,6 +1,4 @@
-use std::{cmp::max, collections::{HashMap, HashSet}};
-use num_bigint::{BigUint, ToBigUint};
-use crate::circuit_builder::{CircuitBuild, CircuitBuilder, GateBuild};
+use crate::circuit_builder::{CircuitBuild, CircuitBuilder};
 
 #[test]
 fn builds_are_sorted_by_increasing_output_layer() {
@@ -31,7 +29,6 @@ fn one_stacked_if_creates_2_branches() {
 
     // We expect a single build, a stack, with two branches of id 0 and 1
     assert_eq!(builds.len(), 1);
-    let stack = builds[0].unwrap_to_stack();
 }
 
 // #[test]

@@ -2,8 +2,6 @@ use num_bigint::BigUint;
 use crate::crypto_utils;
 use crate::crypto_utils::gen_rng_with_seed;
 use crate::gates::gate_gen::{Gate, GateType, GateGen};
-use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
-use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
 use crate::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
 use crate::wires::wire_gen::{Wire, WireGen};
 

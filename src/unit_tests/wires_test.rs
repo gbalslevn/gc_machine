@@ -1,5 +1,4 @@
 use num_bigint::{BigUint};
-use rand_chacha::ChaCha20Rng;
 use crate::crypto_utils::{self, gc_kdf_128, gc_kdf_hg, gen_rng, gen_rng_with_seed, generate_label, generate_label_lsb};
 use crate::gates::gate_gen::GateType;
 use crate::wires::free_xor_wire_gen::FreeXORWireGen;

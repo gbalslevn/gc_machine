@@ -7,8 +7,6 @@ use crate::wires::original_wire_gen::OriginalWireGen;
 use crate::wires::wire_gen::{Wire, WireGen};
 
 use crate::gates::gate_gen::{Gate, GateType, GateGen};
-use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
-use crate::wires::half_gates_wire_gen::HalfGatesWireGen;
 
 #[derive(Clone)]
 pub struct OriginalGateGen {
