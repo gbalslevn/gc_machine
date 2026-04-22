@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, error::Error, sync::Arc};
+use std::{collections::{VecDeque}, error::Error, sync::Arc};
 
 use futures::{AsyncReadExt, AsyncWriteExt, StreamExt, lock::Mutex};
 use k256::{PublicKey, SecretKey};
@@ -149,7 +149,7 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
                 let mut evaluator = self.evaluator.lock().await;
                 let context = self.get_circuit_context().await;
 
-                let result = evaluator.evaluate_circuit(&context.build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &context.evaluator_keys, &circuit.output_conversion);
+                let result = evaluator.evaluate_circuit(&context.build, circuit, &context.evaluator_keys);
                 self.reset_circuit_context().await;
                 Response::GCResult(result)
             }

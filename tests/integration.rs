@@ -9,7 +9,7 @@ use gc_machine::evaluator::grr3_evaluator::GRR3Evaluator;
 use gc_machine::evaluator::half_gates_evaluator::HalfGatesEvaluator;
 use gc_machine::evaluator::original_evaluator::OriginalEvaluator;
 use gc_machine::evaluator::point_and_permute_evaluator::PointAndPermuteEvaluator;
-use gc_machine::garbler::Garbler;
+use gc_machine::garbler::{Circuit, Garbler};
 use gc_machine::gates::free_xor_gate_gen::FreeXORGateGen;
 use gc_machine::gates::grr3_gate_gen::GRR3GateGen;
 use gc_machine::gates::half_gates_gate_gen::HalfGatesGateGen;
@@ -159,7 +159,7 @@ fn can_evaulate_naive_if_circuit() {
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect true to return as a = b
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
     assert_eq!(result, true as u32);
     
     // **** Evaluate for false case ****
@@ -170,7 +170,7 @@ fn can_evaulate_naive_if_circuit() {
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect false to return as c != d
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
     assert_eq!(result, false as u32) 
 }
 
@@ -183,13 +183,12 @@ fn can_evaluate_stacked_if_circuit() {
 
     // Create circuit build which from a function computes true if garblers and evaluators inputs are equal. Else it returns false. 
     let required_bits = 6; //  Enable working with numbers up to 64
-    let stack_wire = circuit_builder.build_input_wires(1)[0].clone();
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
     let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires); // is_equal is true as 32==32
     let true_case = circuit_builder.build_and_gate(&is_equal, &is_equal); // 1 AND 1 = 1
     let false_case = circuit_builder.build_and_gate(&is_equal, &is_equal); // 0 AND 0 = 0
     
-    circuit_builder.build_stacked_if(&is_equal, &stack_wire, &mut vec![true_case], &mut vec![false_case]);
+    circuit_builder.build_stacked_if(&is_equal, &is_equal, &mut vec![true_case], &mut vec![false_case]);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // **** Evaluate for true case ****
@@ -200,7 +199,7 @@ fn can_evaluate_stacked_if_circuit() {
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect true to return as a = b
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
     assert_eq!(result, true as u32);
     
     // **** Evaluate for false case ****
@@ -211,7 +210,7 @@ fn can_evaluate_stacked_if_circuit() {
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect false to return as c != d
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
     assert_eq!(result, false as u32) 
 }
 
@@ -231,7 +230,7 @@ fn evaluate_is_equal<G, E>(a : BigUint, b : BigUint, expected_result : bool, gar
 
     // Garbler garbles and evaluator evaluates
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
 
     assert_eq!(result, expected_result as u32);
 }
@@ -262,7 +261,7 @@ fn evaluate_adder() {
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
 
     // Evaluate circuit
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
 
     assert_eq!(result, 45801);
 }
@@ -293,7 +292,7 @@ fn evaluate_multiplier() {
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
 
     // Evaluate circuit
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
 
     assert_eq!(result, 1522756);
 
@@ -328,7 +327,7 @@ fn can_add_numbers_of_unequal_bitlength() {
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
 
     // Evaluate circuit
-    let result = evaluator.evaluate_circuit(&circuit_build, &circuit.gates, &circuit.constant_wires, &circuit.garbler_input, &circuit.evaluator_input, &evaluator_decrypt_values, &circuit.output_conversion);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
 
     assert_eq!(result.to_biguint().unwrap(), two_bit_number);
 }

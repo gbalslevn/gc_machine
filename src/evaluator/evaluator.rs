@@ -3,7 +3,7 @@ use num_bigint::{BigUint, ToBigUint};
 use std::collections::{HashMap, VecDeque};
 
 use crate::{
-    circuit_builder::BuildType, gates::gate_gen::GateType, ot::eg_elliptic::{self, CipherText}
+    circuit_builder::{BuildType, GateBuild, SubcircuitBuild}, crypto_utils::{gc_kdf, gc_kdf_mux}, garbler::{Circuit, Stack}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self, CipherText}, wires::wire_gen::{Wire, WireGen}
 };
 use crate::circuit_builder::{CircuitBuild};
 
@@ -41,36 +41,32 @@ pub trait Evaluator {
     fn evaluate_circuit(
         &mut self,
         circuit_build: &CircuitBuild,
-        garbled_gates: &Vec<Vec<BigUint>>,
-        constant_wires: &Vec<BigUint>,
-        garbler_input: &HashMap<BigUint, BigUint>,
-        evaluator_input: &HashMap<BigUint, (CipherText, CipherText)>,
+        circuit: Circuit,
         secret_keys: &Vec<(SecretKey, u8)>,
-        new_conversion_table: &Vec<[(BigUint, u8); 2]>
     ) -> u32 {
         let mut known_wires: HashMap<BigUint, BigUint> = HashMap::new(); // id, wire
         let mut result_wires: Vec<BigUint> = Vec::new();
 
-        if secret_keys.len() != evaluator_input.len() {
+        if secret_keys.len() != circuit.evaluator_input.len() {
             panic!("Evaluator input length and its secret keys length must be equal")
         }
 
         // Insert constant values
-        known_wires.insert(0.to_biguint().unwrap(), constant_wires[0].to_biguint().unwrap());
-        known_wires.insert(1.to_biguint().unwrap(), constant_wires[1].to_biguint().unwrap());
+        known_wires.insert(0.to_biguint().unwrap(), circuit.constant_wires[0].to_biguint().unwrap());
+        known_wires.insert(1.to_biguint().unwrap(), circuit.constant_wires[1].to_biguint().unwrap());
 
         // Insert garblers input wires
-        let garbler_hash_keys = garbler_input.keys().collect::<Vec<_>>();
+        let garbler_hash_keys = circuit.garbler_input.keys().collect::<Vec<_>>();
         for wire_id in garbler_hash_keys {
-            let wire = garbler_input.get(wire_id);
+            let wire = circuit.garbler_input.get(wire_id);
             known_wires.insert(wire_id.clone(), wire.unwrap().clone());
         }
         // Insert evaluator wires
-        let mut evaluator_hash_keys = evaluator_input.keys().collect::<Vec<_>>();
+        let mut evaluator_hash_keys = circuit.evaluator_input.keys().collect::<Vec<_>>();
         evaluator_hash_keys.sort();
         let mut secret_keys_iterator = 0;
         for  key in evaluator_hash_keys {
-            let evaluator_ciphers = evaluator_input.get(key).unwrap();
+            let evaluator_ciphers = circuit.evaluator_input.get(key).unwrap();
             let evaluator_choice = secret_keys[secret_keys_iterator].1.clone();
             let evaluator_cipher = match evaluator_choice {
                 0 => &evaluator_ciphers.0,
@@ -84,23 +80,56 @@ pub trait Evaluator {
 
         // Evaluate each gate
         for (index, build) in circuit_build.builds.iter().enumerate() {
-            if build.get_type() == BuildType::Gate {
-                let gate = build.unwrap_to_gate();
-                let wi;
-                let wj;
-                wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-                wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
-                let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &garbled_gates[index]);
-                known_wires.insert(gate.wo().wire_id().clone(), result.clone());
-    
-                // Store all result wires
-                if circuit_build.output_wires.contains(gate.wo()) {
-                    result_wires.push(result.clone());
+            match build.get_type() {
+                BuildType::Gate => {
+                    let gate = build.unwrap_to_gate();
+                    let wi;
+                    let wj;
+                    wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+                    wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+                    let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &circuit.gates[index]);
+                    known_wires.insert(gate.wo().wire_id().clone(), result.clone());
+        
+                    // Store all result wires
+                    if circuit_build.output_wires.contains(gate.wo()) {
+                        result_wires.push(result.clone());
+                    }
+                }
+                BuildType::Stack => {
+                    let stack_build = build.unwrap_to_stack();
+                    let stack = circuit.stacks.get(&stack_build.id.to_biguint().unwrap()).unwrap();
+                    let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap();
+                    let input_wire = known_wires.get(stack_build.input_wire.wire_id()).unwrap();
+                    
+                    let (c0_input, c1_input) = self.evaluate_demux(input_wire, seed, &stack.demux);
+                    let c0 = unstack_material(seed, &stack.stacked_m, &stack_build.if_circuit);
+                    let c1 = unstack_material(seed, &stack.stacked_m, &stack_build.else_circuit);
+                    let evaluated_c0 = self.evaluate_subcircuit(c0_input, c0, &stack_build.if_circuit);
+                    let evaluated_c1 = self.evaluate_subcircuit(c1_input, c1, &stack_build.else_circuit);
+                    let mux_out = self.evaluate_mux(&evaluated_c0, &evaluated_c1, seed, &stack.mux);
+                    known_wires.insert(stack_build.output_wire.wire_id().clone(), mux_out.clone());
+                    if circuit_build.output_wires.contains(&stack_build.output_wire) {
+                        result_wires.push(mux_out.clone());
+                    }
                 }
             }
         }
 
-        Self::interpret_result(result_wires, &new_conversion_table)
+        Self::interpret_result(result_wires, &circuit.output_conversion)
+    }
+
+    fn evaluate_subcircuit(&mut self, input_wire: BigUint, subcircuit_tables: Vec<Vec<BigUint>>, subcircuit_build : &SubcircuitBuild) -> BigUint {
+        let mut known_wires : HashMap<BigUint, BigUint> = HashMap::new();
+        known_wires.insert(subcircuit_build.input_wires.wire_id().clone(), input_wire);
+        let mut output = BigUint::ZERO;
+        for (index, gate) in subcircuit_build.gates.iter().enumerate() {
+            let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+            let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+            let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &subcircuit_tables[index]);
+            known_wires.insert(gate.wo().wire_id().clone(), result.clone());
+            output = result
+        }
+        output
     }
 
     fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>) -> u32 {
@@ -142,6 +171,83 @@ pub trait Evaluator {
 
         (input_choices, decrypt_choices)
     }
+
+    fn evaluate_demux(&mut self, w: &BigUint, seed: &BigUint, demux: &Vec<BigUint>) -> (BigUint, BigUint) {
+        let pos = get_position(w, seed);
+        let key = gc_kdf(w, seed, self.get_index());
+        self.increment_index();
+        let output = key ^ &demux[pos];
+        let output_bytes = output.to_bytes_be();
+        let if_wire  = BigUint::from_bytes_be(&output_bytes[..16]);  // first 128 bits
+        let else_wire = BigUint::from_bytes_be(&output_bytes[16..]);  // last 128 bits
+        (if_wire, else_wire)
+    }
+
+    fn evaluate_mux(&mut self, wi: &BigUint, wj: &BigUint, seed: &BigUint, mux: &Vec<BigUint>) -> BigUint {
+        let pos = get_position(wi, wj);
+        let key = gc_kdf_mux(seed, wi, wj, self.get_index());
+        self.increment_index();
+        key ^ &mux[pos]
+    }
+
     fn increment_index(&mut self);
     fn get_index(&self) -> &BigUint;
 }
+
+fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
+    let l = wi.bit(0) as usize;
+    let r = wj.bit(0) as usize;
+    l * 2 + r
+}
+
+fn unstack_material(seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, subcircuit_build: &SubcircuitBuild) -> Vec<Vec<BigUint>> {
+        let material = generate_subcircuit(seed, subcircuit_build);
+
+        // This function makes an XOR between each garbled entry in the stacked material m_cond and the generated subcircuit
+        let unstacked_material: Vec<Vec<BigUint>> = m_cond
+            .iter()
+            .zip(material.iter())
+            .map(|(cond_row, mat_row)| {
+                cond_row
+                    .iter()
+                    .zip(mat_row.iter())
+                    .map(|(cond_val, mat_val)| cond_val ^ mat_val)
+                    .collect()
+            })
+            .collect();
+        unstacked_material
+    }
+
+    fn generate_subcircuit(seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> Vec<Vec<BigUint>> {
+        let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);
+
+        let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
+        let input_wire = &subcircuit_build.input_wires;
+        let wire = gate_gen.get_wire_gen().generate_input_wire();
+        known_wires.insert(input_wire.wire_id().clone(), wire);
+        // for wirebuild in input_wires {
+        //     let wire = gate_gen.get_wire_gen().generate_input_wire();
+        //     known_wires.insert(wirebuild.wire_id().clone(), wire.clone());
+        // }
+
+        let gates = &subcircuit_build.gates;
+        let mut subcircuit: Vec<Vec<BigUint>> = Vec::new();
+        for gate in gates {
+            let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+            let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+
+            let new_gate = gate_gen.generate_gate(
+                gate.gate_type().clone(),
+                wi.clone(),
+                wj.clone()
+            );
+
+            let output_wire_id = gate.wo().wire_id();
+            known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
+            let table = new_gate.to_table();
+
+            // Store the ciphertexts for the gate
+            subcircuit.push(table);
+        }
+        subcircuit
+    }

@@ -18,6 +18,14 @@ pub struct Circuit {
     pub garbler_input: HashMap<BigUint, BigUint>,
     pub evaluator_input: HashMap<BigUint, (CipherText, CipherText)>,
     pub output_conversion: Vec<[(BigUint, u8); 2]>,
+    pub stacks: HashMap<BigUint, Stack>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Stack {
+    pub demux: Vec<BigUint>,
+    pub stacked_m: Vec<Vec<BigUint>>,
+    pub mux: Vec<BigUint>,
 }
 
 impl Circuit {
@@ -27,6 +35,7 @@ impl Circuit {
         garbler_input: HashMap<BigUint, BigUint>,
         evaluator_input: HashMap<BigUint, (CipherText, CipherText)>,
         output_conversion: Vec<[(BigUint, u8); 2]>,
+        stacks: HashMap<BigUint, Stack>
     ) -> Self {
         Circuit {
             gates,
@@ -34,6 +43,7 @@ impl Circuit {
             garbler_input,
             evaluator_input,
             output_conversion,
+            stacks,
         }
     }
 }
@@ -57,6 +67,7 @@ impl<G: GateGen> Garbler<G> {
             panic!("Garbler and evaluator input length must be equal")
         }
         let mut garbled_gates: Vec<Vec<BigUint>> = Vec::new();
+        let mut stacks : HashMap<BigUint, Stack> = HashMap::new();
         let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
         let mut wi;
         let mut wj;
@@ -102,14 +113,18 @@ impl<G: GateGen> Garbler<G> {
                 BuildType::Stack => {
                     let stack = build.unwrap_to_stack();
                     let input_wire = known_wires.get(&stack.input_wire.wire_id()).unwrap().clone();
-                    let output_wire = known_wires.get(&stack.output_wire.wire_id()).unwrap().clone();
+                    // let output_wire = known_wires.get(&stack.output_wire.wire_id()).unwrap().clone();
                     let seed = known_wires.get(&stack.conditional.wire_id()).unwrap().clone();
 
-                    let c0 = self.generate_subcircuit(seed.w0(), &stack.if_circuit);
-                    let c0_garbage = self.generate_subcircuit(seed.w1(), &stack.if_circuit);
-                    let c1 = self.generate_subcircuit(seed.w1(), &stack.else_circuit);
-                    let c1_garbage = self.generate_subcircuit(seed.w0(), &stack.else_circuit);
+                    let (c0_input_wire,c0,c0_output_wire ) = self.generate_subcircuit(seed.w0(), &stack.if_circuit);
+                    let (c0_garbage_input_wire,c0_garbage,c0_garbage_output_wire ) = self.generate_subcircuit(seed.w1(), &stack.if_circuit);
+                    let (c1_input_wire,c1,c1_output_wire ) = self.generate_subcircuit(seed.w1(), &stack.else_circuit);
+                    let (c1_garbage_input_wire,c1_garbage,c1_garbage_output_wire ) = self.generate_subcircuit(seed.w0(), &stack.else_circuit);
 
+                    let demux = self.generate_demux(&input_wire, &seed, &c0_input_wire, &c1_input_wire, &c0_garbage_input_wire, &c1_garbage_input_wire);
+                    let stacked_m = self.stack_material(&c0, &c1);
+                    let mux = self.generate_mux(&seed, &c0_output_wire, &c1_output_wire, &c0_garbage_output_wire, &c1_garbage_output_wire);
+                    stacks.insert(stack.id.to_biguint().unwrap(), Stack {demux, stacked_m, mux});
                 }
             }
         }
@@ -119,7 +134,24 @@ impl<G: GateGen> Garbler<G> {
             garbler_inputs,
             evaluator_inputs,
             output_conversion,
+            stacks
         )
+    }
+
+    pub fn stack_material(&mut self, c0: &Vec<Vec<BigUint>>, c1: &Vec<Vec<BigUint>>) -> Vec<Vec<BigUint>> {
+        // This function makes an XOR between each garbled entry in the stacked material m_cond and the generated subcircuit
+        let stacked_material: Vec<Vec<BigUint>> = c0
+            .iter()
+            .zip(c1.iter())
+            .map(|(c0_row, c1_row)| {
+                c0_row
+                    .iter()
+                    .zip(c1_row.iter())
+                    .map(|(c0_val, c1_val)| c0_val ^ c1_val)
+                    .collect()
+            })
+            .collect();
+        stacked_material
     }
 
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {
@@ -144,7 +176,8 @@ impl<G: GateGen> Garbler<G> {
         garbage_if_wire: &Wire,
         garbage_else_wire: &Wire,
     ) -> Vec<BigUint> {
-        let mut table = vec![];
+        let mut table = vec![BigUint::from(0u8); 4];
+
         let entry_0 = gc_kdf(input_wire.w0(), conditional.w0(), &1.to_biguint().unwrap())
             ^ ((if_wire.w0() << 128) | garbage_else_wire.w0());
         let entry_1 = gc_kdf(input_wire.w1(), conditional.w0(), &1.to_biguint().unwrap())
@@ -172,7 +205,7 @@ impl<G: GateGen> Garbler<G> {
         garbage_if_wire: &Wire,
         garbage_else_wire: &Wire,
     ) -> Vec<BigUint> {
-        let mut table = vec![];
+        let mut table = vec![BigUint::from(0u8); 4];
         let entry_0 = gc_kdf_mux(
             conditional.w0(),
             if_wire.w0(),
