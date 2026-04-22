@@ -42,6 +42,14 @@ fn inner_circuit_fn(item: TokenStream) -> TokenStream {
         .into();
     }
     let ret_ty = &input.sig.output;
+    if ret_ty == &syn::ReturnType::Default {
+        return syn::Error::new(
+        fn_name.span(),
+        "#[circuit_fn] requires an explicit return type, e.g. `-> Vec<u8>`",
+    )
+    .to_compile_error()
+    .into();
+    }
     let fn_body = &input.block;
 
     let param_idents: Vec<Ident> = params
