@@ -83,11 +83,9 @@ pub trait Evaluator {
             match build.get_type() {
                 BuildType::Gate => {
                     let gate = build.unwrap_to_gate();
-                    let wi;
-                    let wj;
-                    wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-                    wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
-                    let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &circuit.gates[index]);
+                    let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+                    let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+                    let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &circuit.gates[index]); // Be careful, we might not be able to use index anymore if the builds also contains stacks. Perhaps use hashmap instead
                     known_wires.insert(gate.wo().wire_id().clone(), result.clone());
         
                     // Store all result wires
@@ -98,18 +96,29 @@ pub trait Evaluator {
                 BuildType::Stack => {
                     let stack_build = build.unwrap_to_stack();
                     let stack = circuit.stacks.get(&stack_build.id.to_biguint().unwrap()).unwrap();
-                    let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap();
-                    let input_wire = known_wires.get(stack_build.input_wire.wire_id()).unwrap();
+                    let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap().clone();
+                    let c0 = unstack_material(&seed, &stack.stacked_m, &stack_build.if_circuit, known_wires.clone());
+                    let c1 = unstack_material(&seed, &stack.stacked_m, &stack_build.else_circuit, known_wires.clone());
                     
-                    let (c0_input, c1_input) = self.evaluate_demux(input_wire, seed, &stack.demux);
-                    let c0 = unstack_material(seed, &stack.stacked_m, &stack_build.if_circuit);
-                    let c1 = unstack_material(seed, &stack.stacked_m, &stack_build.else_circuit);
-                    let evaluated_c0 = self.evaluate_subcircuit(c0_input, c0, &stack_build.if_circuit);
-                    let evaluated_c1 = self.evaluate_subcircuit(c1_input, c1, &stack_build.else_circuit);
-                    let mux_out = self.evaluate_mux(&evaluated_c0, &evaluated_c1, seed, &stack.mux);
-                    known_wires.insert(stack_build.output_wire.wire_id().clone(), mux_out.clone());
-                    if circuit_build.output_wires.contains(&stack_build.output_wire) {
-                        result_wires.push(mux_out.clone());
+                    // Get all input wires to the two circuits from demux
+                    let mut c0_inputs = vec![];
+                    let mut c1_inputs = vec![];
+                    for i in 0..stack_build.input_wires.len() {
+                        let input_wire_id = stack_build.input_wires[i].wire_id();
+                        let input_wire = known_wires.get(input_wire_id).unwrap().clone();
+                        let (c0_input, c1_input) = self.evaluate_demux(&input_wire, &seed, &stack.demux);
+                        c0_inputs.push(c0_input);
+                        c1_inputs.push(c1_input);
+                    }
+                    let evaluated_c0 = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.if_circuit);
+                    let evaluated_c1 = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.else_circuit);
+                    for i in 0..evaluated_c0.len() {
+                        let mux_out = self.evaluate_mux(&evaluated_c0[i], &evaluated_c1[i], &seed, &stack.mux);
+                        let output_wire = stack_build.output_wires[i].clone();
+                        known_wires.insert(output_wire.wire_id().clone(), mux_out.clone());
+                        if circuit_build.output_wires.contains(&output_wire) {
+                            result_wires.push(mux_out.clone());
+                        }
                     }
                 }
             }
@@ -118,16 +127,29 @@ pub trait Evaluator {
         Self::interpret_result(result_wires, &circuit.output_conversion)
     }
 
-    fn evaluate_subcircuit(&mut self, input_wire: BigUint, subcircuit_tables: Vec<Vec<BigUint>>, subcircuit_build : &SubcircuitBuild) -> BigUint {
+    fn evaluate_subcircuit(&mut self, input_wires: Vec<BigUint>, subcircuit_tables: Vec<Vec<BigUint>>, subcircuit_build : &SubcircuitBuild) -> Vec<BigUint> {
         let mut known_wires : HashMap<BigUint, BigUint> = HashMap::new();
-        known_wires.insert(subcircuit_build.input_wires.wire_id().clone(), input_wire);
-        let mut output = BigUint::ZERO;
-        for (index, gate) in subcircuit_build.gates.iter().enumerate() {
-            let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-            let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
-            let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &subcircuit_tables[index]);
-            known_wires.insert(gate.wo().wire_id().clone(), result.clone());
-            output = result
+        for i in 0..input_wires.len() {
+            known_wires.insert(subcircuit_build.input_wires[i].wire_id().clone(), input_wires[i].clone());
+        }
+        let mut output = vec![];
+        for (index, build) in subcircuit_build.builds.iter().enumerate() {
+            match build.get_type() {
+                BuildType::Gate => {
+                    let gate = build.unwrap_to_gate();
+                    let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+                    let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+                    let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &subcircuit_tables[index]);
+                    let output_wire_id = gate.wo().wire_id().clone();
+                    known_wires.insert(output_wire_id, result.clone());
+                    if subcircuit_build.output_wires.contains(gate.wo()) {
+                        output.push(result);
+                    }
+                }
+                BuildType::Stack => {
+
+                }
+            }
         }
         output
     }
@@ -200,7 +222,7 @@ fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
     l * 2 + r
 }
 
-fn unstack_material(seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, subcircuit_build: &SubcircuitBuild) -> Vec<Vec<BigUint>> {
+fn unstack_material(seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, subcircuit_build: &SubcircuitBuild, known_wires : HashMap<BigUint, BigUint>) -> Vec<Vec<BigUint>> {
         let material = generate_subcircuit(seed, subcircuit_build);
 
         // This function makes an XOR between each garbled entry in the stacked material m_cond and the generated subcircuit
@@ -218,36 +240,89 @@ fn unstack_material(seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, subcircuit_build
         unstacked_material
     }
 
-    fn generate_subcircuit(seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> Vec<Vec<BigUint>> {
+    fn generate_subcircuit(seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> Vec<Vec<BigUint>> { // make a subcircuit datatype
         let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);
 
         let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
-        let input_wire = &subcircuit_build.input_wires;
-        let wire = gate_gen.get_wire_gen().generate_input_wire();
-        known_wires.insert(input_wire.wire_id().clone(), wire);
-        // for wirebuild in input_wires {
-        //     let wire = gate_gen.get_wire_gen().generate_input_wire();
-        //     known_wires.insert(wirebuild.wire_id().clone(), wire.clone());
-        // }
-
-        let gates = &subcircuit_build.gates;
-        let mut subcircuit: Vec<Vec<BigUint>> = Vec::new();
-        for gate in gates {
-            let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-            let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
-
-            let new_gate = gate_gen.generate_gate(
-                gate.gate_type().clone(),
-                wi.clone(),
-                wj.clone()
-            );
-
-            let output_wire_id = gate.wo().wire_id();
-            known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
-            let table = new_gate.to_table();
-
-            // Store the ciphertexts for the gate
-            subcircuit.push(table);
+        let input_wires = &subcircuit_build.input_wires;
+        
+        // insert all input wires
+        for input_wire in input_wires {
+            let wire = gate_gen.get_wire_gen().generate_input_wire();
+            known_wires.insert(input_wire.wire_id().clone(), wire);
+            println!("Inserted wire {}", input_wire.wire_id());
         }
+
+        let builds = &subcircuit_build.builds;
+        let mut subcircuit: Vec<Vec<BigUint>> = vec![];
+        for build in builds {
+            match build.get_type() {
+                BuildType::Gate => {
+                    let gate = build.unwrap_to_gate();
+                    println!("Trying to retrieve {}", gate.wi().wire_id());
+                    let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+                    let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+        
+                    let new_gate = gate_gen.generate_gate(
+                        gate.gate_type().clone(),
+                        wi.clone(),
+                        wj.clone()
+                    );
+                    let output_wire_id = gate.wo().wire_id();
+                    known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
+                    let table = new_gate.to_table();
+        
+                    // Store the ciphertexts for the gate
+                    subcircuit.push(table);
+                }
+                BuildType::Stack => {
+                    todo!("Handle if there is a nested stack")
+                }
+            }
+        }
+        // let mut input_wires = vec![];
+        // let mut output_wires = vec![];
+        // for wire_build in &subcircuit_build.input_wires {
+        //     let input_wire = known_wires.get(wire_build.wire_id()).unwrap();
+        //     input_wires.push(input_wire.clone());
+        // }
+        // for wire_build in &subcircuit_build.output_wires {
+        //     let output_wire = known_wires.get(wire_build.wire_id()).unwrap();
+        //     output_wires.push(output_wire.clone());
+        // }
         subcircuit
     }
+
+    // fn generate_subcircuit(seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> Vec<Vec<BigUint>> {
+    //     let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);
+
+    //     let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
+    //     let input_wire = &subcircuit_build.input_wires;
+    //     let wire = gate_gen.get_wire_gen().generate_input_wire();
+    //     known_wires.insert(input_wire.wire_id().clone(), wire);
+    //     // for wirebuild in input_wires {
+    //     //     let wire = gate_gen.get_wire_gen().generate_input_wire();
+    //     //     known_wires.insert(wirebuild.wire_id().clone(), wire.clone());
+    //     // }
+
+    //     let gates = &subcircuit_build.gates;
+    //     let mut subcircuit: Vec<Vec<BigUint>> = Vec::new();
+    //     for gate in gates {
+    //         let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+    //         let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+
+    //         let new_gate = gate_gen.generate_gate(
+    //             gate.gate_type().clone(),
+    //             wi.clone(),
+    //             wj.clone()
+    //         );
+
+    //         let output_wire_id = gate.wo().wire_id();
+    //         known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
+    //         let table = new_gate.to_table();
+
+    //         // Store the ciphertexts for the gate
+    //         subcircuit.push(table);
+    //     }
+    //     subcircuit
+    // }

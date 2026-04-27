@@ -26,7 +26,6 @@ fn panics_if_input_wires_not_set() {
 fn one_stacked_if_creates_2_branches() {
     let cb = get_stacked_if_build(); 
     let builds = cb.get_builds();
-
     // We expect a single build, a stack, with two branches of id 0 and 1
     assert_eq!(builds.len(), 1);
 }
@@ -89,20 +88,18 @@ fn get_stacked_if_build() -> CircuitBuild {
     let mut builder = CircuitBuilder::new();
     builder.set_input_wires(1); // Need to set to avoid failing
     
-    let inputs = builder.build_input_wires(4); 
-    let input_wire = &inputs[0];
-    let cond = &inputs[1];
-    let wi = &inputs[2];
-    let wj = &inputs[3];
+    let inputs = builder.build_input_wires(2); 
+    let cond = &inputs[0];
+    let wi = &inputs[1];
 
-    let mut and_0 = vec![builder.build_and_gate(wi, wi)];
-    let mut and_1 = vec![builder.build_and_gate(wj, wj)];
-    let _if_out = builder.build_stacked_if(cond, input_wire,  &mut and_0, &mut and_1);
+    let (mut and_0_gate, and_0_output) = builder.build_and_gate(wi, wi);
+    let (mut and_1_gate, and_1_output) = builder.build_and_gate(wi, wi);
+    builder.build_stacked_if(cond, &vec![wi.clone(), wi.clone()],  &mut and_0_gate, &and_0_output, &mut and_1_gate, &and_1_output);
 
     builder.get_circuit_build()
 }
 
-// fn get_nested_stacked_if_build() -> (CircuitBuild, Vec<GateBuild>) {
+// fn get_nested_stacked_if_build_() -> (CircuitBuild, Vec<GateBuild>) {
 //     let mut builder = CircuitBuilder::new();
 //     builder.set_input_wires(1); // Need to set to avoid failing
     

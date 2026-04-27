@@ -3,7 +3,7 @@ use strum_macros::{Display, EnumIter};
 use crate::{wires::wire_gen::{Wire, WireGen}};
 
 
-#[derive(Clone, Copy, Debug, PartialEq, Display, EnumIter)]
+#[derive(Clone, Copy, Debug, PartialEq, Display, EnumIter, Hash, Eq)]
 pub enum GateType {
     XOR,
     XNOR,

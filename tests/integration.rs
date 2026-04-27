@@ -185,10 +185,10 @@ fn can_evaluate_stacked_if_circuit() {
     let required_bits = 6; //  Enable working with numbers up to 64
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
     let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires); // is_equal is true as 32==32
-    let true_case = circuit_builder.build_and_gate(&is_equal, &is_equal); // 1 AND 1 = 1
-    let false_case = circuit_builder.build_and_gate(&is_equal, &is_equal); // 0 AND 0 = 0
+    let (mut true_gates, true_output) = circuit_builder.build_and_gate(&is_equal, &is_equal); // 1 AND 1 = 1
+    let (mut false_case, false_output) = circuit_builder.build_and_gate(&is_equal, &is_equal); // 0 AND 0 = 0
     
-    circuit_builder.build_stacked_if(&is_equal, &is_equal, &mut vec![true_case], &mut vec![false_case]);
+    circuit_builder.build_stacked_if(&is_equal, &vec![is_equal.clone()], &mut true_gates, &true_output, &mut false_case, &false_output);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // **** Evaluate for true case ****
@@ -217,12 +217,12 @@ fn can_evaluate_stacked_if_circuit() {
 #[test]
 fn can_evaluate_dynamically_reassigning_a_value() {
     // Should do, this ensures we can handle multiple wire input
-    // let x = 2;
     // if(true) {
-    //   x = 4
+    //   garbler_input = evaluator_input
     // } else {
-    //   x = 6
+    //   garbler_input
     // }
+    
 }
 
 
@@ -240,6 +240,7 @@ fn evaluate_is_equal<G, E>(a : BigUint, b : BigUint, expected_result : bool, gar
     // Create circuit build
     circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
     let circuit_build = circuit_builder.get_circuit_build();
+    println!("{}", circuit_build);
 
     // Garbler garbles and evaluator evaluates
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
