@@ -3,7 +3,7 @@ use num_bigint::{BigUint, ToBigUint};
 use std::collections::{HashMap, VecDeque};
 
 use crate::{
-    circuit_builder::{BuildType, SubcircuitBuild}, crypto_utils::{gc_kdf, gc_kdf_mux}, garbler::{Circuit}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self}, wires::wire_gen::{Wire, WireGen}
+    circuit_builder::{BuildType, SubcircuitBuild}, crypto_utils::{gc_kdf}, garbler::{Circuit}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self}, wires::wire_gen::{Wire, WireGen}
 };
 use crate::circuit_builder::{CircuitBuild};
 
@@ -118,7 +118,7 @@ pub trait Evaluator {
         Self::interpret_result(result_wires, &circuit.output_conversion)
     }
 
-    fn evaluate_subcircuit(&mut self, input_wire: BigUint, subcircuit_tables: Vec<Vec<BigUint>>, subcircuit_build : &SubcircuitBuild) -> BigUint {
+    fn evaluate_subcircuit(&mut self, input_wire: BigUint, subcircuit_tables: Vec<Vec<BigUint>>, subcircuit_build: &SubcircuitBuild) -> BigUint {
         let mut known_wires : HashMap<BigUint, BigUint> = HashMap::new();
         known_wires.insert(subcircuit_build.input_wires.wire_id().clone(), input_wire);
         let mut output = BigUint::ZERO;
@@ -184,14 +184,21 @@ pub trait Evaluator {
     }
 
     fn evaluate_mux(&mut self, wi: &BigUint, wj: &BigUint, seed: &BigUint, mux: &Vec<BigUint>) -> BigUint {
-        let pos = get_position(wi, wj);
-        let key = gc_kdf_mux(seed, wi, wj, self.get_index());
+        let pos = get_mux_pos(seed, wi, wj);
+        let key = gc_kdf(wi, wj, self.get_index());
         self.increment_index();
         key ^ &mux[pos]
     }
 
     fn increment_index(&mut self);
     fn get_index(&self) -> &BigUint;
+}
+
+fn get_mux_pos(seed: &BigUint, if_wire: &BigUint, else_wire: &BigUint) -> usize {
+    let s = seed.bit(0) as usize;
+    let i = if_wire.bit(0) as usize;
+    let e = else_wire.bit(0) as usize;
+    s * 4 + i * 2 + e
 }
 
 fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
