@@ -188,7 +188,7 @@ fn can_evaluate_stacked_if_circuit() {
     let (mut true_gates, true_output) = circuit_builder.build_and_gate(&is_equal, &is_equal); // 1 AND 1 = 1
     let (mut false_case, false_output) = circuit_builder.build_and_gate(&is_equal, &is_equal); // 0 AND 0 = 0
     
-    circuit_builder.build_stacked_if(&is_equal, &vec![is_equal.clone()], &mut true_gates, &true_output, &mut false_case, &false_output);
+    circuit_builder.build_stacked_if(&is_equal, &vec![is_equal.clone(), is_equal.clone()], &mut true_gates, &true_output, &mut false_case, &false_output);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // **** Evaluate for true case ****

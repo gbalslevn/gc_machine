@@ -123,9 +123,13 @@ impl CircuitBuilder {
         let if_circuit_inputs = get_input_wires(if_circuit.clone());
         let else_circuit_inputs = get_input_wires(else_circuit.clone());
         let (if_circuit_inputs_padded, else_circuit_inputs_padded) = self.pad_input(&if_circuit_inputs, &else_circuit_inputs);
-        
-        if input_wires != &if_circuit_inputs_padded || input_wires != &else_circuit_inputs_padded {
+        let (__input_wires_padded, if_circuit_outputs_padded) = self.pad_input(input_wires, &if_circuit_output);
+        let (input_wires_padded, else_circuit_outputs_padded) = self.pad_input(input_wires, &else_circuit_output);
+        if input_wires_padded != if_circuit_inputs_padded && input_wires_padded != else_circuit_inputs_padded {
             panic!("Provided input wires must be the same as input wires for the subcircuits")
+        }
+        if input_wires_padded.len() != if_circuit_outputs_padded.len() && input_wires_padded.len() != else_circuit_outputs_padded.len() {
+            panic!("Provided output wires must be the same amount as input wires")
         }
     
         let if_output_layer = if_circuit[if_circuit.len() - 1].ready_at_layer(); // Questionable whether this works, different output wires might be ready at different output layers. So simply taking the last wire is not robust.
@@ -135,21 +139,21 @@ impl CircuitBuilder {
         // Generate all input wires for the subcircuits. All input wires has same id, but is generated with a different seed.
         // Create input wires for c0
         let mut c0_input_wires = vec![];
-        for input_wirebuild in input_wires {
+        for input_wirebuild in &input_wires_padded {
             let input_wire = WireBuild::new(compute_layer, input_wirebuild.wire_id().clone());
             // self.increment_wires_created();
             c0_input_wires.push(input_wire);
         }
-        let c0 = SubcircuitBuild {builds: if_circuit.clone(), output_wires: if_circuit_output.clone(), input_wires: c0_input_wires};
+        let c0 = SubcircuitBuild {builds: if_circuit.clone(), output_wires: if_circuit_outputs_padded.clone(), input_wires: c0_input_wires};
         
         // Create input wires for c1
         let mut c1_input_wires = vec![];
-        for input_wirebuild in input_wires {
+        for input_wirebuild in &input_wires_padded {
             let input_wire = WireBuild::new(compute_layer, input_wirebuild.wire_id().clone());
             // self.increment_wires_created();
             c1_input_wires.push(input_wire);
         }
-        let c1 = SubcircuitBuild {builds: else_circuit.clone(), output_wires: else_circuit_output.clone(), input_wires: c1_input_wires};
+        let c1 = SubcircuitBuild {builds: else_circuit.clone(), output_wires: else_circuit_outputs_padded.clone(), input_wires: c1_input_wires};
 
         // Remove builds contained inside of true and false gates from circuitbuilders global parameter as they now belong inside the subcircuit of the stack
         let mut builds_in_stack: HashSet<_> = if_circuit.into_iter().collect();
@@ -171,13 +175,13 @@ impl CircuitBuilder {
 
         // Create output wires
         let mut output_wires = vec![];
-        for _ in input_wires {
+        for _ in &input_wires_padded {
             let output_wire = WireBuild::new(compute_layer, self.wires_created.clone());
             self.increment_wires_created();
             output_wires.push(output_wire);
         }
 
-        let stack_build = StackBuild { input_wires : input_wires.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), if_circuit : c0, else_circuit: c1, id: branch_id};
+        let stack_build = StackBuild { input_wires : input_wires_padded.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), if_circuit : c0, else_circuit: c1, id: branch_id};
         self.stacks.insert(branch_id, stack_build);
         
         output_wires
@@ -337,6 +341,7 @@ impl CircuitBuilder {
             padded_input_b.push(b_bit.clone());
 
         }
+        assert_eq!(padded_input_a.len(), padded_input_b.len());
         (padded_input_a, padded_input_b)
     }
 
