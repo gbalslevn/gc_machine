@@ -257,7 +257,6 @@ fn unstack_material(seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, subcircuit_build
         for input_wire in input_wires {
             let wire = gate_gen.get_wire_gen().generate_input_wire();
             known_wires.insert(input_wire.wire_id().clone(), wire);
-            println!("Inserted wire {}", input_wire.wire_id());
         }
 
         let builds = &subcircuit_build.builds;
@@ -266,7 +265,6 @@ fn unstack_material(seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, subcircuit_build
             match build.get_type() {
                 BuildType::Gate => {
                     let gate = build.unwrap_to_gate();
-                    println!("Trying to retrieve {}", gate.wi().wire_id());
                     let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
                     let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
         

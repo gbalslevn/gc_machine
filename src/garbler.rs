@@ -123,7 +123,7 @@ impl<G: GateGen> Garbler<G> {
                         input_wires.push(known_wires.get(input_wire.wire_id()).unwrap().clone());
                     }
                     // Generate output wires
-                    let mut output_wires = vec![]; // output wires must the same amount as input wires so no need to have a seperate for loop
+                    let mut output_wires = vec![]; 
                     for output_wire in &stack.output_wires {
                         let wire = self.gate_gen.get_wire_gen().generate_input_wire();
                         known_wires.insert(output_wire.wire_id().clone(), wire.clone());

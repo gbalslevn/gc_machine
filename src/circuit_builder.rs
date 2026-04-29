@@ -15,10 +15,11 @@ pub struct CircuitBuilder {
     stacks: HashMap<StackID, StackBuild>,
     false_constant: WireBuild,
     true_constant: WireBuild,
-    wires_created : BigUint, // Maybe remove this
+    wires_created : BigUint, 
     garbler_wires: Vec<WireBuild>,
     evaluator_wires : Vec<WireBuild>,
     output_wires: Vec<WireBuild>,
+    builds_buffer: Vec<Build>
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -63,6 +64,7 @@ impl CircuitBuilder {
         let garbler_wires = Vec::new();
         let evaluator_wires = Vec::new();
         let output_wires = Vec::new();
+        let builds_buffer = Vec::new();
 
         CircuitBuilder {
             gates,
@@ -72,7 +74,8 @@ impl CircuitBuilder {
             true_constant,
             garbler_wires,
             evaluator_wires,
-            output_wires
+            output_wires,
+            builds_buffer
         }
     }
 
@@ -93,13 +96,7 @@ impl CircuitBuilder {
         }
         let gates: Vec<GateBuild> = self.gates.values().cloned().collect();
         let stacks: Vec<StackBuild> = self.stacks.values().cloned().collect();
-        // Remove gates which is in a stack subcircuit
-        // let mut gates_not_contained_in_subcircuits: Vec<GateBuild> = vec![];
-        // for gate in gates {
-        //     // if gate.branches.len() == 0 {
-        //     //     gates_not_contained_in_subcircuits.push(gate);
-        //     // }
-        // } 
+        
         // Map to Build type and combine
         let mut builds: Vec<Build> = gates.into_iter().map(Build::Gate).collect();
         let mut stack_builds: Vec<Build> = stacks.into_iter().map(Build::Stack).collect(); 
@@ -115,22 +112,23 @@ impl CircuitBuilder {
         }
     }
 
-    pub fn build_stacked_if(&mut self, cond : &WireBuild, input_wires : &Vec<WireBuild>, if_circuit : &mut Vec<Build>, if_circuit_output : &Vec<WireBuild>, else_circuit : &mut Vec<Build>, else_circuit_output : &Vec<WireBuild>) -> Vec<WireBuild> { 
+    pub fn build_stacked_if(&mut self, cond : &WireBuild, if_circuit : &mut Vec<Build>, if_circuit_output : &Vec<WireBuild>, else_circuit : &mut Vec<Build>, else_circuit_output : &Vec<WireBuild>) -> Vec<WireBuild> { 
         let branch_id = self.stacks.len() * 2;
         if_circuit.sort_by_key(|build| *build.ready_at_layer());
         else_circuit.sort_by_key(|build| *build.ready_at_layer());
 
+        // input wires are derived implicitely from the input wires of if and else circuit. We combine them to find all input wires needed for both subcircuits 
         let if_circuit_inputs = get_input_wires(if_circuit.clone());
         let else_circuit_inputs = get_input_wires(else_circuit.clone());
-        let (if_circuit_inputs_padded, else_circuit_inputs_padded) = self.pad_input(&if_circuit_inputs, &else_circuit_inputs);
-        let (__input_wires_padded, if_circuit_outputs_padded) = self.pad_input(input_wires, &if_circuit_output);
-        let (input_wires_padded, else_circuit_outputs_padded) = self.pad_input(input_wires, &else_circuit_output);
-        if input_wires_padded != if_circuit_inputs_padded && input_wires_padded != else_circuit_inputs_padded {
-            panic!("Provided input wires must be the same as input wires for the subcircuits")
-        }
-        if input_wires_padded.len() != if_circuit_outputs_padded.len() && input_wires_padded.len() != else_circuit_outputs_padded.len() {
-            panic!("Provided output wires must be the same amount as input wires")
-        }
+        let combined_input: HashSet<WireBuild> = if_circuit_inputs.into_iter().chain(else_circuit_inputs.into_iter()).collect();
+        let input_wires: Vec<WireBuild> = combined_input.into_iter().collect();
+        let (if_circuit_output_padded, else_circuit_output_padded) = self.pad_input(&if_circuit_output, &else_circuit_output);
+        // if if_circuit_inputs != else_circuit_inputs {
+        //     panic!("Input wires must be the same for the subcircuits")
+        // }
+        // if if_circuit_inputs_padded.len() != if_circuit_outputs_padded.len() && else_circuit_inputs_padded.len() != else_circuit_outputs_padded.len() {
+        //     panic!("Provided output wires must be the same amount as input wires")
+        // }
     
         let if_output_layer = if_circuit[if_circuit.len() - 1].ready_at_layer(); // Questionable whether this works, different output wires might be ready at different output layers. So simply taking the last wire is not robust.
         let else_output_layer = else_circuit[else_circuit.len() - 1].ready_at_layer();
@@ -138,22 +136,22 @@ impl CircuitBuilder {
         
         // Generate all input wires for the subcircuits. All input wires has same id, but is generated with a different seed.
         // Create input wires for c0
-        let mut c0_input_wires = vec![];
-        for input_wirebuild in &input_wires_padded {
-            let input_wire = WireBuild::new(compute_layer, input_wirebuild.wire_id().clone());
-            // self.increment_wires_created();
-            c0_input_wires.push(input_wire);
-        }
-        let c0 = SubcircuitBuild {builds: if_circuit.clone(), output_wires: if_circuit_outputs_padded.clone(), input_wires: c0_input_wires};
+        // let mut c0_input_wires = vec![];
+        // for input_wirebuild in &input_wires {
+        //     let input_wire = WireBuild::new(compute_layer, input_wirebuild.wire_id().clone());
+        //     // self.increment_wires_created();
+        //     c0_input_wires.push(input_wire);
+        // }
+        let c0 = SubcircuitBuild {builds: if_circuit.clone(), output_wires: if_circuit_output_padded.clone(), input_wires: input_wires.clone()};
         
         // Create input wires for c1
-        let mut c1_input_wires = vec![];
-        for input_wirebuild in &input_wires_padded {
-            let input_wire = WireBuild::new(compute_layer, input_wirebuild.wire_id().clone());
-            // self.increment_wires_created();
-            c1_input_wires.push(input_wire);
-        }
-        let c1 = SubcircuitBuild {builds: else_circuit.clone(), output_wires: else_circuit_outputs_padded.clone(), input_wires: c1_input_wires};
+        // let mut c1_input_wires = vec![];
+        // for input_wirebuild in &else_circuit_inputs_padded {
+        //     let input_wire = WireBuild::new(compute_layer, input_wirebuild.wire_id().clone());
+        //     // self.increment_wires_created();
+        //     c1_input_wires.push(input_wire);
+        // }
+        let c1 = SubcircuitBuild {builds: else_circuit.clone(), output_wires: else_circuit_output_padded.clone(), input_wires: input_wires.clone()};
 
         // Remove builds contained inside of true and false gates from circuitbuilders global parameter as they now belong inside the subcircuit of the stack
         let mut builds_in_stack: HashSet<_> = if_circuit.into_iter().collect();
@@ -168,20 +166,19 @@ impl CircuitBuilder {
                 BuildType::Stack => {
                     let stack_build = build.unwrap_to_stack();
                     self.stacks.remove(&stack_build.id).unwrap();
-                }
-                
+                } 
             }
         }
 
         // Create output wires
         let mut output_wires = vec![];
-        for _ in &input_wires_padded {
+        for _ in & if_circuit_output_padded { // or else circuit output padded length
             let output_wire = WireBuild::new(compute_layer, self.wires_created.clone());
             self.increment_wires_created();
             output_wires.push(output_wire);
         }
 
-        let stack_build = StackBuild { input_wires : input_wires_padded.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), if_circuit : c0, else_circuit: c1, id: branch_id};
+        let stack_build = StackBuild { input_wires : input_wires.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), if_circuit : c0, else_circuit: c1, id: branch_id};
         self.stacks.insert(branch_id, stack_build);
         
         output_wires
@@ -194,7 +191,7 @@ impl CircuitBuilder {
         conditional: &WireBuild,
         true_output: &Vec<WireBuild>,
         false_output: &Vec<WireBuild>
-    ) -> Vec<WireBuild> {
+    ) -> (Vec<Build>, Vec<WireBuild>) {
         let true_constant = &self.true_constant.clone();
         let mut output = vec![];
         let (padded_true, padded_false) = self.pad_input(true_output, false_output);
@@ -203,19 +200,20 @@ impl CircuitBuilder {
             let true_bit = &padded_true[i];
             let false_bit = &padded_false[i];
             let neg_boolean = self.build_gate(&conditional, &true_constant, GateType::XOR);
-            let and_0 = self.build_gate(true_bit, &neg_boolean, GateType::AND);
+            let and_0 = self.build_gate(true_bit, neg_boolean.wo(), GateType::AND);
             let and_1 = self.build_gate(false_bit, conditional, GateType::AND);
-            let output_wire = self.build_gate(&and_0, &and_1, GateType::XOR);
-            output.push(output_wire);
+            let output_wire = self.build_gate(and_0.wo(), and_1.wo(), GateType::XOR);
+            output.push(output_wire.wo);
         }
         self.set_output_wires(output.clone());
-        output
+        (self.get_latest_builds(), output)
     }
 
     /*
     Routine implementing multiplication.
      */
-    pub fn build_multiplier(&mut self, input_wires_a: Vec<WireBuild>, input_wires_b: Vec<WireBuild>) -> Vec<WireBuild> {
+    pub fn build_multiplier(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> BuildBlock {
+        // let gates = vec![];
         let mut partial_sums: VecDeque<Vec<WireBuild>> = VecDeque::new();
         for (index_b, bit_b) in input_wires_b.iter().enumerate() {
             let mut partial_sum: Vec<WireBuild> = Vec::new();
@@ -224,9 +222,9 @@ impl CircuitBuilder {
                 partial_sum.push(self.false_constant.clone().clone());
             }
 
-            for bit_a in &input_wires_a {
+            for bit_a in input_wires_a {
                 let and = self.build_gate(bit_a, bit_b, GateType::AND);
-                partial_sum.push(and);
+                partial_sum.push(and.wo().clone());
             }
 
             for _j in index_b..input_wires_b.len() {
@@ -234,23 +232,27 @@ impl CircuitBuilder {
             }
             partial_sums.push_back(partial_sum);
         }
+        let mut adder_blocks: Vec<BuildBlock> = vec![];
         while partial_sums.len() > 1 {
             let partial_sum_a = partial_sums.pop_front().unwrap();
             let partial_sum_b = partial_sums.pop_front().unwrap();
-            partial_sums.push_back(self.adder(&partial_sum_a, &partial_sum_b, false)); // addition should not produce a 1-carry bit
+            let adder_block = self.adder(&partial_sum_a, &partial_sum_b, false);
+            adder_blocks.push(adder_block.clone());
+            partial_sums.push_back(adder_block.output); // addition should not produce a 1-carry bit
         }
         let result: Vec<WireBuild> = partial_sums.pop_front().unwrap();
         self.output_wires = result.clone();
-        result
+        let multiplier_builds: Vec<Build> = adder_blocks.into_iter().flat_map(|block| block.builds).collect();
+        BuildBlock {output: result, builds : multiplier_builds}
     }
 
     /*
     Routine implementing addition.
      */
-    pub fn build_adder(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> Vec<WireBuild> {
-        let result_wires = self.adder(&input_wires_a, input_wires_b, true);
-        self.set_output_wires(result_wires.clone());
-        result_wires
+    pub fn build_adder(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> BuildBlock {
+        let block = self.adder(&input_wires_a, input_wires_b, true);
+        self.set_output_wires(block.output.clone());
+        block
     }
 
 
@@ -259,30 +261,22 @@ impl CircuitBuilder {
         let (padded_a, padded_b) = self.pad_input(input_wires_a, input_wires_b);
         let mut deque: VecDeque<WireBuild> = VecDeque::new();
         for i in 0..padded_a.len() {
-            deque.push_back(self.build_gate(&padded_a[i], &padded_b[i], GateType::XNOR));
+            deque.push_back(self.build_gate(&padded_a[i], &padded_b[i], GateType::XNOR).wo);
         }
         while deque.len() > 1 {
             let first = deque.pop_front().unwrap();
             let second = deque.pop_front().unwrap();
-            deque.push_back(self.build_gate(&first, &second, GateType::AND));
+            deque.push_back(self.build_gate(&first, &second, GateType::AND).wo);
         }
         let output = deque.pop_front().unwrap();
         self.set_output_wires(vec![output.clone()]);
+        self.get_latest_builds();
         output
     }
 
-    pub fn build_and(&mut self, wi: &WireBuild, wj: &WireBuild) -> Vec<WireBuild> {
-        vec![self.build_gate(wi, wj, GateType::AND)]
-    }
-
-    pub fn build_and_gate(&mut self, wi: &WireBuild, wj: &WireBuild) -> (Vec<Build>, Vec<WireBuild>) {
-        let compute_layer = wi.ready_at_layer.clone().max(wj.ready_at_layer.clone()) + 1;
-        let wo = WireBuild::new(compute_layer, self.wires_created.clone());
-        self.increment_wires_created();
-
-        let gate: GateBuild = GateBuild::new(GateType::AND, wi.clone(), wj.clone(), wo.clone());
-        self.gates.insert(wo.wire_id().clone(), gate.clone());
-        (vec![Build::Gate(gate.clone())], vec![gate.wo])
+    pub fn build_and(&mut self, wi: &WireBuild, wj: &WireBuild) -> BuildBlock {
+        let gate = self.build_gate(wi, wj, GateType::AND);
+        BuildBlock { output: vec![gate.wo], builds: self.get_latest_builds() }
     }
 
     pub fn build_input_wires(&mut self, amount: u64) -> Vec<WireBuild> {
@@ -295,16 +289,16 @@ impl CircuitBuilder {
         input_wires
     }
 
-    fn adder(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>, with_carry : bool) -> Vec<WireBuild> {
+    fn adder(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>, with_carry : bool) -> BuildBlock {
         let mut result_wires: Vec<WireBuild> = Vec::new();
         let (padded_a, padded_b) = self.pad_input(input_wires_a, input_wires_b);
 
         // Build 1 HALF ADDER for first bits of each input
         let mut sum = self.build_gate(&padded_a[0], &padded_b[0], GateType::XOR);
-        result_wires.push(sum.clone());
+        result_wires.push(sum.wo().clone());
         let mut carry = self.build_gate(&padded_a[0], &padded_b[0], GateType::AND);
         if input_wires_a.len() == 1 {
-            result_wires.push(carry.clone());
+            result_wires.push(carry.wo().clone());
         }
 
 
@@ -314,18 +308,18 @@ impl CircuitBuilder {
             let b_wire = &padded_b[i];
             // SUM - is added to the result wire
             let a_xor_b = self.build_gate(a_wire, b_wire, GateType::XOR);
-            sum = self.build_gate(&a_xor_b, &carry.clone(), GateType::XOR);
-            result_wires.push(sum);
+            sum = self.build_gate(a_xor_b.wo(), carry.wo(), GateType::XOR);
+            result_wires.push(sum.wo().clone());
             // CARRY - is not added to the result wire
-            let first_and = self.build_gate(&a_xor_b, &carry, GateType::AND);
+            let first_and = self.build_gate(a_xor_b.wo(), &carry.wo(), GateType::AND);
             let second_and = self.build_gate(a_wire, b_wire, GateType::AND);
-            carry = self.build_gate(&first_and, &second_and, GateType::OR); 
+            carry = self.build_gate(first_and.wo(), second_and.wo(), GateType::OR); 
         }
         // The last carry bit needs to be appended to the result (though not in the case where we add 1-bit numbers or if we use the adder for multiplication)
         if input_wires_a.len() != 1 && with_carry {
-            result_wires.push(carry);
+            result_wires.push(carry.wo().clone());
         }
-        result_wires
+        BuildBlock { output: result_wires, builds: self.get_latest_builds() }
     }
 
     // Ensures length of input_a and input_b is equal by adding padding
@@ -349,58 +343,25 @@ impl CircuitBuilder {
         self.output_wires = output_wires;
     }
 
-    // // Gets dependent gates and stacks of start_gate_id until there is no more inputs. Also sorts them
-    // fn get_subcircuit(&mut self, output_wires: &Vec<WireBuild>) -> Vec<Build> {
-    //     // insert output wires in stack
-    //     let mut stack = vec![];
-    //     for output_wire in output_wires {
-    //         stack.push(output_wire.wire_id.clone());
-    //     }
-    //     let mut subcircuit : Vec<Build> = vec![];
-
-    //     while let Some(gate_id) = stack.pop() {
-    //         let usize_gate_id = gate_id.iter_u64_digits().next().unwrap_or(0) as usize; // This is stupid and should be removed
-    //         // if we hit a stack remove it as a global circuit and put inside as part of the subcircuit.
-    //         if self.stacks.contains_key(&usize_gate_id) {
-    //             if let Some(stack) = self.stacks.remove(&usize_gate_id) {
-    //                 subcircuit.push(Build::Stack(stack));
-    //                 continue;
-    //             }
-    //         }
-    //         // Should not contain same gate twice
-    //         // if subcircuit.contains(&gate_id) {
-    //         //     continue;
-    //         // }
-    //         if let Some(gate) = self.gates.remove(&gate_id) { // Remove as a netlist gate and put inside of subcircuit. Might need to include initial wires also, which is not a gate but a wire. Might also need to be more clear about why we use a vec of wirebuilds instead of a vec of gatebuilds. 
-    //             subcircuit.push(Build::Gate(gate.clone()));
-    //             let left_wire = gate.wi().wire_id.clone();
-    //             let right_wire = gate.wj().wire_id.clone();
-    //             stack.push(left_wire);
-    //             stack.push(right_wire);
-    //         }
-    //     }
-    //     subcircuit.sort_by_key(|build| *build.ready_at_layer());
-    //     subcircuit
-    // }
-
-    // Annotates all provided gates with the branch id
-    // fn annotate_with_branch(&mut self, gates : &Vec<GateBuild>, branch_id : &usize) {
-    //     for gate_to_annotate in gates {
-    //         if let Some(gate) = self.gates.get_mut(gate_to_annotate.wo().wire_id()) {
-    //             gate.branches.insert(branch_id.clone());
-    //         }
-    //     } 
-    // }
+    fn get_latest_builds(&mut self) -> Vec<Build> {
+        let latest_builds = self.builds_buffer.clone();
+        if latest_builds.len() == 0 {
+            panic!("Could not find any builds in buffer")
+        }
+        self.builds_buffer = vec![];
+        latest_builds
+    }
 
     // Builds a gate with a new id and returns the output wire which also contains when the gate should be calculated
-    fn build_gate(&mut self, wi: &WireBuild, wj: &WireBuild, gate_type: GateType) -> WireBuild {
+    fn build_gate(&mut self, wi: &WireBuild, wj: &WireBuild, gate_type: GateType) -> GateBuild {
         let compute_layer = wi.ready_at_layer.clone().max(wj.ready_at_layer.clone()) + 1;
         let wo = WireBuild::new(compute_layer, self.wires_created.clone());
         self.increment_wires_created();
 
         let gate: GateBuild = GateBuild::new(gate_type, wi.clone(), wj.clone(), wo.clone());
         self.gates.insert(wo.wire_id().clone(), gate.clone());
-        gate.wo
+        self.builds_buffer.push(Build::Gate(gate.clone()));
+        gate
     }
 
     fn increment_wires_created(&mut self) {
@@ -425,7 +386,7 @@ impl CircuitBuilder {
         }
     }
     // Check if a wire is a input wire 
-    let mut input_wires = vec![];
+    let mut input_wires = Vec::new();
     for build in &circuit {
         match build.get_type() {
             BuildType::Gate => {
@@ -437,7 +398,7 @@ impl CircuitBuilder {
                     input_wires.push(gate.wi().clone());
                 }
                 if !wj_is_output_wire {
-                    input_wires.push(gate.wi().clone());
+                    input_wires.push(gate.wj().clone());
                 }
             }
             BuildType::Stack => {
@@ -445,6 +406,10 @@ impl CircuitBuilder {
             }
         }
     }
+    
+    // let mut input_wires_as_vec : Vec<WireBuild> = input_wires.into_iter().collect();
+    // input_wires_as_vec.sort_by_key(|w| w.wire_id.clone());
+    // input_wires_as_vec
     input_wires
 }
 
@@ -467,6 +432,12 @@ impl WireBuild {
     pub fn wire_id(&self) -> &BigUint {
         &self.wire_id
     }
+}
+
+#[derive(Clone)]
+pub struct BuildBlock {
+    pub output: Vec<WireBuild>,
+    pub builds: Vec<Build> 
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

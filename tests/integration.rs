@@ -146,9 +146,9 @@ fn can_evaulate_naive_if_circuit() {
     let required_bits = 6; //  Enable working with numbers up to 64
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
     let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires); 
-    let true_case = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1
-    let false_case = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
-    circuit_builder.build_if(&is_equal, &true_case, &false_case);
+    let true_block = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1
+    let false_block = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
+    circuit_builder.build_if(&is_equal, &true_block.output, &false_block.output);
     let circuit_build = circuit_builder.get_circuit_build();
     
     // **** Evaluate for true case ****
@@ -185,10 +185,51 @@ fn can_evaluate_stacked_if_circuit() {
     let required_bits = 6; //  Enable working with numbers up to 64
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
     let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires); // is_equal is true as 32==32
-    let (mut true_gates, true_output) = circuit_builder.build_and_gate(&is_equal, &is_equal); // 1 AND 1 = 1
-    let (mut false_case, false_output) = circuit_builder.build_and_gate(&is_equal, &is_equal); // 0 AND 0 = 0
+    let mut true_block = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1
+    let mut false_block = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
     
-    circuit_builder.build_stacked_if(&is_equal, &vec![is_equal.clone(), is_equal.clone()], &mut true_gates, &true_output, &mut false_case, &false_output);
+    circuit_builder.build_stacked_if(&is_equal, &mut true_block.builds, &true_block.output, &mut false_block.builds, &false_block.output);
+    let circuit_build = circuit_builder.get_circuit_build();
+
+    // **** Evaluate for true case ****
+    let a = 32.to_biguint().unwrap();
+    let b = 32.to_biguint().unwrap();
+    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
+    // Garbler create circuit
+    let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
+    // Evaluator evaluates circuit. We expect true to return as a = b
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    assert_eq!(result, true as u32);
+    
+    // **** Evaluate for false case ****
+    let c = 15.to_biguint().unwrap();
+    let d = 32.to_biguint().unwrap();
+    let garbler_input_choices = garbler.create_circuit_input(&c, required_bits);
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&d, required_bits);
+    // Garbler create circuit
+    let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
+    // Evaluator evaluates circuit. We expect false to return as c != d
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    assert_eq!(result, false as u32) 
+}
+
+#[test]
+fn can_evaluate_stacked_if_with_adder_circuit() {
+    let gate_gen = HalfGatesGateGen::new();
+    let mut garbler = Garbler::new(gate_gen);
+    let mut evaluator = HalfGatesEvaluator::new();
+    let mut circuit_builder = CircuitBuilder::new();
+
+    // Create circuit build which from a function computes true if garblers and evaluators inputs are equal. Else it returns false. 
+    // If true return garbler_input * evaluator_input, else return garbler_input+evaluator_input
+    let required_bits = 6; //  Enable working with numbers up to 64
+    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
+    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
+    let mut garbl_times_eval = circuit_builder.build_multiplier(&garbler_wires, &evaluator_wires);
+    let mut garbl_plus_eval = circuit_builder.build_adder(&evaluator_wires, &evaluator_wires);
+    
+    circuit_builder.build_stacked_if(&is_equal, &mut garbl_times_eval.builds, &garbl_times_eval.output, &mut garbl_plus_eval.builds, &garbl_plus_eval.output);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // **** Evaluate for true case ****
@@ -240,7 +281,6 @@ fn evaluate_is_equal<G, E>(a : BigUint, b : BigUint, expected_result : bool, gar
     // Create circuit build
     circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
     let circuit_build = circuit_builder.get_circuit_build();
-    println!("{}", circuit_build);
 
     // Garbler garbles and evaluator evaluates
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
@@ -293,7 +333,7 @@ fn evaluate_multiplier() {
 
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
 
-    circuit_builder.build_multiplier(garbler_wires, evaluator_wires);
+    circuit_builder.build_multiplier(&garbler_wires, &evaluator_wires);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // Garbler input
@@ -333,8 +373,8 @@ fn can_add_numbers_of_unequal_bitlength() {
     // Evaluator input, holds the two bit number
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&two_bit_number, required_bits);
 
-    let one_bit_result = circuit_builder.build_adder(&input_wires_garbler, &input_wires_garbler); // garbler holds 0, 0+0 = 0, 1 bit required
-    circuit_builder.build_adder(&one_bit_result, &input_wires_evaluator); // 0+2 = 2, 2 bits required
+    let adder_block = circuit_builder.build_adder(&input_wires_garbler, &input_wires_garbler); // garbler holds 0, 0+0 = 0, 1 bit required
+    circuit_builder.build_adder(&adder_block.output, &input_wires_evaluator); // 0+2 = 2, 2 bits required
     let circuit_build = circuit_builder.get_circuit_build();
 
     // Garble circuit

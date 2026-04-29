@@ -92,9 +92,9 @@ fn get_stacked_if_build() -> CircuitBuild {
     let cond = &inputs[0];
     let wi = &inputs[1];
 
-    let (mut and_0_gate, and_0_output) = builder.build_and_gate(wi, wi);
-    let (mut and_1_gate, and_1_output) = builder.build_and_gate(wi, wi);
-    builder.build_stacked_if(cond, &vec![wi.clone(), wi.clone()],  &mut and_0_gate, &and_0_output, &mut and_1_gate, &and_1_output);
+    let mut and_0_block = builder.build_and(wi, wi);
+    let mut and_1_block = builder.build_and(wi, wi);
+    builder.build_stacked_if(cond,  &mut and_0_block.builds, &and_0_block.output, &mut and_1_block.builds, &and_1_block.output);
 
     builder.get_circuit_build()
 }
