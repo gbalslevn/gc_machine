@@ -113,7 +113,6 @@ impl CircuitBuilder {
     }
 
     pub fn build_stacked_if(&mut self, cond : &WireBuild, if_circuit : &mut Vec<Build>, if_circuit_output : &Vec<WireBuild>, else_circuit : &mut Vec<Build>, else_circuit_output : &Vec<WireBuild>) -> Vec<WireBuild> { 
-        let branch_id = self.stacks.len() * 2;
         if_circuit.sort_by_key(|build| *build.ready_at_layer());
         else_circuit.sort_by_key(|build| *build.ready_at_layer());
 
@@ -122,7 +121,11 @@ impl CircuitBuilder {
         let else_circuit_inputs = get_input_wires(else_circuit.clone());
         let combined_input: HashSet<WireBuild> = if_circuit_inputs.into_iter().chain(else_circuit_inputs.into_iter()).collect();
         let input_wires: Vec<WireBuild> = combined_input.into_iter().collect();
-        let (if_circuit_output_padded, else_circuit_output_padded) = self.pad_input(&if_circuit_output, &else_circuit_output);
+        // let (if_circuit_output_padded, else_circuit_output_padded) = self.pad_input(&if_circuit_output, &else_circuit_output);
+        let subcircuits_has_equal_output_length = if_circuit_output.len() - else_circuit_output.len() == 0;
+        if !subcircuits_has_equal_output_length {
+            
+        }
         // if if_circuit_inputs != else_circuit_inputs {
         //     panic!("Input wires must be the same for the subcircuits")
         // }
@@ -178,6 +181,7 @@ impl CircuitBuilder {
             output_wires.push(output_wire);
         }
 
+        let branch_id = self.stacks.len();
         let stack_build = StackBuild { input_wires : input_wires.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), if_circuit : c0, else_circuit: c1, id: branch_id};
         self.stacks.insert(branch_id, stack_build);
         
@@ -434,7 +438,7 @@ impl WireBuild {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BuildBlock {
     pub output: Vec<WireBuild>,
     pub builds: Vec<Build> 

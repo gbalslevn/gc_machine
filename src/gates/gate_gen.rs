@@ -54,7 +54,7 @@ pub trait GateGen {
     fn increment_index(&mut self) -> &BigUint;
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct Gate {
     pub gate_type: GateType,
     pub table : Vec<BigUint>,

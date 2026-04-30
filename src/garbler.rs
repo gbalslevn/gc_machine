@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::{HashMap, VecDeque};
 
 use crate::circuit_builder::{BuildType, StackBuild};
@@ -9,7 +10,6 @@ use num_bigint::{BigUint, ToBigUint};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use crate::circuit_builder::{SubcircuitBuild};
-use crate::evaluator::evaluator::Evaluator;
 use crate::evaluator::half_gates_evaluator::HalfGatesEvaluator;
 use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
 
@@ -25,9 +25,9 @@ pub struct Circuit {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stack {
-    pub demux: Vec<BigUint>,
+    pub demuxes: Vec<Vec<BigUint>>,
     pub stacked_m: Vec<Vec<BigUint>>,
-    pub mux: Vec<BigUint>,
+    pub muxes: Vec<Vec<BigUint>>,
 }
 
 impl Circuit {
@@ -134,16 +134,18 @@ impl<G: GateGen> Garbler<G> {
                     let (c0_garbage_input_wires, __c0_garbage,c0_garbage_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.if_circuit);
                     let (c1_input_wires,c1,c1_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.else_circuit);
                     let (c1_garbage_input_wires, __c1_garbage,c1_garbage_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.else_circuit);
-                    for i in 0..input_wires.len() { // We can use both input and output length of any of the wires as they have equal elements
+                    let mut demuxes = vec![];
+                    let stacked_m = self.stack_material(&c0, &c1);
+                    for i in 0..input_wires.len() { 
                         let demux = self.generate_demux(&input_wires[i], &seed, &c0_input_wires[i], &c1_input_wires[i], c0_garbage_input_wires[i].w0(), &c1_garbage_input_wires[i].w1());
-                        let stacked_m = self.stack_material(&c0, &c1);
-                        // let (s0_c0_w0_entry, s0_c1_w0_entry) = evaluator.evaluate_demux(input_wires[i].w0(), seed.w0(), &demux);
-                        // let (s0_c0_w1_entry, s0_c1_w1_entry) = evaluator.evaluate_demux(input_wires[i].w1(), seed.w0(), &demux);
-                        // let (s1_c0_w0_entry, s1_c1_w0_entry) = evaluator.evaluate_demux(input_wires[i].w0(), seed.w1(), &demux);
-                        // let (s1_c0_w1_entry, s1_c1_w1_entry) = evaluator.evaluate_demux(input_wires[i].w1(), seed.w1(), &demux);
-                        let mux = self.generate_mux(&seed, &c0_output_wires[i], &c1_output_wires[i], &c0_garbage_output_wires[i].w0(), &c1_garbage_output_wires[i].w1(), &output_wires[i]);
-                        stacks.insert(stack.id.to_biguint().unwrap(), Stack {demux, stacked_m, mux});
+                        demuxes.push(demux);
                     } 
+                    let mut muxes = vec![];
+                    for i in 0..output_wires.len() {
+                        let mux = self.generate_mux(&seed, &c0_output_wires[i], &c1_output_wires[i], &c0_garbage_output_wires[i].w0(), &c1_garbage_output_wires[i].w1(), &output_wires[i]);
+                        muxes.push(mux);
+                    }
+                    stacks.insert(stack.id.to_biguint().unwrap(), Stack {demuxes, stacked_m, muxes});
                 }
             }
         }
@@ -158,20 +160,64 @@ impl<G: GateGen> Garbler<G> {
     }
 
     pub fn stack_material(&mut self, c0: &Vec<Vec<BigUint>>, c1: &Vec<Vec<BigUint>>) -> Vec<Vec<BigUint>> {
-        // This function makes an XOR between each garbled entry in the stacked material m_cond and the generated subcircuit
-        let stacked_material: Vec<Vec<BigUint>> = c0
-            .iter()
-            .zip(c1.iter())
-            .map(|(c0_row, c1_row)| {
-                c0_row
-                    .iter()
-                    .zip(c1_row.iter())
-                    .map(|(c0_val, c1_val)| c0_val ^ c1_val)
-                    .collect()
-            })
-            .collect();
+        let mut stacked_material = vec![];
+        let longest_material = max(c0.len(), c1.len());
+        println!("longest material: {}", longest_material);
+        for table_index in 0..longest_material {
+            let c0_is_within_index = table_index < c0.len();
+            let c1_is_within_index = table_index < c1.len();
+            // if c0.len() < longest_material {
+
+            // }
+            let mut stacked_table = vec![];
+            if (c0_is_within_index && c0[table_index].is_empty()) || (c1_is_within_index && c1[table_index].is_empty()) {
+                stacked_table = Vec::new();
+                stacked_material.push(stacked_table);
+                continue;
+            }
+            for entry_index in 0..2 {
+                let mut stacked_entry = BigUint::ZERO;
+                if (c0_is_within_index && c0[table_index].is_empty()) && (c1_is_within_index && c1[table_index].len() > 0) {
+                    stacked_entry = c1[table_index][entry_index].clone() // generated c1 is the longest path, we simply insert it
+                } 
+                if (c1_is_within_index && c1[table_index].is_empty()) && (c0_is_within_index && c0[table_index].len() > 0) {
+                    stacked_entry = c0[table_index][entry_index].clone() // c0 is the longest path, we simply insert it
+                } 
+                if (c1_is_within_index && c1[table_index].len() > 0) && (c0_is_within_index && c0[table_index].len() > 0) {
+                    stacked_entry = c0[table_index][entry_index].clone() ^ c1[table_index][entry_index].clone(); // xor both values to stack
+                }
+                stacked_table.push(stacked_entry);
+            } 
+            stacked_material.push(stacked_table);
+        }
         stacked_material
     }
+
+    // pub fn stack_material(&mut self, c0: &Vec<Vec<BigUint>>, c1: &Vec<Vec<BigUint>>) -> Vec<Vec<BigUint>> {
+    //     let longest_len = std::cmp::max(c0.len(), c1.len());
+
+    //     let stacked_material: Vec<Vec<BigUint>> = (0..longest_len)
+    //         .map(|i| {
+    //             let row0 = c0.get(i);
+    //             let row1 = c1.get(i);
+
+    //             match (row0, row1) {
+    //                 // Both exist: XOR them (order-dependent)
+    //                 (Some(r0), Some(r1)) => {
+    //                     // Note: XOR is commutative (r0^r1 == r1^r0), 
+    //                     // but the rows must have the same length!
+    //                     r0.iter().zip(r1.iter()).map(|(v0, v1)| v0 ^ v1).collect()
+    //                 }
+    //                 // Only one exists: Keep it as is at this index
+    //                 (Some(r0), None) => r0.clone(),
+    //                 (None, Some(r1)) => r1.clone(),
+    //                 (None, None) => vec![],
+    //             }
+    //         })
+    //         .collect();
+
+    //     stacked_material
+    // }
 
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {
         let mut list = VecDeque::new();
@@ -240,7 +286,7 @@ impl<G: GateGen> Garbler<G> {
             known_wires.insert(input_wire.wire_id().clone(), wire);
         }        
 
-        let builds = &subcircuit_build.builds;
+        let builds = &subcircuit_build.builds;        
         let mut subcircuit: Vec<Vec<BigUint>> = vec![];
         for build in builds {
             match build.get_type() {
