@@ -114,7 +114,6 @@ impl<G: GateGen> Garbler<G> {
                 }
                 BuildType::Stack => {
                     let stack = build.unwrap_to_stack();
-                    let mut evaluator = HalfGatesEvaluator::new();
                     let seed = known_wires.get(&stack.conditional.wire_id()).unwrap().clone();
                     
                     // insert all input wires
@@ -127,7 +126,12 @@ impl<G: GateGen> Garbler<G> {
                     for output_wire in &stack.output_wires {
                         let wire = self.gate_gen.get_wire_gen().generate_input_wire();
                         known_wires.insert(output_wire.wire_id().clone(), wire.clone());
-                        output_wires.push(wire);
+                        output_wires.push(wire.clone());
+                        if circuit_build.output_wires.contains(output_wire) {
+                            println!("output_wire in garbler: {:#?}", wire);
+                            output_conversion
+                                .push([(wire.w0().clone(), 0), (wire.w1().clone(), 1)]);
+                        }
                     }
                     // generate material for both branches
                     let (c0_input_wires, c0, c0_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.if_circuit);
@@ -162,13 +166,10 @@ impl<G: GateGen> Garbler<G> {
     pub fn stack_material(&mut self, c0: &Vec<Vec<BigUint>>, c1: &Vec<Vec<BigUint>>) -> Vec<Vec<BigUint>> {
         let mut stacked_material = vec![];
         let longest_material = max(c0.len(), c1.len());
-        println!("longest material: {}", longest_material);
         for table_index in 0..longest_material {
             let c0_is_within_index = table_index < c0.len();
             let c1_is_within_index = table_index < c1.len();
-            // if c0.len() < longest_material {
-
-            // }
+        
             let mut stacked_table = vec![];
             if (c0_is_within_index && c0[table_index].is_empty()) || (c1_is_within_index && c1[table_index].is_empty()) {
                 stacked_table = Vec::new();
@@ -193,32 +194,6 @@ impl<G: GateGen> Garbler<G> {
         stacked_material
     }
 
-    // pub fn stack_material(&mut self, c0: &Vec<Vec<BigUint>>, c1: &Vec<Vec<BigUint>>) -> Vec<Vec<BigUint>> {
-    //     let longest_len = std::cmp::max(c0.len(), c1.len());
-
-    //     let stacked_material: Vec<Vec<BigUint>> = (0..longest_len)
-    //         .map(|i| {
-    //             let row0 = c0.get(i);
-    //             let row1 = c1.get(i);
-
-    //             match (row0, row1) {
-    //                 // Both exist: XOR them (order-dependent)
-    //                 (Some(r0), Some(r1)) => {
-    //                     // Note: XOR is commutative (r0^r1 == r1^r0), 
-    //                     // but the rows must have the same length!
-    //                     r0.iter().zip(r1.iter()).map(|(v0, v1)| v0 ^ v1).collect()
-    //                 }
-    //                 // Only one exists: Keep it as is at this index
-    //                 (Some(r0), None) => r0.clone(),
-    //                 (None, Some(r1)) => r1.clone(),
-    //                 (None, None) => vec![],
-    //             }
-    //         })
-    //         .collect();
-
-    //     stacked_material
-    // }
-
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {
         let mut list = VecDeque::new();
         for i in 0..required_bits {
@@ -230,10 +205,6 @@ impl<G: GateGen> Garbler<G> {
             }
         }
         list
-    }
-
-    fn generate_stack(&self, stack: StackBuild) {
-
     }
 
     fn generate_demux(
@@ -268,6 +239,10 @@ impl<G: GateGen> Garbler<G> {
         let mux_table = get_mux_tt(conditional, if_wire, else_wire, garbage_if_wire, garbage_else_wire, output_wire);
         for (cond, if_wire, else_wire, output_wire) in mux_table {
             let index = get_mux_pos(&cond, &if_wire, &else_wire);
+            println!("key in mux entry {}: {}",index , gc_kdf_128(&if_wire, &else_wire, &1.to_biguint().unwrap()));
+            println!("left wire: {}", if_wire);
+            println!("right wire: {}", else_wire);
+            println!("cond: {}", cond);
             let entry = gc_kdf_128(&if_wire, &else_wire, &1.to_biguint().unwrap()) ^ output_wire;
             table[index] = entry;
         }
@@ -275,7 +250,7 @@ impl<G: GateGen> Garbler<G> {
     }
 
     fn generate_subcircuit(&mut self, seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> (Vec<Wire>, Vec<Vec<BigUint>>, Vec<Wire>) { // make a subcircuit datatype
-        let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);
+        let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);        
         let subcircuit_input_wires = &subcircuit_build.input_wires;
         let mut known_wires = HashMap::new();
         self.insert_constant_wires(&mut known_wires);
@@ -300,6 +275,9 @@ impl<G: GateGen> Garbler<G> {
                         wi.clone(),
                         wj.clone()
                     );
+                    if new_gate.wo.w0() == &0.to_biguint().unwrap() || new_gate.wo.w1() == &0.to_biguint().unwrap() {
+                        panic!("error with gate {:#?}", gate)
+                    }
                     let output_wire_id = gate.wo().wire_id();
                     known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
                     let table = new_gate.to_table();
@@ -321,7 +299,13 @@ impl<G: GateGen> Garbler<G> {
         for wire_build in &subcircuit_build.output_wires {
             let output_wire = known_wires.get(wire_build.wire_id()).unwrap();
             output_wires.push(output_wire.clone());
+            if output_wire.w0() == &0.to_biguint().unwrap() || output_wire.w1() == &0.to_biguint().unwrap() {
+                panic!("zero")
+            } else {
+                println!("Could push a output wire")
+            }
         }
+        println!("Output wires: {}", output_wires.len());
         (input_wires, subcircuit, output_wires)
     }
 
@@ -414,7 +398,7 @@ fn get_demux_tt(
     [(conditional.w0().clone(), input_wire.w0().clone(), garbage_if_wire.clone(), else_wire.w0().clone()),
     (conditional.w0().clone(), input_wire.w1().clone(), garbage_if_wire.clone(), else_wire.w1().clone()),
     (conditional.w1().clone(), input_wire.w0().clone(), if_wire.w0().clone(), garbage_else_wire.clone()),
-    (conditional.w1().clone(), input_wire.w1().clone(), if_wire.w1().clone(), else_wire.w0().clone())]
+    (conditional.w1().clone(), input_wire.w1().clone(), if_wire.w1().clone(), garbage_else_wire.clone())]
 }
 
 fn get_mux_tt(

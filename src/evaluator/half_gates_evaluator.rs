@@ -19,7 +19,7 @@ impl Evaluator for HalfGatesEvaluator {
         let sa = wi.bit(0);
         let wg = garbler_half_gate(sa, wi, self.get_index(), &table[0]);
         self.increment_index();
-
+        
         let sb = wj.bit(0);
         let we = evaluator_half_gate(sb, wi, wj, self.get_index(), &table[1]);
         self.increment_index();
