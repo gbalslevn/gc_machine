@@ -3,6 +3,8 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::circuit_builder::{BuildType, StackBuild};
 use crate::crypto_utils::{gc_kdf, gc_kdf_128};
+use crate::evaluator;
+use crate::evaluator::evaluator::{Evaluator, unstack_material};
 use crate::{circuit_builder::CircuitBuild,gates::gate_gen::GateGen,ot::eg_elliptic::{self, CipherText},wires::wire_gen::{Wire, WireGen},
 };
 use k256::PublicKey;
@@ -75,6 +77,8 @@ impl<G: GateGen> Garbler<G> {
         let mut wj;
         let mut output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
         let builds = circuit_build.get_builds();
+        self.gate_gen.get_wire_gen().new_rng();
+        self.gate_gen.reset_index();
 
         // insert constants for true and false wire into known_wires, to enable eg. NOT gates
         let constant_wires = self.insert_constant_wires(&mut known_wires);
@@ -115,6 +119,7 @@ impl<G: GateGen> Garbler<G> {
                 BuildType::Stack => {
                     let stack = build.unwrap_to_stack();
                     let seed = known_wires.get(&stack.conditional.wire_id()).unwrap().clone();
+                    let mut evaluator = HalfGatesEvaluator::new();
                     
                     // insert all input wires
                     let mut input_wires = vec![];
@@ -128,25 +133,42 @@ impl<G: GateGen> Garbler<G> {
                         known_wires.insert(output_wire.wire_id().clone(), wire.clone());
                         output_wires.push(wire.clone());
                         if circuit_build.output_wires.contains(output_wire) {
-                            println!("output_wire in garbler: {:#?}", wire);
                             output_conversion
                                 .push([(wire.w0().clone(), 0), (wire.w1().clone(), 1)]);
                         }
                     }
                     // generate material for both branches
-                    let (c0_input_wires, c0, c0_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.if_circuit);
-                    let (c0_garbage_input_wires, __c0_garbage,c0_garbage_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.if_circuit);
-                    let (c1_input_wires,c1,c1_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.else_circuit);
-                    let (c1_garbage_input_wires, __c1_garbage,c1_garbage_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.else_circuit);
+                    let (c0_input_wires, c0, c0_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.else_circuit);
+                    let (c0_garbage_input_wires, c0_garbage,c0_garbage_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.else_circuit);
+                    let (c1_input_wires,c1,c1_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.if_circuit);
+                    let (c1_garbage_input_wires, c1_garbage,c1_garbage_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.if_circuit);
+                    
                     let mut demuxes = vec![];
                     let stacked_m = self.stack_material(&c0, &c1);
+     
+                    let unstacked_c0_garbage = unstack_material(seed.w0(), &stacked_m, &stack.if_circuit);
+                    let unstacked_c1_garbage = unstack_material(seed.w1(), &stacked_m, &stack.else_circuit);
+                    
+                    // Select the labels we want to use as garbage in each subcircuit
+                    let mut c0_garbage_input = vec![];
+                    let mut c1_garbage_input = vec![];
+                    for i in 0..input_wires.len() {
+                        c0_garbage_input.push(c0_garbage_input_wires[i].w0().clone());
+                        c1_garbage_input.push(c1_garbage_input_wires[i].w0().clone());
+                    }
                     for i in 0..input_wires.len() { 
-                        let demux = self.generate_demux(&input_wires[i], &seed, &c0_input_wires[i], &c1_input_wires[i], c0_garbage_input_wires[i].w0(), &c1_garbage_input_wires[i].w1());
+                        let demux = self.generate_demux(&input_wires[i], &seed, &c1_input_wires[i], &c0_input_wires[i], &c1_garbage_input[i], &c0_garbage_input[i]);
                         demuxes.push(demux);
                     } 
+                    println!("c0_out: {:#?}", c0_output_wires);
+                    println!("c1_out: {:#?}", c1_output_wires);
+                    let c0_garbage_output_labels = evaluator.evaluate_subcircuit(c0_garbage_input.clone(), unstacked_c0_garbage, &stack.else_circuit);
+                    let c1_garbage_output_labels = evaluator.evaluate_subcircuit(c1_garbage_input.clone(), unstacked_c1_garbage, &stack.if_circuit);
+                    println!("c0_out garb label: {:#?}", c0_garbage_output_labels);
+                    println!("c1_out garbl label: {:#?}", c1_garbage_output_labels);
                     let mut muxes = vec![];
                     for i in 0..output_wires.len() {
-                        let mux = self.generate_mux(&seed, &c0_output_wires[i], &c1_output_wires[i], &c0_garbage_output_wires[i].w0(), &c1_garbage_output_wires[i].w1(), &output_wires[i]);
+                        let mux = self.generate_mux(&seed, &c1_output_wires[i], &c0_output_wires[i], &c1_garbage_output_labels[i], &c0_garbage_output_labels[i], &output_wires[i]);
                         muxes.push(mux);
                     }
                     stacks.insert(stack.id.to_biguint().unwrap(), Stack {demuxes, stacked_m, muxes});
@@ -171,7 +193,7 @@ impl<G: GateGen> Garbler<G> {
             let c1_is_within_index = table_index < c1.len();
         
             let mut stacked_table = vec![];
-            if (c0_is_within_index && c0[table_index].is_empty()) || (c1_is_within_index && c1[table_index].is_empty()) {
+            if (c0_is_within_index && c0[table_index].is_empty()) && (c1_is_within_index && c1[table_index].is_empty()) {
                 stacked_table = Vec::new();
                 stacked_material.push(stacked_table);
                 continue;
@@ -219,8 +241,8 @@ impl<G: GateGen> Garbler<G> {
         let mut table = vec![BigUint::from(0u8); 4];
         let demux_table = get_demux_tt(input_wire, conditional, if_wire, else_wire, garbage_if_wire, garbage_else_wire);
         for (cond, input, if_wire, else_wire) in demux_table {
-            let index = get_position(&cond, &input);
-            let entry = gc_kdf(&cond, &input, &1.to_biguint().unwrap()) ^ ((if_wire << 128) + else_wire);
+            let index = get_position(&input, &cond);
+            let entry = gc_kdf(&input, &cond, &1.to_biguint().unwrap()) ^ ((if_wire << 128) | else_wire);
             table[index] = entry;
         }
         table
@@ -250,7 +272,7 @@ impl<G: GateGen> Garbler<G> {
     }
 
     fn generate_subcircuit(&mut self, seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> (Vec<Wire>, Vec<Vec<BigUint>>, Vec<Wire>) { // make a subcircuit datatype
-        let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);        
+        let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);  
         let subcircuit_input_wires = &subcircuit_build.input_wires;
         let mut known_wires = HashMap::new();
         self.insert_constant_wires(&mut known_wires);
@@ -275,9 +297,6 @@ impl<G: GateGen> Garbler<G> {
                         wi.clone(),
                         wj.clone()
                     );
-                    if new_gate.wo.w0() == &0.to_biguint().unwrap() || new_gate.wo.w1() == &0.to_biguint().unwrap() {
-                        panic!("error with gate {:#?}", gate)
-                    }
                     let output_wire_id = gate.wo().wire_id();
                     known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
                     let table = new_gate.to_table();
@@ -299,13 +318,7 @@ impl<G: GateGen> Garbler<G> {
         for wire_build in &subcircuit_build.output_wires {
             let output_wire = known_wires.get(wire_build.wire_id()).unwrap();
             output_wires.push(output_wire.clone());
-            if output_wire.w0() == &0.to_biguint().unwrap() || output_wire.w1() == &0.to_biguint().unwrap() {
-                panic!("zero")
-            } else {
-                println!("Could push a output wire")
-            }
         }
-        println!("Output wires: {}", output_wires.len());
         (input_wires, subcircuit, output_wires)
     }
 
@@ -394,11 +407,11 @@ fn get_demux_tt(
     if_wire: &Wire,
     else_wire: &Wire,
     garbage_if_wire: &BigUint,
-    garbage_else_wire: &BigUint,) -> [(BigUint, BigUint, BigUint, BigUint); 4] {
-    [(conditional.w0().clone(), input_wire.w0().clone(), garbage_if_wire.clone(), else_wire.w0().clone()),
-    (conditional.w0().clone(), input_wire.w1().clone(), garbage_if_wire.clone(), else_wire.w1().clone()),
-    (conditional.w1().clone(), input_wire.w0().clone(), if_wire.w0().clone(), garbage_else_wire.clone()),
-    (conditional.w1().clone(), input_wire.w1().clone(), if_wire.w1().clone(), garbage_else_wire.clone())]
+    garbage_else_wire: &BigUint) -> [(BigUint, BigUint, BigUint, BigUint); 4] {
+    [(conditional.w1().clone(), input_wire.w0().clone(), garbage_if_wire.clone(), else_wire.w0().clone()),
+    (conditional.w1().clone(), input_wire.w1().clone(), garbage_if_wire.clone(), else_wire.w1().clone()),
+    (conditional.w0().clone(), input_wire.w0().clone(), if_wire.w0().clone(), garbage_else_wire.clone()),
+    (conditional.w0().clone(), input_wire.w1().clone(), if_wire.w1().clone(), garbage_else_wire.clone())]
 }
 
 fn get_mux_tt(
@@ -408,10 +421,10 @@ fn get_mux_tt(
     garbage_if_wire: &BigUint,
     garbage_else_wire: &BigUint,
     output_wire: &Wire,) -> [(BigUint, BigUint, BigUint, BigUint); 4] {
-    [(conditional.w0().clone(), garbage_if_wire.clone(), else_wire.w0().clone(), output_wire.w0().clone()),
-        (conditional.w0().clone(), garbage_if_wire.clone(), else_wire.w1().clone(), output_wire.w1().clone()),
-        (conditional.w1().clone(), if_wire.w0().clone(), garbage_else_wire.clone(), output_wire.w0().clone()),
-        (conditional.w1().clone(), if_wire.w1().clone(), garbage_else_wire.clone(), output_wire.w1().clone())]
+    [(conditional.w1().clone(), garbage_if_wire.clone(), else_wire.w0().clone(), output_wire.w0().clone()),
+    (conditional.w1().clone(), garbage_if_wire.clone(), else_wire.w1().clone(), output_wire.w1().clone()),
+        (conditional.w0().clone(), if_wire.w0().clone(), garbage_else_wire.clone(), output_wire.w0().clone()),
+        (conditional.w0().clone(), if_wire.w1().clone(), garbage_else_wire.clone(), output_wire.w1().clone())]
 }
 
 fn get_mux_pos(seed: &BigUint, if_wire: &BigUint, else_wire: &BigUint) -> usize {

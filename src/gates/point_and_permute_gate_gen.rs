@@ -53,7 +53,9 @@ impl GateGen for PointAndPermuteGateGen {
         self.index += 1u32;
         &self.index
     }
-
+    fn reset_index(&mut self) {
+        self.index = BigUint::from(0u32)
+    }
 }
 
 pub fn get_position(il: &BigUint, ir: &BigUint) -> usize {

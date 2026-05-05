@@ -50,6 +50,7 @@ pub trait Evaluator {
         if secret_keys.len() != circuit.evaluator_input.len() {
             panic!("Evaluator input length and its secret keys length must be equal")
         }
+        self.reset_index();
 
         // Insert constant values
         known_wires.insert(0.to_biguint().unwrap(), circuit.constant_wires[0].to_biguint().unwrap());
@@ -97,8 +98,10 @@ pub trait Evaluator {
                     let stack_build = build.unwrap_to_stack();
                     let stack = circuit.stacks.get(&stack_build.id.to_biguint().unwrap()).unwrap();
                     let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap().clone();
-                    let c0 = unstack_material(&seed, &stack.stacked_m, &stack_build.if_circuit);
+                    let c0= unstack_material(&seed, &stack.stacked_m, &stack_build.if_circuit);
+                    // println!("eval c0: {:#?}", c0);
                     let c1 = unstack_material(&seed, &stack.stacked_m, &stack_build.else_circuit);
+                    // println!("eval c1: {:#?}", c1);
                     
                     // Get all input wires to the two circuits from demux
                     let mut c0_inputs = vec![];
@@ -106,19 +109,22 @@ pub trait Evaluator {
                     for i in 0..stack_build.input_wires.len() {
                         let input_wire_id = stack_build.input_wires[i].wire_id();
                         let input_wire = known_wires.get(input_wire_id).unwrap().clone();
-                        let (c0_input, c1_input) = self.evaluate_demux(&input_wire, &seed, &stack.demuxes[i]);
+                        let (c1_input, c0_input) = self.evaluate_demux(&input_wire, &seed, &stack.demuxes[i]);
                         c0_inputs.push(c0_input);
                         c1_inputs.push(c1_input);
                     }
-                    
-                    let c0_output = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.if_circuit);
-                    let c1_output = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.else_circuit);
+                    println!("Eval c0_in: {:#?}", c0_inputs);
+                    println!("Eval c1_in: {:#?}", c1_inputs);
+                    let c0_output = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.else_circuit);
+                    let c1_output = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.if_circuit);
+                    println!("Eval c0_out: {:#?}", c0_output);
+                    println!("Eval c1_out: {:#?}", c1_output);
                     assert_eq!(c0_output.len(), c1_output.len());
 
                     for i in 0..stack_build.output_wires.len() {
-                        println!("mux trying to be evaluated: {:#?}", &stack.muxes[i]);
-                        let mux_out = self.evaluate_mux(&c0_output[i], &c1_output[i], &seed, &stack.muxes[i]);
-                        println!("eval mux out: {}", mux_out);
+                        // println!("mux trying to be evaluated: {:#?}", &stack.muxes[i]);
+                        let mux_out = self.evaluate_mux(&c1_output[i], &c0_output[i], &seed, &stack.muxes[i]);
+                        // println!("eval mux out: {}", mux_out);
                         
                         let output_wire = stack_build.output_wires[i].clone();
                         known_wires.insert(output_wire.wire_id().clone(), mux_out.clone());
@@ -166,7 +172,7 @@ pub trait Evaluator {
     }
 
     fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>) -> u32 {
-        println!("output conversions: {}", output_conversion.len());
+        // println!("output conversions: {}", output_conversion.len());
         let mut result : u32 = 0;
         for (index, result_wire) in result_wires.iter().enumerate() {
             if output_conversion[index][1].0 == *result_wire {
@@ -224,16 +230,17 @@ pub trait Evaluator {
     fn evaluate_mux(&mut self, wi: &BigUint, wj: &BigUint, seed: &BigUint, mux: &Vec<BigUint>) -> BigUint {
         let pos = get_mux_pos(seed, wi, wj);
         let key = gc_kdf_128(wi, wj, &1.to_biguint().unwrap());
-        println!("key derived for evaluator at pos {}: {}", pos, key);
-        println!("left: {}", wi);
-        println!("right: {}", wj);
-        println!("seed: {}", seed);
-        self.increment_index();
+        // println!("key derived for evaluator at pos {}: {}", pos, key);
+        // println!("left: {}", wi);
+        // println!("right: {}", wj);
+        // println!("seed: {}", seed);
+        // self.increment_index();
         key ^ &mux[pos]
     }
 
     fn increment_index(&mut self);
     fn get_index(&self) -> &BigUint;
+    fn reset_index(&mut self);
 }
 
 fn get_mux_pos(seed: &BigUint, if_wire: &BigUint, else_wire: &BigUint) -> usize {
@@ -241,7 +248,18 @@ fn get_mux_pos(seed: &BigUint, if_wire: &BigUint, else_wire: &BigUint) -> usize 
     let i = if_wire.bit(0) as usize;
     let e = else_wire.bit(0) as usize;
     s * 4 + i * 2 + e
+    // println!("pos before translation: {}", pos);
 }
+
+// fn translate_mux_pos(pos : usize) -> usize {
+//     match pos {
+//         0 | 1 => 0,
+//         2 | 3 => 1,
+//         4 | 6 => 2, 
+//         5 | 7 => 3,
+//         _ => panic!("Mux position was invalid")
+//     }
+// }
 
 fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
     let l = wi.bit(0) as usize;
@@ -249,8 +267,8 @@ fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
     l * 2 + r
 }
 
-fn unstack_material(seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, subcircuit_build: &SubcircuitBuild) -> Vec<Vec<BigUint>> {
-    let material = generate_subcircuit(seed, subcircuit_build);
+pub fn unstack_material(xor_material_seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, xor_material: &SubcircuitBuild) -> Vec<Vec<BigUint>> {
+    let material = generate_subcircuit(xor_material_seed, xor_material);
     // println!("Material used to unstack is: {:#?}", material);
     
     let mut unstacked_material = vec![];

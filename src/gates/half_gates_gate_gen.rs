@@ -86,4 +86,7 @@ impl GateGen for HalfGatesGateGen {
         self.index += 1u32;
         &self.index
     }
+    fn reset_index(&mut self) {
+        self.index = BigUint::from(0u32)
+    }
 }

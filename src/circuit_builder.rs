@@ -119,6 +119,7 @@ impl CircuitBuilder {
         let combined_input: HashSet<WireBuild> = if_circuit_inputs.into_iter().chain(else_circuit_inputs.into_iter()).collect();
         let input_wires: Vec<WireBuild> = combined_input.into_iter().collect();
         let false_constant = &self.false_constant.clone();
+        println!("Amount of input wires: {}", input_wires.len());
         
         // Add padding to if neccesary to ensure equal output length of subcircuits 
         if if_circuit_output.len() > else_circuit_output.len() { 
@@ -271,6 +272,11 @@ impl CircuitBuilder {
 
     pub fn build_and(&mut self, wi: &WireBuild, wj: &WireBuild) -> BuildBlock {
         let gate = self.build_gate(wi, wj, GateType::AND);
+        BuildBlock { output: vec![gate.wo], builds: self.get_latest_builds() }
+    }
+
+    pub fn build_xor(&mut self, wi: &WireBuild, wj: &WireBuild) -> BuildBlock {
+        let gate = self.build_gate(wi, wj, GateType::XOR);
         BuildBlock { output: vec![gate.wo], builds: self.get_latest_builds() }
     }
 
