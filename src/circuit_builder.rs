@@ -119,7 +119,6 @@ impl CircuitBuilder {
         let combined_input: HashSet<WireBuild> = if_circuit_inputs.into_iter().chain(else_circuit_inputs.into_iter()).collect();
         let input_wires: Vec<WireBuild> = combined_input.into_iter().collect();
         let false_constant = &self.false_constant.clone();
-        println!("Amount of input wires: {}", input_wires.len());
         
         // Add padding to if neccesary to ensure equal output length of subcircuits 
         if if_circuit_output.len() > else_circuit_output.len() { 

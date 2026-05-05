@@ -18,6 +18,7 @@ impl Evaluator for HalfGatesEvaluator {
     fn evaluate_and_gate(&mut self, wi: &BigUint, wj: &BigUint, table: &Vec<BigUint>) -> BigUint {
         let sa = wi.bit(0);
         let wg = garbler_half_gate(sa, wi, self.get_index(), &table[0]);
+        println!("index is: {}", self.get_index());
         self.increment_index();
         
         let sb = wj.bit(0);
