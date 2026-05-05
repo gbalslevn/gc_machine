@@ -68,9 +68,6 @@ impl GateGen for FreeXORGateGen {
         self.index += 1u32;
         &self.index
     }
-    fn reset_index(&mut self) {
-        self.index = BigUint::from(0u32)
-    }
 }
 
 fn generate_table(tt: &[(BigUint, BigUint, BigUint); 4], gate_id: &BigUint) -> Vec<BigUint> {

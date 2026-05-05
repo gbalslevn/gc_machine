@@ -52,7 +52,6 @@ pub trait GateGen {
     }
     fn get_index(&self) -> &BigUint;
     fn increment_index(&mut self) -> &BigUint;
-    fn reset_index(&mut self);
 }
 
 #[derive(PartialEq, Debug)]

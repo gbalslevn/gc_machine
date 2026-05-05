@@ -51,8 +51,6 @@ pub trait Evaluator {
             panic!("Evaluator input length and its secret keys length must be equal")
         }
 
-        self.reset_index();
-
         // Insert constant values
         known_wires.insert(0.to_biguint().unwrap(), circuit.constant_wires[0].to_biguint().unwrap());
         known_wires.insert(1.to_biguint().unwrap(), circuit.constant_wires[1].to_biguint().unwrap());
@@ -135,8 +133,8 @@ pub trait Evaluator {
     }
 
     fn evaluate_subcircuit(&mut self, input_wires: Vec<BigUint>, subcircuit_tables: Vec<Vec<BigUint>>, subcircuit_build : &SubcircuitBuild) -> Vec<BigUint> {
-        // When evaluating subcircuits we reset gate_index to zero, therefore we make a new evaluator. 
-        let mut evaluator = HalfGatesEvaluator::new();
+        let mut evaluator = HalfGatesEvaluator::new(); // When evaluating subcircuits we reset gate_index to zero so it matches when garbler uses the method, therefore we make a new evaluator. 
+
         let mut known_wires : HashMap<BigUint, BigUint> = HashMap::new();
         for i in 0..input_wires.len() {
             known_wires.insert(subcircuit_build.input_wires[i].wire_id().clone(), input_wires[i].clone());
@@ -149,7 +147,6 @@ pub trait Evaluator {
                     let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
                     let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
                     let result = evaluator.evaluate_gate(&wi, &wj, &gate.gate_type, &subcircuit_tables[index]);
-                    println!("gate eval result is: {}", result);
                     let output_wire_id = gate.wo().wire_id().clone();
                     known_wires.insert(output_wire_id, result.clone());
                     if subcircuit_build.output_wires.contains(gate.wo()) {
@@ -235,7 +232,6 @@ pub trait Evaluator {
 
     fn increment_index(&mut self);
     fn get_index(&self) -> &BigUint;
-    fn reset_index(&mut self);
 }
 
 fn get_mux_pos(seed: &BigUint, if_wire: &BigUint, else_wire: &BigUint) -> usize {

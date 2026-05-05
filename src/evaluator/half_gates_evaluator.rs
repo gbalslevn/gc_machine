@@ -39,9 +39,6 @@ impl Evaluator for HalfGatesEvaluator {
     fn get_index(&self) -> &BigUint {
         &self.index
     }
-    fn reset_index(&mut self) {
-        self.index = BigUint::from(0u32);
-    }
 }
 
 fn garbler_half_gate(sa: bool, wi: &BigUint, index: &BigUint, tg: &BigUint) -> BigUint {

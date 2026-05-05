@@ -59,9 +59,6 @@ impl GateGen for OriginalGateGen {
         self.index += 1u32;
         &self.index
     }
-    fn reset_index(&mut self) {
-        self.index = BigUint::from(0u32)
-    }
 }
 
 fn shuffle_vec(rng : &mut ChaCha20Rng, vec : &mut Vec<BigUint>) {

@@ -73,12 +73,9 @@ impl<G: GateGen> Garbler<G> {
         let mut garbled_gates: Vec<Vec<BigUint>> = Vec::new();
         let mut stacks : HashMap<BigUint, Stack> = HashMap::new();
         let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
-        let mut wi;
-        let mut wj;
         let mut output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
         let builds = circuit_build.get_builds();
         self.gate_gen.get_wire_gen().new_rng();
-        self.gate_gen.reset_index();
 
         // insert constants for true and false wire into known_wires, to enable eg. NOT gates
         let constant_wires = self.insert_constant_wires(&mut known_wires);
@@ -95,8 +92,8 @@ impl<G: GateGen> Garbler<G> {
                 BuildType::Gate => {
                     let gate = build.unwrap_to_gate();
                     // Generate gates with the inputs
-                    wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-                    wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+                    let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+                    let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
 
                     let new_gate = self.gate_gen.generate_gate(
                         gate.gate_type().clone(),

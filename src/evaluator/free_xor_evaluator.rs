@@ -36,9 +36,6 @@ impl Evaluator for FreeXOREvaluator {
     fn get_index(&self) -> &BigUint {
         &self.index
     }
-    fn reset_index(&mut self) {
-        self.index = BigUint::from(0u32);
-    }
 }
 
 fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
