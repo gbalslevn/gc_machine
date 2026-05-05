@@ -172,7 +172,7 @@ impl CircuitBuilder {
         }
 
         let branch_id = self.stacks.len();
-        let stack_build = StackBuild { input_wires : input_wires.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), if_circuit : c0, else_circuit: c1, id: branch_id};
+        let stack_build = StackBuild { input_wires : input_wires.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), if_circuit: c0, else_circuit: c1, id: branch_id};
         self.stacks.insert(branch_id, stack_build);
         self.set_output_wires(output_wires.clone());
         

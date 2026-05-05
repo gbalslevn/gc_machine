@@ -28,7 +28,7 @@ pub struct Circuit {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stack {
     pub demuxes: Vec<Vec<BigUint>>,
-    pub stacked_m: Vec<Vec<BigUint>>,
+    pub m_cond: Vec<Vec<BigUint>>,
     pub muxes: Vec<Vec<BigUint>>,
 }
 
@@ -139,21 +139,21 @@ impl<G: GateGen> Garbler<G> {
                     let (c0_garbage_input_wires, c0_garbage,c0_garbage_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.else_circuit);
                     let (c1_input_wires,c1,c1_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.if_circuit);
                     let (c1_garbage_input_wires, c1_garbage,c1_garbage_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.if_circuit);
-                    
-                    let mut demuxes = vec![];
-                    let stacked_m = self.stack_material(&c0, &c1);
-     
-                    let unstacked_c0_garbage = unstack_material(seed.w0(), &stacked_m, &stack.if_circuit);
-                    let unstacked_c1_garbage = unstack_material(seed.w1(), &stacked_m, &stack.else_circuit);
-                    
-                    // Select the labels we want to use as garbage in each subcircuit
+                    let m_cond = self.stack_material(&c0, &c1);
+
+                    let unstacked_c0_garbage = unstack_material(seed.w0(), &m_cond, &stack.if_circuit);
+                    let unstacked_c1_garbage = unstack_material(seed.w1(), &m_cond, &stack.else_circuit);
+
+                    // Select the labels we want to use as garbage in each subcircuit. We choose w0 but could have used w1 aswell.
                     let mut c0_garbage_input = vec![];
                     let mut c1_garbage_input = vec![];
                     for i in 0..input_wires.len() {
                         c0_garbage_input.push(c0_garbage_input_wires[i].w0().clone());
                         c1_garbage_input.push(c1_garbage_input_wires[i].w0().clone());
                     }
-                    for i in 0..input_wires.len() { 
+
+                    let mut demuxes = vec![];
+                    for i in 0..input_wires.len() {
                         println!("Garbl - Input wire {}", stack.input_wires[i].wire_id());
                         let demux = self.generate_demux(&input_wires[i], &seed, &c1_input_wires[i], &c0_input_wires[i], &c1_garbage_input[i], &c0_garbage_input[i]);
                         demuxes.push(demux);
@@ -168,7 +168,7 @@ impl<G: GateGen> Garbler<G> {
                         let mux = self.generate_mux(&seed, &c1_output_wires[i], &c0_output_wires[i], &c1_garbage_output_labels[i], &c0_garbage_output_labels[i], &output_wires[i]);
                         muxes.push(mux);
                     }
-                    stacks.insert(stack.id.to_biguint().unwrap(), Stack {demuxes, stacked_m, muxes});
+                    stacks.insert(stack.id.to_biguint().unwrap(), Stack {demuxes, m_cond, muxes});
                 }
             }
         }
@@ -183,7 +183,7 @@ impl<G: GateGen> Garbler<G> {
     }
 
     pub fn stack_material(&mut self, c0: &Vec<Vec<BigUint>>, c1: &Vec<Vec<BigUint>>) -> Vec<Vec<BigUint>> {
-        let mut stacked_material = vec![];
+        let mut m_cond = vec![];
         let longest_material = max(c0.len(), c1.len());
         for table_index in 0..longest_material {
             let c0_is_within_index = table_index < c0.len();
@@ -192,7 +192,7 @@ impl<G: GateGen> Garbler<G> {
             let mut stacked_table = vec![];
             if (c0_is_within_index && c0[table_index].is_empty()) && (c1_is_within_index && c1[table_index].is_empty()) {
                 stacked_table = Vec::new();
-                stacked_material.push(stacked_table);
+                m_cond.push(stacked_table);
                 continue;
             }
             for entry_index in 0..2 {
@@ -208,9 +208,9 @@ impl<G: GateGen> Garbler<G> {
                 }
                 stacked_table.push(stacked_entry);
             } 
-            stacked_material.push(stacked_table);
+            m_cond.push(stacked_table);
         }
-        stacked_material
+        m_cond
     }
 
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {

@@ -97,8 +97,10 @@ pub trait Evaluator {
                     let stack_build = build.unwrap_to_stack();
                     let stack = circuit.stacks.get(&stack_build.id.to_biguint().unwrap()).unwrap();
                     let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap().clone();
-                    let c0= unstack_material(&seed, &stack.stacked_m, &stack_build.if_circuit);
-                    let c1 = unstack_material(&seed, &stack.stacked_m, &stack_build.else_circuit);
+                    let c0= unstack_material(&seed, &stack.m_cond, &stack_build.if_circuit);
+                    // println!("eval c0: {:#?}", c0);
+                    let c1 = unstack_material(&seed, &stack.m_cond, &stack_build.else_circuit);
+                    // println!("eval c1: {:#?}", c1);
                     
                     // Get all input wires to the two circuits from demux
                     let mut c0_inputs = vec![];
