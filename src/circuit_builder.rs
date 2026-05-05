@@ -112,43 +112,43 @@ impl CircuitBuilder {
         }
     }
 
-    pub fn build_stacked_if(&mut self, cond : &WireBuild, if_circuit : &mut Vec<Build>, if_circuit_output : &mut Vec<WireBuild>, else_circuit : &mut Vec<Build>, else_circuit_output : &mut Vec<WireBuild>) -> Vec<WireBuild> { 
+    pub fn build_stacked_if(&mut self, cond : &WireBuild, c0_circuit: &mut Vec<Build>, c0_circuit_output: &mut Vec<WireBuild>, c1_circuit: &mut Vec<Build>, c1_circuit_output: &mut Vec<WireBuild>) -> Vec<WireBuild> {
         // input wires are derived implicitely from the input wires of if and else circuit. We combine them to find all input wires needed for both subcircuits 
-        let if_circuit_inputs = get_input_wires(if_circuit.clone());
-        let else_circuit_inputs = get_input_wires(else_circuit.clone());
-        let combined_input: HashSet<WireBuild> = if_circuit_inputs.into_iter().chain(else_circuit_inputs.into_iter()).collect();
+        let c0_circuit_inputs = get_input_wires(c0_circuit.clone());
+        let c1_circuit_inputs = get_input_wires(c1_circuit.clone());
+        let combined_input: HashSet<WireBuild> = c0_circuit_inputs.into_iter().chain(c1_circuit_inputs.into_iter()).collect();
         let input_wires: Vec<WireBuild> = combined_input.into_iter().collect();
         let false_constant = &self.false_constant.clone();
         
         // Add padding to if neccesary to ensure equal output length of subcircuits 
-        if if_circuit_output.len() > else_circuit_output.len() { 
-            for _ in 0..if_circuit_output.len() - else_circuit_output.len() {
+        if c0_circuit_output.len() > c1_circuit_output.len() {
+            for _ in 0..c0_circuit_output.len() - c1_circuit_output.len() {
                 let zero_padding = self.build_gate(false_constant, false_constant, GateType::AND).clone();
-                else_circuit.push(Build::Gate(zero_padding.clone()));
-                else_circuit_output.push(zero_padding.wo);
+                c1_circuit.push(Build::Gate(zero_padding.clone()));
+                c1_circuit_output.push(zero_padding.wo);
             }
         }
-        if if_circuit_output.len() < else_circuit_output.len() { 
-            for _ in 0..else_circuit_output.len() - if_circuit_output.len() {
+        if c0_circuit_output.len() < c1_circuit_output.len() {
+            for _ in 0..c1_circuit_output.len() - c0_circuit_output.len() {
                 let zero_padding = self.build_gate(false_constant, false_constant, GateType::AND);
-                if_circuit.push(Build::Gate(zero_padding.clone()));
-                if_circuit_output.push(zero_padding.wo);
+                c0_circuit.push(Build::Gate(zero_padding.clone()));
+                c0_circuit_output.push(zero_padding.wo);
             }
         }
 
-        if_circuit.sort_by_key(|build| *build.ready_at_layer());
-        else_circuit.sort_by_key(|build| *build.ready_at_layer());
+        c0_circuit.sort_by_key(|build| *build.ready_at_layer());
+        c1_circuit.sort_by_key(|build| *build.ready_at_layer());
     
-        let if_output_layer = if_circuit[if_circuit.len() - 1].ready_at_layer(); // Questionable whether this works, different output wires might be ready at different output layers. So simply taking the last wire is not robust.
-        let else_output_layer = else_circuit[else_circuit.len() - 1].ready_at_layer();
-        let compute_layer = if_output_layer.clone().max(else_output_layer.clone()) + 1;
+        let c0_output_layer = c0_circuit[c0_circuit.len() - 1].ready_at_layer(); // Questionable whether this works, different output wires might be ready at different output layers. So simply taking the last wire is not robust.
+        let c1_output_layer = c1_circuit[c1_circuit.len() - 1].ready_at_layer();
+        let compute_layer = c0_output_layer.clone().max(c1_output_layer.clone()) + 1;
         
-        let c0 = SubcircuitBuild {builds: if_circuit.clone(), output_wires: if_circuit_output.clone(), input_wires: input_wires.clone()};
-        let c1 = SubcircuitBuild {builds: else_circuit.clone(), output_wires: else_circuit_output.clone(), input_wires: input_wires.clone()};
+        let c0 = SubcircuitBuild {builds: c0_circuit.clone(), output_wires: c0_circuit_output.clone(), input_wires: input_wires.clone()};
+        let c1 = SubcircuitBuild {builds: c1_circuit.clone(), output_wires: c1_circuit_output.clone(), input_wires: input_wires.clone()};
 
         // Remove builds contained inside of true and false gates from circuitbuilders global parameter as they now belong inside the subcircuit of the stack
-        let mut builds_in_stack: HashSet<_> = if_circuit.into_iter().collect();
-        let else_set: HashSet<_> = else_circuit.into_iter().collect();
+        let mut builds_in_stack: HashSet<_> = c0_circuit.into_iter().collect();
+        let else_set: HashSet<_> = c1_circuit.into_iter().collect();
         builds_in_stack.extend(else_set);
         for build in builds_in_stack {
             match build.get_type() {
@@ -165,14 +165,14 @@ impl CircuitBuilder {
 
         // Create output wires
         let mut output_wires = vec![];
-        for _ in if_circuit_output { // or else circuit output padded length
+        for _ in c0_circuit_output { // or else circuit output padded length
             let output_wire = WireBuild::new(compute_layer, self.wires_created.clone());
             self.increment_wires_created();
             output_wires.push(output_wire);
         }
 
         let branch_id = self.stacks.len();
-        let stack_build = StackBuild { input_wires : input_wires.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), if_circuit: c0, else_circuit: c1, id: branch_id};
+        let stack_build = StackBuild { input_wires : input_wires.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), c0_circuit: c0, c1_circuit: c1, id: branch_id};
         self.stacks.insert(branch_id, stack_build);
         self.set_output_wires(output_wires.clone());
         
@@ -486,8 +486,8 @@ pub struct StackBuild {
     pub input_wires: Vec<WireBuild>,
     pub output_wires: Vec<WireBuild>,
     pub conditional: WireBuild,
-    pub if_circuit: SubcircuitBuild,
-    pub else_circuit: SubcircuitBuild,
+    pub c0_circuit: SubcircuitBuild,
+    pub c1_circuit: SubcircuitBuild,
     pub id : StackID
 }
 
@@ -538,8 +538,8 @@ impl fmt::Display for Build {
                 let stack_build = self.unwrap_to_stack();
                 write!(
                     f,
-                    "Stack id: {:<3} | if_circuit len : {} | else_circuit len : {} ",
-                    stack_build.id, stack_build.if_circuit.builds.len(), stack_build.else_circuit.builds.len()
+                    "Stack id: {:<3} | c0_circuit len : {} | c1_circuit len : {} ",
+                    stack_build.id, stack_build.c0_circuit.builds.len(), stack_build.c1_circuit.builds.len()
                 )
             }
         }

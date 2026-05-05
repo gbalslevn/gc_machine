@@ -97,9 +97,9 @@ pub trait Evaluator {
                     let stack_build = build.unwrap_to_stack();
                     let stack = circuit.stacks.get(&stack_build.id.to_biguint().unwrap()).unwrap();
                     let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap().clone();
-                    let c0= unstack_material(&seed, &stack.m_cond, &stack_build.if_circuit);
+                    let c0= unstack_material(&seed, &stack.m_cond, &stack_build.c0_circuit);
                     // println!("eval c0: {:#?}", c0);
-                    let c1 = unstack_material(&seed, &stack.m_cond, &stack_build.else_circuit);
+                    let c1 = unstack_material(&seed, &stack.m_cond, &stack_build.c1_circuit);
                     // println!("eval c1: {:#?}", c1);
                     
                     // Get all input wires to the two circuits from demux
@@ -113,9 +113,9 @@ pub trait Evaluator {
                         c1_inputs.push(c1_input);
                     }
                     println!("Evaluator c0 subcircuit");
-                    let c0_output = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.else_circuit);
+                    let c0_output = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.c1_circuit);
                     println!("Evaluator c1 subcircuit");
-                    let c1_output = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.if_circuit);
+                    let c1_output = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.c0_circuit);
                     assert_eq!(c0_output.len(), c1_output.len());
 
                     for i in 0..stack_build.output_wires.len() {
@@ -216,9 +216,9 @@ pub trait Evaluator {
         self.increment_index();
         let output = key ^ &demux[pos];
         let output_bytes = output.to_bytes_be();
-        let if_wire  = BigUint::from_bytes_be(&output_bytes[..16]);  // first 128 bits
-        let else_wire = BigUint::from_bytes_be(&output_bytes[16..]);  // last 128 bits
-        (if_wire, else_wire)
+        let c0_wire  = BigUint::from_bytes_be(&output_bytes[..16]);  // first 128 bits
+        let c1_wire = BigUint::from_bytes_be(&output_bytes[16..]);  // last 128 bits
+        (c0_wire, c1_wire)
     }
 
     fn evaluate_mux(&mut self, wi: &BigUint, wj: &BigUint, seed: &BigUint, mux: &Vec<BigUint>) -> BigUint {
@@ -236,10 +236,10 @@ pub trait Evaluator {
     fn get_index(&self) -> &BigUint;
 }
 
-fn get_mux_pos(seed: &BigUint, if_wire: &BigUint, else_wire: &BigUint) -> usize {
+fn get_mux_pos(seed: &BigUint, c0_wire: &BigUint, c1_wire: &BigUint) -> usize {
     let s = seed.bit(0) as usize;
-    let i = if_wire.bit(0) as usize;
-    let e = else_wire.bit(0) as usize;
+    let i = c0_wire.bit(0) as usize;
+    let e = c1_wire.bit(0) as usize;
     s * 4 + i * 2 + e
 }
 
