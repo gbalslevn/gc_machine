@@ -135,14 +135,14 @@ impl<G: GateGen> Garbler<G> {
                         }
                     }
                     // generate material for both branches
-                    let (c0_input_wires, c0, c0_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.c1_circuit);
-                    let (c0_garbage_input_wires, c0_garbage,c0_garbage_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.c1_circuit);
-                    let (c1_input_wires,c1,c1_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.c0_circuit);
-                    let (c1_garbage_input_wires, c1_garbage,c1_garbage_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.c0_circuit);
+                    let (c0_input_wires, c0, c0_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.c0_circuit);
+                    let (c0_garbage_input_wires, c0_garbage,c0_garbage_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.c0_circuit);
+                    let (c1_input_wires,c1,c1_output_wires ) = self.generate_subcircuit(seed.w0(), &stack.c1_circuit);
+                    let (c1_garbage_input_wires, c1_garbage,c1_garbage_output_wires ) = self.generate_subcircuit(seed.w1(), &stack.c1_circuit);
                     let m_cond = self.stack_material(&c0, &c1);
 
-                    let unstacked_c0_garbage = unstack_material(seed.w0(), &m_cond, &stack.c0_circuit);
-                    let unstacked_c1_garbage = unstack_material(seed.w1(), &m_cond, &stack.c1_circuit);
+                    let unstacked_c0_garbage = unstack_material(seed.w1(), &m_cond, &stack.c1_circuit);
+                    let unstacked_c1_garbage = unstack_material(seed.w0(), &m_cond, &stack.c0_circuit);
 
                     // Select the labels we want to use as garbage in each subcircuit. We choose w0 but could have used w1 aswell.
                     let mut c0_garbage_input = vec![];
@@ -155,17 +155,17 @@ impl<G: GateGen> Garbler<G> {
                     let mut demuxes = vec![];
                     for i in 0..input_wires.len() {
                         println!("Garbl - Input wire {}", stack.input_wires[i].wire_id());
-                        let demux = self.generate_demux(&input_wires[i], &seed, &c1_input_wires[i], &c0_input_wires[i], &c1_garbage_input[i], &c0_garbage_input[i]);
+                        let demux = self.generate_demux(&input_wires[i], &seed, &c0_input_wires[i], &c1_input_wires[i], &c0_garbage_input[i], &c1_garbage_input[i]);
                         demuxes.push(demux);
                     } 
                     println!("Garbler eval c0");
-                    let c0_garbage_output_labels = evaluator.evaluate_subcircuit(c0_garbage_input.clone(), unstacked_c0_garbage, &stack.c1_circuit);
+                    let c0_garbage_output_labels = evaluator.evaluate_subcircuit(c0_garbage_input.clone(), unstacked_c0_garbage, &stack.c0_circuit);
                     println!("Garbler eval c1");
-                    let c1_garbage_output_labels = evaluator.evaluate_subcircuit(c1_garbage_input.clone(), unstacked_c1_garbage, &stack.c0_circuit);
+                    let c1_garbage_output_labels = evaluator.evaluate_subcircuit(c1_garbage_input.clone(), unstacked_c1_garbage, &stack.c1_circuit);
                     let mut muxes = vec![];
                     for i in 0..output_wires.len() {
                         println!("Garbler gen mux for output wire: {}", stack.output_wires[i].wire_id());
-                        let mux = self.generate_mux(&seed, &c1_output_wires[i], &c0_output_wires[i], &c1_garbage_output_labels[i], &c0_garbage_output_labels[i], &output_wires[i]);
+                        let mux = self.generate_mux(&seed, &c0_output_wires[i], &c1_output_wires[i], &c0_garbage_output_labels[i], &c1_garbage_output_labels[i], &output_wires[i]);
                         muxes.push(mux);
                     }
                     stacks.insert(stack.id.to_biguint().unwrap(), Stack {demuxes, m_cond, muxes});
