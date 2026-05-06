@@ -437,7 +437,7 @@ pub enum Build {
     Stack(StackBuild),
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum BuildType {
     Gate,
     Stack
