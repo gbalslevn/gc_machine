@@ -188,7 +188,7 @@ fn can_evaluate_stacked_if_circuit() {
     let mut true_block = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1 
     let mut false_block = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
     
-    circuit_builder.build_stacked_if(&is_equal, &mut true_block.builds, &mut true_block.output, &mut false_block.builds, &mut false_block.output);
+    circuit_builder.build_stacked_if(&is_equal, &mut true_block, &mut false_block);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // **** Evaluate for true case ****
@@ -229,7 +229,7 @@ fn can_evaluate_stacked_if_with_adder_circuit() {
     let mut garbl_times_eval = circuit_builder.build_adder(&garbler_wires, &evaluator_wires);
     let mut garbl_plus_eval = circuit_builder.build_adder(&garbler_wires, &evaluator_wires);
     
-    circuit_builder.build_stacked_if(&is_equal, &mut garbl_times_eval.builds, &mut garbl_times_eval.output, &mut garbl_plus_eval.builds, &mut garbl_plus_eval.output);
+    circuit_builder.build_stacked_if(&is_equal, &mut garbl_times_eval, &mut garbl_plus_eval);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // **** Evaluate for true case ****
@@ -268,7 +268,7 @@ fn can_evaluate_stacked_if_with_mul_circuit() {
     let mut garbl_times_eval = circuit_builder.build_multiplier(&garbler_wires, &evaluator_wires);
     let mut garbl_plus_eval = circuit_builder.build_multiplier(&garbler_wires, &evaluator_wires);
     
-    circuit_builder.build_stacked_if(&is_equal, &mut garbl_times_eval.builds, &mut garbl_times_eval.output, &mut garbl_plus_eval.builds, &mut garbl_plus_eval.output);
+    circuit_builder.build_stacked_if(&is_equal, &mut garbl_times_eval, &mut garbl_plus_eval);
     let circuit_build = circuit_builder.get_circuit_build();
 
     // **** Evaluate for true case ****
