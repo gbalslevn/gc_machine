@@ -1,5 +1,6 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
+use crate::crypto_utils::gen_rng_with_seed;
 use crate::gates::gate_gen::{Gate, GateType, GateGen};
 use crate::wires::point_and_permute_wire_gen::PointAndPermuteWireGen;
 use crate::wires::wire_gen::{Wire, WireGen};
@@ -16,6 +17,11 @@ impl GateGen for PointAndPermuteGateGen {
         PointAndPermuteGateGen { wire_gen, index: BigUint::from(0u32), }
     }
 
+    fn new_with_seed(seed: &BigUint) -> Self {
+        let rng = gen_rng_with_seed(seed);
+        let wire_gen = PointAndPermuteWireGen::new_with_rng(rng);
+        PointAndPermuteGateGen { wire_gen, index: BigUint::from(0u32) }
+    }
     fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire) -> Gate {
         let wo = self.wire_gen.generate_output_wire(&wi, &wj, &gate, &self.index);
 
@@ -47,7 +53,6 @@ impl GateGen for PointAndPermuteGateGen {
         self.index += 1u32;
         &self.index
     }
-
 }
 
 pub fn get_position(il: &BigUint, ir: &BigUint) -> usize {

@@ -1,5 +1,5 @@
 use num_bigint::{BigUint};
-use crate::crypto_utils::{self, gc_kdf_128, gc_kdf_hg, generate_label_lsb};
+use crate::crypto_utils::{self, gc_kdf_128, gc_kdf_hg, gen_rng, gen_rng_with_seed, generate_label, generate_label_lsb};
 use crate::gates::gate_gen::GateType;
 use crate::wires::free_xor_wire_gen::FreeXORWireGen;
 use crate::wires::original_wire_gen::OriginalWireGen;
@@ -146,13 +146,14 @@ fn do_lsb_determine_output_wires() {
 
 #[test]
 fn seeds_produce_the_same_wires() {
-    let mut old_wire_gen = OriginalWireGen::new();
+    let mut rng = gen_rng();
+    let seed = generate_label(&mut rng);
+    let mut old_wire_gen = OriginalWireGen::new_with_rng(gen_rng_with_seed(&seed));
     let old_wires1 = old_wire_gen.generate_input_wire();
     let old_wires2 = old_wire_gen.generate_input_wire();
-    let seed = old_wire_gen.get_seed();
 
     let mut new_wire_gen = OriginalWireGen::new();
-    new_wire_gen.set_rng(seed);
+    new_wire_gen.set_rng(&seed);
     let new_wires1 = new_wire_gen.generate_input_wire();
     let new_wires2 = new_wire_gen.generate_input_wire();
 

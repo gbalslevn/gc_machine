@@ -1,17 +1,17 @@
 use num_bigint::{BigUint};
 use rand_chacha::ChaCha20Rng;
-
 use crate::gates::gate_gen::GateType;
 
 // A wire has two label values, representing bit 0 and 1. 
 pub trait WireGen {
     fn new() -> Self;
+    fn new_with_rng(rng: ChaCha20Rng) -> Self;
     fn generate_input_wire(&mut self) -> Wire;  
     fn generate_output_wire(&mut self, wi: &Wire, wj: &Wire, gate: &GateType, index: &BigUint) -> Wire;
     fn get_rng(&self) -> &ChaCha20Rng;
     fn get_seed(&self) -> [u8; 32];
     fn new_rng(&mut self);
-    fn set_rng(&mut self, seed: [u8; 32]);
+    fn set_rng(&mut self, seed: &BigUint);
 }
 
 #[derive(Debug, Clone, PartialEq)]

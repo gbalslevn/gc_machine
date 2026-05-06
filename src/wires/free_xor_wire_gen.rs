@@ -23,6 +23,12 @@ impl WireGen for FreeXORWireGen {
         FreeXORWireGen { delta, rng }
     }
 
+    fn new_with_rng(rng: ChaCha20Rng) -> Self {
+        let mut rng = rng;
+        let delta = generate_label_lsb(&mut rng, true);
+        Self { delta, rng }
+    }
+
     fn generate_input_wire(&mut self) -> Wire {
         let delta = &self.delta;
         let w0 = generate_label(&mut self.rng);
@@ -46,7 +52,7 @@ impl WireGen for FreeXORWireGen {
     fn new_rng(&mut self) {
         self.rng = crypto_utils::gen_rng()
     }
-    fn set_rng(&mut self, seed: [u8; 32]) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
+    fn set_rng(&mut self, seed: &BigUint) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
 }
 
 pub fn generate_and_wires(wire_gen: &mut FreeXORWireGen, wi: &Wire, wj: &Wire, gate_id: &BigUint) -> Wire {
