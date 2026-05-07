@@ -112,7 +112,7 @@ impl CircuitBuilder {
         }
     }
 
-    pub fn build_stacked_if(&mut self, cond : &WireBuild, c0: &mut BuildBlock, c1: &mut BuildBlock) -> Vec<WireBuild> {
+    pub fn build_stacked_if(&mut self, cond : &WireBuild, c0: &mut BuildBlock, c1: &mut BuildBlock) -> BuildBlock {
         // input wires are derived implicitely from the input wires of if and else circuit. We combine them to find all input wires needed for both subcircuits 
         let c0_circuit_inputs = get_input_wires(c0.builds.clone());
         let c1_circuit_inputs = get_input_wires(c1.builds.clone());
@@ -157,21 +157,21 @@ impl CircuitBuilder {
             match build.get_type() {
                 BuildType::Gate => {
                     let gate_build = build.unwrap_to_gate();
-                    self.gates.remove(gate_build.wo().wire_id()).unwrap();
+                    self.gates.remove(gate_build.wo().wire_id());
                 }
                 BuildType::Stack => {
                     let stack_build = build.unwrap_to_stack();
-                    self.stacks.remove(&stack_build.id).unwrap();
+                    self.stacks.remove(&stack_build.id);
                 } 
             }
         }
 
         let branch_id = self.stacks.len();
         let stack_build = StackBuild { input_wires : input_wires.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), c0_circuit: c0_build, c1_circuit: c1_build, id: branch_id};
-        self.stacks.insert(branch_id, stack_build);
+        self.stacks.insert(branch_id, stack_build.clone());
         self.set_output_wires(output_wires.clone());
         
-        output_wires
+        BuildBlock { builds: vec![Build::Stack(stack_build)], output: output_wires}
     }
 
     // An if block where a block of gates, derived from the output of them, is added depending on a boolean. MUX always has an else.
@@ -375,8 +375,7 @@ impl CircuitBuilder {
             }
             BuildType::Stack => {
                 let stack = build.unwrap_to_stack();
-                // stack.output_wires
-                todo!("Insert output wires for stack")
+                output_wires_used_as_input.extend(&stack.output_wires);
             }
         }
     }
@@ -397,14 +396,21 @@ impl CircuitBuilder {
                 }
             }
             BuildType::Stack => {
-                todo!("Check if input wires in stack is used in another gate")
+                let stack = build.unwrap_to_stack();
+                for input_wire in &stack.input_wires {
+                    if !(output_wires_used_as_input.contains(input_wire)) {
+                        input_wires.push(input_wire.clone());
+                    }
+                }
             }
         }
     }
+    input_wires.sort();
+    input_wires.dedup();
     input_wires
 }
 
-#[derive(Clone, PartialEq, Debug, Eq, Hash)]
+#[derive(Clone, PartialEq, Debug, Eq, Hash, PartialOrd, Ord)]
 pub struct WireBuild {
     ready_at_layer: i32,
     wire_id: BigUint,
