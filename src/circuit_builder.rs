@@ -118,12 +118,16 @@ impl CircuitBuilder {
         let c1_circuit_inputs = get_input_wires(c1.builds.clone());
         let combined_input: HashSet<WireBuild> = c0_circuit_inputs.into_iter().chain(c1_circuit_inputs.into_iter()).collect();
         let input_wires: Vec<WireBuild> = combined_input.into_iter().collect();
+        // Find the compute layer of the stack from the input wire with the largest compute layer. When we have all inputs, we can produce output. subcircuits are evaluated using all required input wires.
+        let mut compute_layer = cond.ready_at_layer;
+        for input_wire in &input_wires {
+            if input_wire.ready_at_layer > compute_layer {
+                compute_layer = input_wire.ready_at_layer;
+            }
+        }
 
         c0.builds.sort_by_key(|build| *build.ready_at_layer());
         c1.builds.sort_by_key(|build| *build.ready_at_layer());
-        let c0_output_layer = c0.builds[c0.builds.len() - 1].ready_at_layer(); // Questionable whether this works, different output wires might be ready at different output layers. So simply taking the last wire is not robust.
-        let c1_output_layer = c1.builds[c1.builds.len() - 1].ready_at_layer();
-        let compute_layer = c0_output_layer.clone().max(c1_output_layer.clone()) + 1;
         
         // Add padding to if neccesary to ensure equal output length of subcircuits 
         let padding_wire = WireBuild::new(compute_layer, self.wires_created.clone());
@@ -141,7 +145,7 @@ impl CircuitBuilder {
         // Create output wires
         let mut output_wires = vec![];
         for _ in &c0.output { // could also use c1 output
-            let output_wire = WireBuild::new(compute_layer, self.wires_created.clone());
+            let output_wire = WireBuild::new(compute_layer + 1, self.wires_created.clone());
             self.increment_wires_created();
             output_wires.push(output_wire);
         }
