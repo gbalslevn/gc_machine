@@ -1,4 +1,4 @@
-use crate::circuit_builder::{BuildType, CircuitBuild, CircuitBuilder};
+use crate::{circuit_builder::{BuildCount, BuildType, CircuitBuild, CircuitBuilder}, gates::gate_gen::{Gate, GateType}};
 
 #[test]
 fn builds_are_sorted_by_increasing_output_layer() {
@@ -44,3 +44,18 @@ fn get_stacked_if_build() -> CircuitBuild {
 
     builder.get_circuit_build()
 }
+
+#[test]
+fn can_count_material_in_builds() {
+    let mut builder = CircuitBuilder::new();
+    builder.set_input_wires(1);
+    let input = builder.build_input_wires(1);
+    
+    // It should not be neccesary to send material for a xor gate. 
+    let xor_build = builder.build_xor(&input[0], &input[0]);
+    assert_eq!(xor_build.builds.get_material_len(), 0);
+    let and_build = builder.build_and(&input[0], &input[0]);
+    assert_eq!(and_build.builds.get_material_len(), 1);
+}
+
+// perhaps make test for stacked that c0 and c1 input, output and elements has equal length

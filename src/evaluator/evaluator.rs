@@ -3,7 +3,7 @@ use num_bigint::{BigUint, ToBigUint};
 use std::{cmp::max, collections::{HashMap, VecDeque}};
 
 use crate::{
-    circuit_builder::{BuildType, StackBuild, SubcircuitBuild}, crypto_utils::{gc_kdf, gc_kdf_128}, evaluator::{half_gates_evaluator::HalfGatesEvaluator}, garbler::{Circuit, Garbler, Stack}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self},
+    circuit_builder::{BuildCount, BuildType, StackBuild, SubcircuitBuild}, crypto_utils::{gc_kdf, gc_kdf_128}, evaluator::half_gates_evaluator::HalfGatesEvaluator, garbler::{Circuit, Garbler, Stack}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self}, wires::wire_gen::{Wire, WireGen},
 };
 use crate::circuit_builder::{CircuitBuild};
 
@@ -45,8 +45,8 @@ pub trait Evaluator {
         secret_keys: &Vec<(SecretKey, u8)>,
     ) -> u32 {
         let mut known_wires: HashMap<BigUint, BigUint> = HashMap::new(); // id, wire
-        let mut stacks: HashMap<BigUint, Stack> = HashMap::new();
         let mut result_wires: Vec<BigUint> = Vec::new();
+        let mut result_wires_id: Vec<BigUint> = Vec::new();
 
         if secret_keys.len() != circuit.evaluator_input.len() {
             panic!("Evaluator input length and its secret keys length must be equal")
@@ -80,90 +80,80 @@ pub trait Evaluator {
         }
 
         // Evaluate all builds
-        let mut index = 0;
+        let mut material_iter = circuit.material.iter();
         for build in &circuit_build.builds {
             match build.get_type() {
                 BuildType::Gate => {
-                    let gate = build.unwrap_to_gate();
-                    let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-                    let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
-                    let result = self.evaluate_gate(&wi, &wj, &gate.gate_type, &circuit.material[index]); // Stacks should be placed at a specific index too. Split into gate like tables. 
-                    known_wires.insert(gate.wo().wire_id().clone(), result.clone());
+                    let gate_build = build.unwrap_to_gate();
+                    let gate_material = material_iter.next().expect("Missing material for Gate");
+                    let wi = known_wires.get(&gate_build.wi().wire_id()).unwrap().clone();
+                    let wj = known_wires.get(&gate_build.wj().wire_id()).unwrap().clone();
+                    let result = self.evaluate_gate(&wi, &wj, &gate_build.gate_type, gate_material); 
+                    known_wires.insert(gate_build.wo().wire_id().clone(), result.clone());
         
                     // Store all result wires
-                    if circuit_build.output_wires.contains(gate.wo()) {
+                    if circuit_build.output_wires.contains(gate_build.wo()) {
                         result_wires.push(result.clone());
+                        result_wires_id.push(gate_build.wo().wire_id().clone());
                     }
-                    index += 1;
                 }
                 BuildType::Stack => {
-                    let stack_build = build.unwrap_to_stack();
-                    // We retrive demuxes from received material
-                    let mut demuxes = vec![];
-                    for _ in &stack_build.input_wires {
-                        // 1 demux is 2 tables as it has 4 entries but each entry is 256 bits, so actually its 4 entries, which means we need 4 tables. 
-                        let demux_material: Vec<Vec<BigUint>> = circuit.material.get(index..index + 4).expect("Insufficient material for Demux").to_vec(); // get 8 tables from material
-                        // Combine the two 128 bit c_0, c_1 input labels for each 4 entries so we can evaluate the demux
-                        let entry_0 = &demux_material[0][0] << 128 | &demux_material[0][1];
-                        let entry_1 = &demux_material[1][0] << 128 | &demux_material[1][1];
-                        let entry_2 = &demux_material[2][0] << 128 | &demux_material[2][1];
-                        let entry_3 = &demux_material[3][0] << 128 | &demux_material[3][1];
-                        let demux = vec![entry_0, entry_1, entry_2, entry_3];
-                        demuxes.push(demux);
-                        index += 4;
-
+                    let stack_build = build.unwrap_to_stack();  
+                    let stack_material_len = (stack_build.input_wires.len() * 4) + stack_build.m_cond_len + (stack_build.output_wires.len() * 2);
+                    let mut stack_material = vec![];
+                    for i in 0..stack_material_len {
+                        stack_material.push(material_iter.next().unwrap().clone());
                     }
-                    // We retrive m_cond from material
-                    let mut m_cond = vec![];
-                    assert_eq!(stack_build.c0_circuit.builds.len(), stack_build.c1_circuit.builds.len());
-                    for i in index..index + stack_build.c0_circuit.builds.len() { // Assuming both circuits have equal length
-                        let stacked_m_entry = circuit.material[i].clone();
-                        m_cond.push(stacked_m_entry);
-                    }
-                    index += stack_build.c0_circuit.builds.len();
-                   
-                    // We retrive muxes from material
-                    let mut muxes = vec![];
-                    for _ in &stack_build.output_wires {
-                        let mux_material = circuit.material.get(index..index + 2).expect("Insufficient material for Mux").to_vec(); // 1 mux is 2 tables as it has 4 entries.
-                        let mux = vec![mux_material[0][0].clone(), mux_material[0][1].clone(), mux_material[1][0].clone(), mux_material[1][1].clone()];
-                        muxes.push(mux);
-                        index += 2;
-                    }
-
-                    let stack = Stack {demuxes, m_cond, muxes};                                        
+                    let stack = get_stack_from_material(&stack_material, stack_build);  
+                    let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap().clone();
                     let stack_output_wires = self.evaluate_stack(stack_build, &stack, &mut known_wires);
                     for i in 0..stack_output_wires.len() {
                         if circuit_build.output_wires.contains(&stack_build.output_wires[i]) {
                             result_wires.push(stack_output_wires[i].clone());
+                            result_wires_id.push(stack_build.output_wires[i].wire_id().clone());
                         }
                     }
                 }
             }
         }
-
-        Self::interpret_result(result_wires, &circuit.output_conversion)
+        println!("Amount of result wires: {}", result_wires.len());
+        Self::interpret_result(result_wires, &circuit.output_conversion, &result_wires_id)
     }
 
     fn evaluate_stack(&mut self, stack_build : &StackBuild, stack : &Stack, known_wires : &mut HashMap<BigUint, BigUint>) -> Vec<BigUint> {
         let mut result_wires = vec![];
         let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap().clone();
-        let c0 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c0_circuit);
-        let c1 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c1_circuit);
+        let c0 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c1_circuit, &stack_build.c0_circuit);
+        let c1 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c0_circuit, &stack_build.c1_circuit);
+        // let seed_wire = HalfGatesGateGen::new_with_seed(&seed).get_wire_gen().generate_input_wire();
         
         // Get all input wires to the two circuits from demux
         let mut c0_inputs = vec![];
         let mut c1_inputs = vec![];
+        let mut c0_inputs_map = HashMap::new();
+        let mut c1_inputs_map = HashMap::new();
         for i in 0..stack_build.input_wires.len() {
             let input_wire_id = stack_build.input_wires[i].wire_id();
             let input_wire = known_wires.get(input_wire_id).unwrap().clone();
             let (c0_input, c1_input) = self.evaluate_demux(&input_wire, &seed, &stack.demuxes[i]);
+            c0_inputs_map.insert(c0_input.clone(), input_wire_id);
+            c1_inputs_map.insert(c1_input.clone(), input_wire_id);
             c0_inputs.push(c0_input);
             c1_inputs.push(c1_input);
+        }
+        for input in &c0_inputs {
+            println!("c0 input id: {}", c0_inputs_map.get(input).unwrap());
+        }
+        for input in &c1_inputs {
+            println!("c1 input id: {}", c1_inputs_map.get(input).unwrap());
         }
         let c0_output = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.c0_circuit);
         let c1_output = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.c1_circuit);
         assert_eq!(c0_output.len(), c1_output.len());
+        println!("c0_output len: {}, c1_output len: {}", c0_output.len(), c1_output.len());
+        for (i, (c0w, c1w)) in c0_output.iter().zip(c1_output.iter()).enumerate() {
+            println!("output {}: c0={} c1={}", i, c0w, c1w);
+        }
 
         for i in 0..stack_build.output_wires.len() {
             let output_wire = stack_build.output_wires[i].clone();
@@ -177,46 +167,67 @@ pub trait Evaluator {
     fn evaluate_subcircuit(&mut self, input_wires: Vec<BigUint>, subcircuit_tables: Vec<Vec<BigUint>>, subcircuit_build : &SubcircuitBuild) -> Vec<BigUint> {
         let mut evaluator = HalfGatesEvaluator::new(); // When evaluating subcircuits we reset gate_index to zero so it matches when garbler uses the method, therefore we make a new evaluator. 
         let mut known_wires : HashMap<BigUint, BigUint> = HashMap::new();
+
         for i in 0..input_wires.len() {
             known_wires.insert(subcircuit_build.input_wires[i].wire_id().clone(), input_wires[i].clone());
         }
-        let mut output = vec![];
-        for (index, build) in subcircuit_build.builds.iter().enumerate() {
+        let mut material_iter = subcircuit_tables.iter();
+        for build in &subcircuit_build.builds {
             match build.get_type() {
                 BuildType::Gate => {
-                    let gate = build.unwrap_to_gate();
-                    let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-                    let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
-                    let result = evaluator.evaluate_gate(&wi, &wj, &gate.gate_type, &subcircuit_tables[index]);
-                    let output_wire_id = gate.wo().wire_id().clone();
-                    known_wires.insert(output_wire_id, result.clone());
-                    if subcircuit_build.output_wires.contains(gate.wo()) {
-                        output.push(result);
+                    let gate_build = build.unwrap_to_gate();
+                    let gate_material = material_iter.next().unwrap();
+                    if gate_build.gate_type() == &GateType::XOR || gate_build.gate_type() == &GateType::XNOR {
+                        assert!(gate_material.is_empty());
+                    } else {
+                        assert!(gate_material.len() > 0)
                     }
+                    let wi = known_wires.get(&gate_build.wi().wire_id()).unwrap().clone();
+                    let wj = known_wires.get(&gate_build.wj().wire_id()).unwrap().clone();
+                    let result = evaluator.evaluate_gate(&wi, &wj, &gate_build.gate_type, &gate_material);
+                    let output_wire_id = gate_build.wo().wire_id().clone();
+                    known_wires.insert(output_wire_id, result.clone());
                 }
                 BuildType::Stack => {
                     let stack_build = build.unwrap_to_stack();
                     // Refactor to avoid having a subcircuit method. Just have a evaluate build method.
-                    // let stack_output_wires = self.evaluate_stack(stack_build, stack, &mut known_wires);
-                    // for i in 0..stack_output_wires.len() {
-                    //     if subcircuit_build.output_wires.contains(&stack_build.output_wires[i]) {
-                    //         output.push(stack_output_wires[i].clone());
-                    //     }
-                    // }
+                    let stack_material_len = (stack_build.input_wires.len() * 4) + stack_build.m_cond_len + (stack_build.output_wires.len() * 2);
+                    let mut stack_material = vec![];
+                    for i in 0..stack_material_len {
+                        stack_material.push(material_iter.next().unwrap().clone())
+                    }
+                    let stack = get_stack_from_material( &stack_material, stack_build); // perhaps provide the iter instead of extracting material here
+                    let stack_output_wires = evaluator.evaluate_stack(stack_build, &stack, &mut known_wires);
                 }
             }
+        }
+        // Collect output
+        let mut output = vec![];
+        for wire_build in &subcircuit_build.output_wires {
+            let wire = known_wires.get(wire_build.wire_id()).unwrap();
+            output.push(wire.clone());
+        }
+        // pad the output
+        let padding_needed = subcircuit_build.output_wires.len() - output.len();
+        for i in 0..padding_needed {
+            let false_constant_wire_id = 0.to_biguint().unwrap();
+            output.push(known_wires.get(&false_constant_wire_id).unwrap().clone());
         }
         output
     }
 
-    fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>) -> u32 {
+    fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>, result_wires_id: &Vec<BigUint>) -> u32 {
         let mut result : u32 = 0;
         for (index, result_wire) in result_wires.iter().enumerate() {
             if output_conversion[index][1].0 == *result_wire {
                 result += 2u32.pow(index as u32);
+                println!("Found output wire with bit 1 and id {}", result_wires_id[index]);
             } else {
+                println!("Found output wire with bit 0 and id {}", result_wires_id[index]);
                 if !(output_conversion[index][0].0 == *result_wire) {
-                    panic!("NO VALID WIRE IN CONVERSION TABLE AT INDEX {}", index)
+                    println!("result wire with no result: {:#?}", result_wire);
+                    // panic!("NO VALID WIRE IN CONVERSION TABLE FOR WIRE WITH ID {}", result_wires_id[index])
+                    println!("NO VALID WIRE IN CONVERSION TABLE FOR WIRE WITH ID {}", result_wires_id[index])
                 }
             }
         }
@@ -271,39 +282,55 @@ pub trait Evaluator {
         key ^ &mux[pos]
     }
 
-    fn unstack_material(&self, xor_material_seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, xor_material: &SubcircuitBuild) -> Vec<Vec<BigUint>> {
-        let gate_gen = HalfGatesGateGen::new_with_seed(xor_material_seed);
+    fn unstack_material(&self, seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, build_to_generate: &SubcircuitBuild, unstacked_build : &SubcircuitBuild) -> Vec<Vec<BigUint>> {
+        let gate_gen = HalfGatesGateGen::new_with_seed(seed); 
         let mut garbler = Garbler::new(gate_gen);
-        let (_, material, _) = garbler.generate_subcircuit(xor_material_seed, xor_material);
-        assert_eq!(material.len(), m_cond.len());
+        let (_, material, _) = garbler.generate_subcircuit(seed, build_to_generate); // seems weird we need to provide seed to a garbler which has been init by that seed
+        // prune material to remove empty table representing FreeXOR gates
+        let mut pruned_material = vec![];
+        for table in material {
+            if table.len() > 0 {
+                pruned_material.push(table);
+            }
+        }
         
         let mut unstacked_material = vec![];
-        let longest_material = max(m_cond.len(), material.len());
-        for table_index in 0..longest_material {
-            let m_is_within_index = table_index < material.len();
-            let mc_is_within_index = table_index < m_cond.len();
-            let mut unstacked_table = vec![];
-            if (mc_is_within_index && m_cond[table_index].is_empty()) && (table_index < material.len() && material[table_index].is_empty()) {
-                unstacked_table = Vec::new();
-                unstacked_material.push(unstacked_table);
-                continue;
+        // Pad generated material if neccesary 
+        let padding = vec![BigUint::ZERO, BigUint::ZERO];    
+        if pruned_material.len() < m_cond.len() {
+            for i in pruned_material.len()..m_cond.len() {
+                pruned_material.push(padding.clone());
             }
+        }
+        for table_index in 0..m_cond.len() {
+            let mut unstacked_table = vec![];
             for entry_index in 0..2 {
-                let mut unstacked_entry = BigUint::ZERO;
-                if (mc_is_within_index && m_cond[table_index].is_empty()) && (m_is_within_index && material[table_index].len() > 0) {
-                    unstacked_entry = material[table_index][entry_index].clone() // generated material is the longest path, we simply insert it
-                } 
-                if (m_is_within_index && material[table_index].is_empty()) && (mc_is_within_index && m_cond[table_index].len() > 0) {
-                    unstacked_entry = m_cond[table_index][entry_index].clone() // m_cond is the longest path, we simply insert it
-                } 
-                if (m_is_within_index && material[table_index].len() > 0) && (m_is_within_index && m_cond[table_index].len() > 0) {
-                    unstacked_entry = m_cond[table_index][entry_index].clone() ^ material[table_index][entry_index].clone(); // xor both values to stack
-                }
+                let unstacked_entry = m_cond[table_index][entry_index].clone() ^ pruned_material[table_index][entry_index].clone(); // xor both values to stack
                 unstacked_table.push(unstacked_entry);
             } 
             unstacked_material.push(unstacked_table);
         }
-        unstacked_material
+        // insert FreeXOR gates again
+        let mut unstacked_with_xor_gates: Vec<Vec<BigUint>> = vec![];
+        for build in &unstacked_build.builds {
+            match build.get_type() {
+                BuildType::Gate => {
+                    let gate_build = build.unwrap_to_gate();
+                    if gate_build.gate_type() == &GateType::XOR || gate_build.gate_type() == &GateType::XNOR {
+                        unstacked_with_xor_gates.push(vec![]);
+                    } else {
+                        unstacked_with_xor_gates.push(unstacked_material.remove(0));
+                    }
+                }   
+                BuildType::Stack => {
+                    let stack_build = build.unwrap_to_stack();
+                    let amount_material_in_stack = stack_build.input_wires.len() * 4 + stack_build.m_cond_len + stack_build.output_wires.len() * 2; // demux material + mux material + subcircuit material. 
+                    let stack_material: Vec<Vec<BigUint>> = unstacked_material.drain(0..amount_material_in_stack).collect(); 
+                    unstacked_with_xor_gates.extend(stack_material);
+                }             
+            }
+        }
+        unstacked_with_xor_gates
     }
 
     fn increment_index(&mut self);
@@ -314,11 +341,40 @@ fn get_mux_pos(seed: &BigUint, c0_wire: &BigUint, c1_wire: &BigUint) -> usize {
     let s = seed.bit(0) as usize;
     let i = c0_wire.bit(0) as usize;
     let e = c1_wire.bit(0) as usize;
-    s * 2 + i ^ e
+    s * 2 + (i ^ e)
 }
 
 fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
     let l = wi.bit(0) as usize;
     let r = wj.bit(0) as usize;
     l * 2 + r
+}
+
+fn get_stack_from_material(stack_material: &Vec<Vec<BigUint>>, stack_build: &StackBuild) -> Stack {
+    let mut material = stack_material.clone();
+    // We retrive demuxes from received material
+    let mut demuxes = vec![];
+    for _ in &stack_build.input_wires {
+        // 1 demux is 2 tables as it has 4 entries but each entry is 256 bits, so actually its 4 entries, which means we need 4 tables. 
+        let demux_material: Vec<Vec<BigUint>> = material.drain(0..4).collect(); 
+        // Combine the two 128 bit c_0, c_1 input labels for each 4 entries so we can evaluate the demux
+        let entry_0 = &demux_material[0][0] << 128 | &demux_material[0][1];
+        let entry_1 = &demux_material[1][0] << 128 | &demux_material[1][1];
+        let entry_2 = &demux_material[2][0] << 128 | &demux_material[2][1];
+        let entry_3 = &demux_material[3][0] << 128 | &demux_material[3][1];
+        let demux = vec![entry_0, entry_1, entry_2, entry_3];
+        demuxes.push(demux);
+    }
+    // We retrive m_cond from material
+    let m_cond = material.drain(0..stack_build.m_cond_len).collect();    
+    
+    // We retrive muxes from material
+    let mut muxes = vec![];
+    for _ in &stack_build.output_wires {
+        let mux_material: Vec<Vec<BigUint>> = material.drain(0..2).collect(); // 1 mux is 2 tables as it has 4 entries.
+        let mux = vec![mux_material[0][0].clone(), mux_material[0][1].clone(), mux_material[1][0].clone(), mux_material[1][1].clone()];
+        muxes.push(mux);
+    }
+
+    Stack {demuxes, m_cond, muxes}
 }
