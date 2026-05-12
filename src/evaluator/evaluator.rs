@@ -123,30 +123,26 @@ pub trait Evaluator {
     fn evaluate_stack(&mut self, stack_build : &StackBuild, stack : &Stack, known_wires : &mut HashMap<BigUint, BigUint>) -> Vec<BigUint> {
         let mut result_wires = vec![];
         let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap().clone();
+        println!("eval gen c1 to get c0");
         let c0 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c1_circuit, &stack_build.c0_circuit);
+        println!("c0 in eval: {:#?}", c0);
+        println!("eval gen c0 to get c1");
         let c1 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c0_circuit, &stack_build.c1_circuit);
+        println!("c1 in eval: {:#?}", c1);
         // let seed_wire = HalfGatesGateGen::new_with_seed(&seed).get_wire_gen().generate_input_wire();
         
         // Get all input wires to the two circuits from demux
         let mut c0_inputs = vec![];
         let mut c1_inputs = vec![];
-        let mut c0_inputs_map = HashMap::new();
-        let mut c1_inputs_map = HashMap::new();
         for i in 0..stack_build.input_wires.len() {
             let input_wire_id = stack_build.input_wires[i].wire_id();
             let input_wire = known_wires.get(input_wire_id).unwrap().clone();
             let (c0_input, c1_input) = self.evaluate_demux(&input_wire, &seed, &stack.demuxes[i]);
-            c0_inputs_map.insert(c0_input.clone(), input_wire_id);
-            c1_inputs_map.insert(c1_input.clone(), input_wire_id);
             c0_inputs.push(c0_input);
             c1_inputs.push(c1_input);
         }
-        for input in &c0_inputs {
-            println!("c0 input id: {}", c0_inputs_map.get(input).unwrap());
-        }
-        for input in &c1_inputs {
-            println!("c1 input id: {}", c1_inputs_map.get(input).unwrap());
-        }
+        println!("c1_input_wires in eval: {:#?}", c1_inputs);
+
         let c0_output = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.c0_circuit);
         let c1_output = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.c1_circuit);
         assert_eq!(c0_output.len(), c1_output.len());
@@ -296,7 +292,7 @@ pub trait Evaluator {
         
         let mut unstacked_material = vec![];
         // Pad generated material if neccesary 
-        let padding = vec![BigUint::ZERO, BigUint::ZERO];    
+        let padding = vec![1.to_biguint().unwrap(), 1.to_biguint().unwrap()];    
         if pruned_material.len() < m_cond.len() {
             for i in pruned_material.len()..m_cond.len() {
                 pruned_material.push(padding.clone());

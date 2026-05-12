@@ -180,9 +180,16 @@ impl<G: GateGen> Garbler<G> {
         }
         // generate material for all situations
         let mut evaluator = HalfGatesEvaluator::new();
+        println!("garbl gen c0");
         let (c0_input_wires, c0, c0_output_wires ) = self.generate_subcircuit(seed.w1(), &stack_build.c0_circuit); // use seed w1 to encrypt c0 such that evaluator will evaluate c0 with w0. From semantics of the stacked garbling paper
+        println!("c0 in garbler: {:#?}", c0);
+        println!("garbl gen garb_c0");
         let (c0_garbage_input_wires, __c0_garbage,__c0_garbage_output_wires ) = self.generate_subcircuit(seed.w0(), &stack_build.c0_circuit);
+        println!("garbl gen c1");
         let (c1_input_wires,c1,c1_output_wires ) = self.generate_subcircuit(seed.w0(), &stack_build.c1_circuit);
+        println!("c1_input_wires in garbler: {:#?}", c1_input_wires);
+        println!("c1 in garbler: {:#?}", c1);
+        println!("garbl gen garb_c1");
         let (c1_garbage_input_wires, __c1_garbage,__c1_garbage_output_wires ) = self.generate_subcircuit(seed.w1(), &stack_build.c1_circuit);
         let m_cond = self.stack_material(&c0, &c1);
         
@@ -207,10 +214,12 @@ impl<G: GateGen> Garbler<G> {
         let unstacked_c0 = evaluator.unstack_material(seed.w0(), &m_cond, &stack_build.c1_circuit, &stack_build.c0_circuit);
         assert_eq!(unstacked_c0, c0);
         let c0_garbage_output_labels = evaluator.evaluate_subcircuit(c0_garbage_input_labels.clone(), unstacked_c0_garbage, &stack_build.c0_circuit);
+        println!("c0_garbage output: {:#?}", c0_garbage_output_labels);
         let unstacked_c1_garbage = evaluator.unstack_material(seed.w0(), &m_cond, &stack_build.c0_circuit, &stack_build.c1_circuit);
         let unstacked_c1 = evaluator.unstack_material(seed.w1(), &m_cond, &stack_build.c0_circuit, &stack_build.c1_circuit);
         assert_eq!(unstacked_c1, c1);
         let c1_garbage_output_labels = evaluator.evaluate_subcircuit(c1_garbage_input_labels.clone(), unstacked_c1_garbage, &stack_build.c1_circuit);
+        println!("c1_garbage output: {:#?}", c1_garbage_output_labels);
         let mut muxes = vec![];
         for i in 0..output_wires.len() {
             let mux = self.generate_mux(&seed, &c0_output_wires[i], &c1_output_wires[i], &c0_garbage_output_labels[i], &c1_garbage_output_labels[i], &output_wires[i]);
@@ -220,6 +229,7 @@ impl<G: GateGen> Garbler<G> {
     }
 
     pub fn generate_subcircuit(&mut self, seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> (Vec<Wire>, Vec<Vec<BigUint>>, Vec<Wire>) {
+        println!("generate_subcircuit seed: {}, num_inputs: {}", seed, subcircuit_build.input_wires.len());
         let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);  
         let mut known_wires = HashMap::new();
         let seed_wire = gate_gen.get_wire_gen().generate_input_wire(); // We need to gen seed wire for evaluator to be able to generate stack. NO, instead we should provide it through the demux
@@ -237,7 +247,6 @@ impl<G: GateGen> Garbler<G> {
                 known_wires.insert(input_wire.wire_id().clone(), wire);
             }
         }        
-
         let builds = &subcircuit_build.builds;        
         let mut subcircuit: Vec<Vec<BigUint>> = vec![];
         // let mut stacks = HashMap::new();
@@ -293,7 +302,7 @@ impl<G: GateGen> Garbler<G> {
         // Pad so the material has equal length
         let longest_material = max(pruned_c0.len(), pruned_c1.len());
         // let seed = self.gate_gen.get_wire_gen().get_seed();
-        let padding = vec![BigUint::ZERO, BigUint::ZERO]; // use seed to generate material instead
+        let padding = vec![1.to_biguint().unwrap(), 1.to_biguint().unwrap()]; // use seed to generate material instead
         if pruned_c0.len() < pruned_c1.len() {
             for i in pruned_c0.len()..pruned_c1.len() {
                 pruned_c0.push(&padding)
