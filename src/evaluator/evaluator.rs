@@ -1,9 +1,9 @@
 use k256::{PublicKey, SecretKey};
 use num_bigint::{BigUint, ToBigUint};
-use std::{cmp::max, collections::{HashMap, VecDeque}};
+use std::{collections::{HashMap, VecDeque}};
 
 use crate::{
-    circuit_builder::{Build, BuildCount, BuildType, StackBuild, SubcircuitBuild}, crypto_utils::{gc_kdf, gc_kdf_128}, evaluator::{self, half_gates_evaluator::HalfGatesEvaluator}, garbler::{Circuit, Garbler, Stack}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self}, wires::wire_gen::{Wire, WireGen},
+    circuit_builder::{Build, BuildType, StackBuild, SubcircuitBuild}, crypto_utils::{gc_kdf, gc_kdf_128}, evaluator::{half_gates_evaluator::HalfGatesEvaluator}, garbler::{Circuit, Garbler, Stack}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self}, wires::wire_gen::{WireGen},
 };
 use crate::circuit_builder::{CircuitBuild};
 
@@ -77,16 +77,14 @@ pub trait Evaluator: Sized {
             secret_keys_iterator += 1;
         }
 
-        // Evaluate all builds
+        // Evaluate material and get result
         evaluate_builds(&circuit_build.builds, &circuit.material, &mut known_wires, self);
         let mut result_wires: Vec<BigUint> = Vec::new();
-        let mut result_wires_id: Vec<BigUint> = Vec::new();
         for output_wire in &circuit_build.output_wires {
             let output = known_wires.get(output_wire.wire_id()).unwrap().clone();
-            result_wires_id.push(output_wire.wire_id().clone());
             result_wires.push(output);
         }
-        interpret_result(result_wires, &circuit.output_conversion, &result_wires_id)
+        interpret_result(result_wires, &circuit.output_conversion)
     }
 
     fn evaluate_stack(&mut self, stack_build : &StackBuild, stack : &Stack, known_wires : &mut HashMap<BigUint, BigUint>) -> Vec<BigUint> {
@@ -106,12 +104,10 @@ pub trait Evaluator: Sized {
             c1_inputs.push(c1_input);
         }
 
+        // Evaluate the two subcircuits and retreive the output translation from the mux by providing the two evaluated subcircuit wires
         let c0_output = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.c0_circuit);
         let c1_output = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.c1_circuit);
         assert_eq!(c0_output.len(), c1_output.len());
-        for (i, (c0w, c1w)) in c0_output.iter().zip(c1_output.iter()).enumerate() {
-            println!("output {}: c0={} c1={}", i, c0w, c1w);
-        }
 
         for i in 0..stack_build.output_wires.len() {
             let output_wire = stack_build.output_wires[i].clone();
@@ -122,6 +118,7 @@ pub trait Evaluator: Sized {
         result_wires
     }
 
+    // Evaluates a subcircuit from a stack
     fn evaluate_subcircuit(&mut self, input_wires: Vec<BigUint>, subcircuit_tables: Vec<Vec<BigUint>>, subcircuit_build : &SubcircuitBuild) -> Vec<BigUint> {
         let mut evaluator = HalfGatesEvaluator::new(); // When evaluating subcircuits we reset gate_index to zero so it matches when garbler uses the method, therefore we make a new evaluator. 
         let mut known_wires : HashMap<BigUint, BigUint> = HashMap::new();
@@ -130,18 +127,12 @@ pub trait Evaluator: Sized {
             known_wires.insert(subcircuit_build.input_wires[i].wire_id().clone(), input_wires[i].clone());
         }
         
+        // Evaluate material and collect output
         evaluate_builds(&subcircuit_build.builds, &subcircuit_tables, &mut known_wires, &mut evaluator);
-        // Collect output
         let mut output = vec![];
         for wire_build in &subcircuit_build.output_wires {
             let wire = known_wires.get(wire_build.wire_id()).unwrap();
             output.push(wire.clone());
-        }
-        // pad the output
-        let padding_needed = subcircuit_build.output_wires.len() - output.len();
-        for i in 0..padding_needed {
-            let false_constant_wire_id = 0.to_biguint().unwrap();
-            output.push(known_wires.get(&false_constant_wire_id).unwrap().clone());
         }
         output
     }
@@ -197,11 +188,13 @@ pub trait Evaluator: Sized {
     }
 
     fn unstack_material(&self, seed: &BigUint, m_cond: &Vec<Vec<BigUint>>, build_to_generate: &SubcircuitBuild, unstacked_build : &SubcircuitBuild) -> Vec<Vec<BigUint>> {
+        // Create material using the seed
         let gate_gen = HalfGatesGateGen::new_with_seed(seed); 
+        let mut material_gen = HalfGatesGateGen::new_with_seed(seed); 
         let mut garbler = Garbler::new(gate_gen);
         let (_, material, _) = garbler.generate_subcircuit(seed, build_to_generate); // seems weird we need to provide seed to a garbler which has been init by that seed
-        let mut material_gen = HalfGatesGateGen::new_with_seed(seed);
-        // fill in material instead of empty table representing FreeXOR gates
+        
+        // fill in material instead of empty table representing FreeXOR gates. Using material from the seed
         let mut filled_material = vec![];
         for table in material {
             if table.len() > 0 {
@@ -213,14 +206,13 @@ pub trait Evaluator: Sized {
             }
         }
         
-        let mut unstacked_material = vec![];
         // Pad generated material if neccesary 
-        let padding = vec![0.to_biguint().unwrap(), 0.to_biguint().unwrap()];    
-        if filled_material.len() < m_cond.len() {
-            for i in filled_material.len()..m_cond.len() {
-                filled_material.push(padding.clone());
-            }
-        }
+        filled_material.resize_with(m_cond.len(), || {
+            let material = material_gen.get_wire_gen().generate_input_wire();
+            vec![material.w0().clone(), material.w1().clone()]
+        }); 
+        // unstack, m_cond XOR gen_material
+        let mut unstacked_material = vec![];
         for table_index in 0..m_cond.len() {
             let mut unstacked_table = vec![];
             for entry_index in 0..2 {
@@ -274,7 +266,7 @@ fn evaluate_builds<E : Evaluator>(builds: &Vec<Build>, build_material: &Vec<Vec<
                 let stack_build = build.unwrap_to_stack();
                 let stack_material_len = (stack_build.input_wires.len() * 4) + stack_build.m_cond_len + (stack_build.output_wires.len() * 2);
                 let mut stack_material = vec![];
-                for i in 0..stack_material_len {
+                for _ in 0..stack_material_len {
                     stack_material.push(material_iter.next().unwrap().clone())
                 }
                 let stack = get_stack_from_material( &stack_material, stack_build); // perhaps provide the iter instead of extracting material here
@@ -284,19 +276,15 @@ fn evaluate_builds<E : Evaluator>(builds: &Vec<Build>, build_material: &Vec<Vec<
     }
 }
 
-fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>, result_wires_id: &Vec<BigUint>) -> u32 {
+fn interpret_result(result_wires: Vec<BigUint>, output_conversion: &Vec<[(BigUint, u8); 2]>) -> u32 {
     let mut result : u32 = 0;
     for (index, result_wire) in result_wires.iter().enumerate() {
         if output_conversion[index][1].0 == *result_wire {
             result += 2u32.pow(index as u32);
-            println!("Found output wire with bit 1 and id {}", result_wires_id[index]);
         } else {
             if !(output_conversion[index][0].0 == *result_wire) {
-                // panic!("NO VALID WIRE IN CONVERSION TABLE FOR WIRE WITH ID {}", result_wires_id[index])
-                println!("NO VALID WIRE IN CONVERSION TABLE FOR WIRE WITH ID {}", result_wires_id[index])
-            } else {
-                println!("Found output wire with bit 0 and id {}", result_wires_id[index]);
-            }
+                panic!("NO VALID WIRE IN CONVERSION TABLE FOR WIRE")
+            } 
         }
     }
     result
