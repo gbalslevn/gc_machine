@@ -410,30 +410,30 @@ impl CircuitBuilder {
     }
 }
 
+// Get all input wires to the build
  fn get_input_wires(circuit: Vec<Build>) -> Vec<WireBuild> {
     // insert all output wires which is used as input in another gate
-    let mut output_wires_used_as_input = HashSet::new();
+    let mut output_wires = HashSet::new();
     for build in &circuit {
         match build.get_type() { 
             BuildType::Gate => {
                 let gate = build.unwrap_to_gate();
-                output_wires_used_as_input.insert(gate.wo());
+                output_wires.insert(gate.wo());
             }
             BuildType::Stack => {
                 let stack = build.unwrap_to_stack();
-                output_wires_used_as_input.extend(&stack.output_wires);
+                output_wires.extend(&stack.output_wires);
             }
         }
     }
     // Check if a wire is a input wire 
     let mut input_wires = Vec::new();
-    // let mut conditionals = Vec::new();
     for build in &circuit {
         match build.get_type() {
             BuildType::Gate => {
                 let gate = build.unwrap_to_gate();
-                let wi_is_output_wire = output_wires_used_as_input.contains(gate.wi());
-                let wj_is_output_wire = output_wires_used_as_input.contains(gate.wj());
+                let wi_is_output_wire = output_wires.contains(gate.wi());
+                let wj_is_output_wire = output_wires.contains(gate.wj());
                 
                 if !wi_is_output_wire {
                     input_wires.push(gate.wi().clone());
@@ -446,7 +446,7 @@ impl CircuitBuilder {
                 let stack = build.unwrap_to_stack();
                 input_wires.push(stack.conditional.clone());
                 for input_wire in &stack.input_wires {
-                    if !(output_wires_used_as_input.contains(input_wire)) {
+                    if !(output_wires.contains(input_wire)) {
                         input_wires.push(input_wire.clone());
                     }
                 }

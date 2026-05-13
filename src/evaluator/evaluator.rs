@@ -294,7 +294,7 @@ fn get_mux_pos(seed: &BigUint, c0_wire: &BigUint, c1_wire: &BigUint) -> usize {
     let s = seed.bit(0) as usize;
     let i = c0_wire.bit(0) as usize;
     let e = c1_wire.bit(0) as usize;
-    s * 2 + (i ^ e)
+    s * 2 + i ^ e
 }
 
 fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
