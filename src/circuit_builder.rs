@@ -166,22 +166,43 @@ impl CircuitBuilder {
         let mut c0_circuit_inputs = get_input_wires(false_block.builds.clone());
         let mut c1_circuit_inputs = get_input_wires(true_block.builds.clone());
         let padding_wire = WireBuild::new(0, 0.to_biguint().unwrap());
-        let combined_input: HashSet<WireBuild> = c0_circuit_inputs.clone().into_iter().chain(c1_circuit_inputs.clone().into_iter()).collect();
+        let mut combined_input: HashSet<WireBuild> = c0_circuit_inputs.clone().into_iter().chain(c1_circuit_inputs.clone().into_iter()).collect();
         // combined_input.insert(cond.clone());
         let mut input_wires: Vec<WireBuild> = combined_input.into_iter().collect();
         input_wires.sort_by_key(|w| w.wire_id.clone());
 
-        // Pad the inputs
-         if c0_circuit_inputs.len() < input_wires.len() {
-            for _ in c0_circuit_inputs.len()..input_wires.len() {
-                c0_circuit_inputs.push(padding_wire.clone());
+        // After computing sorted `input_wires` (combined), rebuild aligned inputs
+        let c0_input_set: HashSet<BigUint> = c0_circuit_inputs.iter()
+            .map(|w| w.wire_id().clone()).collect();
+        let c1_input_set: HashSet<BigUint> = c1_circuit_inputs.iter()
+            .map(|w| w.wire_id().clone()).collect();
+
+        let mut c0_circuit_inputs_aligned = vec![];
+        let mut c1_circuit_inputs_aligned = vec![];
+        for combined_wire in &input_wires {
+            if c0_input_set.contains(combined_wire.wire_id()) {
+                c0_circuit_inputs_aligned.push(combined_wire.clone());
+            } else {
+                c0_circuit_inputs_aligned.push(padding_wire.clone());
+            }
+            if c1_input_set.contains(combined_wire.wire_id()) {
+                c1_circuit_inputs_aligned.push(combined_wire.clone());
+            } else {
+                c1_circuit_inputs_aligned.push(padding_wire.clone());
             }
         }
-        if c1_circuit_inputs.len() < input_wires.len() {
-            for _ in c1_circuit_inputs.len()..input_wires.len() {
-                c1_circuit_inputs.push(padding_wire.clone());
-            } 
-        }
+
+        // // Pad the inputs
+        //  if c0_circuit_inputs.len() < input_wires.len() {
+        //     for _ in c0_circuit_inputs.len()..input_wires.len() {
+        //         c0_circuit_inputs.push(padding_wire.clone());
+        //     }
+        // }
+        // if c1_circuit_inputs.len() < input_wires.len() {
+        //     for _ in c1_circuit_inputs.len()..input_wires.len() {
+        //         c1_circuit_inputs.push(padding_wire.clone());
+        //     } 
+        // }
 
         // Find the compute layer of the stack from the input wire with the largest compute layer. When we have all inputs, we can produce output. subcircuits are evaluated using all required input wires.
         let mut compute_layer = cond.ready_at_layer;
@@ -218,11 +239,11 @@ impl CircuitBuilder {
             // input_wires.push(padding_wire.clone());
         }
         
-        let c0_build = SubcircuitBuild {builds: false_block.builds.clone(), output_wires: false_block.output.clone(), input_wires: c0_circuit_inputs.clone()};
-        let c1_build = SubcircuitBuild {builds: true_block.builds.clone(), output_wires: true_block.output.clone(), input_wires: c1_circuit_inputs.clone()};
+        let c0_build = SubcircuitBuild {builds: false_block.builds.clone(), output_wires: false_block.output.clone(), input_wires: c0_circuit_inputs_aligned.clone()};
+        let c1_build = SubcircuitBuild {builds: true_block.builds.clone(), output_wires: true_block.output.clone(), input_wires: c1_circuit_inputs_aligned.clone()};
 
         // get length of the stacked material after all freexor gates has been removed
-        let m_cond_len = max(false_block.builds.get_material_len(), true_block.builds.get_material_len());
+        let m_cond_len = max(false_block.builds.get_len(), true_block.builds.get_len());
        
         // Remove builds contained inside of true and false gates from circuitbuilders global parameter as they now belong inside the subcircuit of the stack
         let mut builds_in_stack: HashSet<_> = false_block.builds.clone().into_iter().collect();
@@ -473,7 +494,7 @@ impl CircuitBuilder {
             }
             BuildType::Stack => {
                 let stack = build.unwrap_to_stack();
-                // conditionals.push(stack.conditional.clone());
+                input_wires.push(stack.conditional.clone());
                 for input_wire in &stack.input_wires {
                     if !(output_wires_used_as_input.contains(input_wire)) {
                         input_wires.push(input_wire.clone());
