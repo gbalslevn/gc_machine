@@ -161,7 +161,6 @@ impl CircuitBuilder {
     }
 
     pub fn build_stacked_if(&mut self, cond : &WireBuild, false_block: &mut BuildBlock, true_block: &mut BuildBlock) -> BuildBlock {
-        println!("cond wire is: {}", cond.wire_id());
         // input wires are derived implicitely from the input wires of c0 and c1. We combine them to find all input wires needed for both subcircuits 
         let mut c0_circuit_inputs = get_input_wires(false_block.builds.clone());
         let mut c1_circuit_inputs = get_input_wires(true_block.builds.clone());
@@ -191,18 +190,6 @@ impl CircuitBuilder {
                 c1_circuit_inputs_aligned.push(padding_wire.clone());
             }
         }
-
-        // // Pad the inputs
-        //  if c0_circuit_inputs.len() < input_wires.len() {
-        //     for _ in c0_circuit_inputs.len()..input_wires.len() {
-        //         c0_circuit_inputs.push(padding_wire.clone());
-        //     }
-        // }
-        // if c1_circuit_inputs.len() < input_wires.len() {
-        //     for _ in c1_circuit_inputs.len()..input_wires.len() {
-        //         c1_circuit_inputs.push(padding_wire.clone());
-        //     } 
-        // }
 
         // Find the compute layer of the stack from the input wire with the largest compute layer. When we have all inputs, we can produce output. subcircuits are evaluated using all required input wires.
         let mut compute_layer = cond.ready_at_layer;

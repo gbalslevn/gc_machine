@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::collections::{HashMap, VecDeque};
 
-use crate::circuit_builder::{BuildType, StackBuild, SubcircuitBuild};
+use crate::circuit_builder::{Build, BuildType, StackBuild, SubcircuitBuild};
 use crate::crypto_utils::{gc_kdf, gc_kdf_128};
 use crate::evaluator::evaluator::{Evaluator};
 use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
@@ -38,9 +38,11 @@ impl Stack {
         let mut demuxes_material = vec![];
         for demux in &self.demuxes {
             for entry in demux {
-                let output_bytes = entry.to_bytes_be();
-                let c0_wire  = BigUint::from_bytes_be(&output_bytes[..16]);  // first 128 bits
-                let c1_wire = BigUint::from_bytes_be(&output_bytes[16..]);  // last 128 bits
+                let mut buf = [0u8; 32];
+                let bytes = entry.to_bytes_be();
+                buf[32 - bytes.len()..].copy_from_slice(&bytes);
+                let c0_wire = BigUint::from_bytes_be(&buf[..16]); // first 128 bits
+                let c1_wire = BigUint::from_bytes_be(&buf[16..]); // last 128 bits  
                 demuxes_material.push(vec![c0_wire, c1_wire]);
             }
         }
@@ -110,47 +112,11 @@ impl<G: GateGen> Garbler<G> {
         );
         
         self.gate_gen.get_wire_gen().new_rng(); 
-        for build in builds {
-            match build.get_type() {
-                BuildType::Gate => {
-                    let gate = build.unwrap_to_gate();
-                    // Generate gates with the inputs
-                    let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-                    let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
-
-                    let new_gate = self.gate_gen.generate_gate(
-                        gate.gate_type().clone(),
-                        wi.clone(),
-                        wj.clone(),
-                    );
-
-                    let output_wire_id = gate.wo().wire_id();
-                    known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
-                    let table = new_gate.to_table();
-
-                    if circuit_build.output_wires.contains(gate.wo()) {
-                        output_conversion
-                            .push([(new_gate.wo.w0().clone(), 0), (new_gate.wo.w1().clone(), 1)]);
-                    }
-
-                    // Store the ciphertexts for the gate
-                    material.push(table);
-                }
-                BuildType::Stack => {
-                    let stack_build = build.unwrap_to_stack();
-                    let (stack, stack_output) = self.generate_stack(stack_build, &mut known_wires);
-                    
-                    for wire_build in &stack_build.output_wires {
-                        if circuit_build.output_wires.contains(wire_build) {
-                            let wire = stack_output.get(wire_build.wire_id()).unwrap();
-                            // println!("circuit build has output wire with id: {}", wire_build.wire_id());
-                            output_conversion
-                            .push([(wire.w0().clone(), 0), (wire.w1().clone(), 1)]);
-                        }
-                    }
-                    material.extend(stack.to_material());
-                }
-            }
+        let (material, output_wires) = garble_builds(builds, &mut known_wires, self);
+        
+        for output_wire in &circuit_build.output_wires {
+            let wire = output_wires.get(output_wire.wire_id()).unwrap();
+            output_conversion.push([(wire.w0().clone(), 0), (wire.w1().clone(), 1)]);
         }
         Circuit::new(
             material,
@@ -167,28 +133,21 @@ impl<G: GateGen> Garbler<G> {
         for input_wire in &stack_build.input_wires {
             input_wires.push(known_wires.get(input_wire.wire_id()).unwrap().clone());
         }
-        let seed = known_wires.get(&stack_build.conditional.wire_id()).unwrap().clone();
         // Generate output wires
         let mut output_wires = Vec::new(); 
-        let mut output_wires_map = HashMap::new(); // this is a stupid solution, find a smarter way to return it
+        let mut output_wires_map = HashMap::new(); // this is stupid maybe find a better way to return them
         for output_wire in &stack_build.output_wires {
             let wire = self.gate_gen.get_wire_gen().generate_input_wire();
             known_wires.insert(output_wire.wire_id().clone(), wire.clone());
-            output_wires.push(wire.clone());
             output_wires_map.insert(output_wire.wire_id().clone(), wire.clone());
+            output_wires.push(wire.clone());
         }
         // generate material for all situations
         let mut evaluator = HalfGatesEvaluator::new();
-        println!("garbl gen c0");
+        let seed = known_wires.get(&stack_build.conditional.wire_id()).unwrap().clone();
         let (c0_input_wires, c0, c0_output_wires ) = self.generate_subcircuit(seed.w1(), &stack_build.c0_circuit); // use seed w1 to encrypt c0 such that evaluator will evaluate c0 with w0. From semantics of the stacked garbling paper
-        println!("c0 in garbler: {:#?}", c0);
-        println!("garbl gen garb_c0");
         let (c0_garbage_input_wires, __c0_garbage,__c0_garbage_output_wires ) = self.generate_subcircuit(seed.w0(), &stack_build.c0_circuit);
-        println!("garbl gen c1");
         let (c1_input_wires,c1,c1_output_wires ) = self.generate_subcircuit(seed.w0(), &stack_build.c1_circuit);
-        println!("c1_input_wires in garbler: {:#?}", c1_input_wires);
-        println!("c1 in garbler: {:#?}", c1);
-        println!("garbl gen garb_c1");
         let (c1_garbage_input_wires, __c1_garbage,__c1_garbage_output_wires ) = self.generate_subcircuit(seed.w1(), &stack_build.c1_circuit);
         let m_cond = self.stack_material(&c0, &c1, &seed);
         
@@ -213,12 +172,10 @@ impl<G: GateGen> Garbler<G> {
         let unstacked_c0 = evaluator.unstack_material(seed.w0(), &m_cond, &stack_build.c1_circuit, &stack_build.c0_circuit);
         assert_eq!(unstacked_c0, c0);
         let c0_garbage_output_labels = evaluator.evaluate_subcircuit(c0_garbage_input_labels.clone(), unstacked_c0_garbage, &stack_build.c0_circuit);
-        println!("c0_garbage output: {:#?}", c0_garbage_output_labels);
         let unstacked_c1_garbage = evaluator.unstack_material(seed.w0(), &m_cond, &stack_build.c0_circuit, &stack_build.c1_circuit);
         let unstacked_c1 = evaluator.unstack_material(seed.w1(), &m_cond, &stack_build.c0_circuit, &stack_build.c1_circuit);
         assert_eq!(unstacked_c1, c1);
         let c1_garbage_output_labels = evaluator.evaluate_subcircuit(c1_garbage_input_labels.clone(), unstacked_c1_garbage, &stack_build.c1_circuit);
-        println!("c1_garbage output: {:#?}", c1_garbage_output_labels);
         let mut muxes = vec![];
         for i in 0..output_wires.len() {
             let mux = self.generate_mux(&seed, &c0_output_wires[i], &c1_output_wires[i], &c0_garbage_output_labels[i], &c1_garbage_output_labels[i], &output_wires[i]);
@@ -228,10 +185,8 @@ impl<G: GateGen> Garbler<G> {
     }
 
     pub fn generate_subcircuit(&mut self, seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> (Vec<Wire>, Vec<Vec<BigUint>>, Vec<Wire>) {
-        println!("generate_subcircuit seed: {}, num_inputs: {}", seed, subcircuit_build.input_wires.len());
         let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);  
         let mut known_wires = HashMap::new();
-        // let seed_wire = gate_gen.get_wire_gen().generate_input_wire(); // We need to gen seed wire for evaluator to be able to generate stack. NO, instead we should provide it through the demux
         
         // generate all input wires for the subcircuit with the set seed
         let mut input_wires = vec![];
@@ -245,44 +200,17 @@ impl<G: GateGen> Garbler<G> {
                 input_wires.push(wire.clone());
                 known_wires.insert(input_wire.wire_id().clone(), wire);
             }
-        }        
-        let builds = &subcircuit_build.builds;        
-        let mut subcircuit: Vec<Vec<BigUint>> = vec![];
-        for build in builds {
-            match build.get_type() {
-                BuildType::Gate => {
-                    let gate = build.unwrap_to_gate();
-                    let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
-                    let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
-        
-                    let new_gate = gate_gen.generate_gate(
-                        gate.gate_type().clone(),
-                        wi.clone(),
-                        wj.clone()
-                    );
-                    let output_wire_id = gate.wo().wire_id();
-                    known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
-                    let table = new_gate.to_table();
-        
-                    // Store the ciphertexts for the gate
-                    subcircuit.push(table);
-                }
-                BuildType::Stack => {
-                    let stack_build = build.unwrap_to_stack();
-                    // Use a sub-garbler seeded deterministically from the inner seed
-                    let sub_gate_gen = HalfGatesGateGen::new_with_seed(seed);
-                    let mut sub_garbler = Garbler::new(sub_gate_gen);
-                    let (stack, _) = sub_garbler.generate_stack(stack_build, &mut known_wires);
-                    subcircuit.extend(stack.to_material())
-                }
-            }
-        }
+        }  
+        let gate_gen = HalfGatesGateGen::new_with_seed(seed);
+        let mut subcircuit_garbler = Garbler::new(gate_gen);
+        let (material, output_wires) = garble_builds(&subcircuit_build.builds, &mut known_wires, &mut subcircuit_garbler);
+
         let mut output_wires = vec![];
         for wire_build in &subcircuit_build.output_wires {
             let output_wire = known_wires.get(wire_build.wire_id()).unwrap();
             output_wires.push(output_wire.clone());
         }
-        (input_wires, subcircuit, output_wires)
+        (input_wires, material, output_wires)
     }
 
     pub fn stack_material(&mut self, c0: &Vec<Vec<BigUint>>, c1: &Vec<Vec<BigUint>>, seed : &Wire) -> Vec<Vec<BigUint>> {
@@ -333,7 +261,6 @@ impl<G: GateGen> Garbler<G> {
             m_cond.push(stacked_table);
         }
         assert_eq!(m_cond.len(), longest_material);
-        println!("m_cond is: {}", longest_material);
         m_cond
     }
 
@@ -363,7 +290,6 @@ impl<G: GateGen> Garbler<G> {
         let demux_table = get_demux_tt(input_wire, conditional, c0_wire, c1_wire, garbage_c0_wire, garbage_c1_wire);
         for (cond, input, c0_wire, c1_wire) in demux_table {
             let index = get_position(&input, &cond);
-            // println!("key is: {}", gc_kdf(&input, &cond, &self.gate_gen.get_index()));
             let entry = gc_kdf(&input, &cond, &self.gate_gen.get_index()) ^ ((c0_wire << 128) | c1_wire);
             table[index] = entry;
         }
@@ -462,6 +388,44 @@ impl<G: GateGen> Garbler<G> {
         let wj_encrypted = (wj_0_ct, wj_1_ct);
         wj_encrypted
     }
+}
+
+fn garble_builds<G: GateGen>(builds: &Vec<Build>, known_wires: &mut HashMap<BigUint, Wire>, garbler: &mut Garbler<G>) -> (Vec<Vec<BigUint>>, HashMap<BigUint, Wire>) {
+    let mut material = vec![];
+    let mut output_wires = HashMap::new();
+    for build in builds {
+        match build.get_type() {
+            BuildType::Gate => {
+                let gate = build.unwrap_to_gate();
+                let wi = known_wires.get(&gate.wi().wire_id()).unwrap().clone();
+                let wj = known_wires.get(&gate.wj().wire_id()).unwrap().clone();
+    
+                let new_gate = garbler.gate_gen.generate_gate(
+                    gate.gate_type().clone(),
+                    wi.clone(),
+                    wj.clone()
+                );
+                let output_wire_id = gate.wo().wire_id();
+                known_wires.insert(output_wire_id.clone(), new_gate.wo.clone());
+                let table = new_gate.to_table();
+    
+                // Store the ciphertexts for the gate
+                material.push(table);
+                output_wires.insert(gate.wo().wire_id().clone(), new_gate.wo);
+            }
+            BuildType::Stack => {
+                let stack_build = build.unwrap_to_stack();
+                // Use a sub-garbler seeded deterministically from the seed so it matches with the randomness used 
+                // let seed = BigUint::from_bytes_be(&garbler.gate_gen.get_wire_gen().get_seed()); 
+                // let sub_gate_gen = HalfGatesGateGen::new_with_seed(&seed);
+                // let mut sub_garbler = Garbler::new(sub_gate_gen); 
+                let (stack, stack_output_wires) = garbler.generate_stack(stack_build, known_wires);
+                material.extend(stack.to_material());
+                output_wires.extend(stack_output_wires);
+            }
+        }
+    }
+    (material, output_wires)
 }
 
 fn get_position(wi: &BigUint, wj: &BigUint) -> usize {
