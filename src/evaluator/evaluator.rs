@@ -90,8 +90,8 @@ pub trait Evaluator: Sized {
     fn evaluate_stack(&mut self, stack_build : &StackBuild, stack : &Stack, known_wires : &mut HashMap<BigUint, BigUint>) -> Vec<BigUint> {
         let mut result_wires = vec![];
         let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap().clone();
-        let c0 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c1_circuit, &stack_build.c0_circuit);
-        let c1 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c0_circuit, &stack_build.c1_circuit);
+        let c0 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c1, &stack_build.c0);
+        let c1 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c0, &stack_build.c1);
         
         // Get all input wires to the two circuits from demux
         let mut c0_inputs = vec![];
@@ -105,8 +105,8 @@ pub trait Evaluator: Sized {
         }
 
         // Evaluate the two subcircuits and retreive the output translation from the mux by providing the two evaluated subcircuit wires
-        let c0_output = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.c0_circuit);
-        let c1_output = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.c1_circuit);
+        let c0_output = self.evaluate_subcircuit(c0_inputs, c0, &stack_build.c0);
+        let c1_output = self.evaluate_subcircuit(c1_inputs, c1, &stack_build.c1);
         assert_eq!(c0_output.len(), c1_output.len());
 
         for i in 0..stack_build.output_wires.len() {
@@ -194,26 +194,16 @@ pub trait Evaluator: Sized {
         let mut garbler = Garbler::new(gate_gen);
         let (_, material, _) = garbler.generate_subcircuit(seed, build_to_generate); // seems weird we need to provide seed to a garbler which has been init by that seed
         
-        // fill in material instead of empty table representing FreeXOR gates. Using material from the seed
-        let mut filled_material = vec![];
-        // for table in material {
-        //     if table.len() > 0 {
-        //         filled_material.push(table);
-        //     } else {
-        //         let material = material_gen.get_wire_gen().generate_input_wire();
-        //         let table = vec![material.w0().clone(), material.w1().clone()];
-        //         filled_material.push(table);
-        //     }
-        // }
         // prune xor gates
+        let mut pruned_material = vec![];
         for table in material {
             if !table.is_empty() {
-                filled_material.push(table.clone());
+                pruned_material.push(table.clone());
             }
         }
         
         // Pad generated material if neccesary 
-        filled_material.resize_with(m_cond.len(), || {
+        pruned_material.resize_with(m_cond.len(), || {
             let material = material_gen.get_wire_gen().generate_input_wire();
             vec![material.w0().clone(), material.w1().clone()]
         }); 
@@ -222,7 +212,7 @@ pub trait Evaluator: Sized {
         for table_index in 0..m_cond.len() {
             let mut unstacked_table = vec![];
             for entry_index in 0..2 {
-                let unstacked_entry = m_cond[table_index][entry_index].clone() ^ filled_material[table_index][entry_index].clone(); // xor both values to stack
+                let unstacked_entry = m_cond[table_index][entry_index].clone() ^ pruned_material[table_index][entry_index].clone(); // xor both values to stack
                 unstacked_table.push(unstacked_entry);
             } 
             unstacked_material.push(unstacked_table);
