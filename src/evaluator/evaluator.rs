@@ -196,13 +196,19 @@ pub trait Evaluator: Sized {
         
         // fill in material instead of empty table representing FreeXOR gates. Using material from the seed
         let mut filled_material = vec![];
+        // for table in material {
+        //     if table.len() > 0 {
+        //         filled_material.push(table);
+        //     } else {
+        //         let material = material_gen.get_wire_gen().generate_input_wire();
+        //         let table = vec![material.w0().clone(), material.w1().clone()];
+        //         filled_material.push(table);
+        //     }
+        // }
+        // prune xor gates
         for table in material {
-            if table.len() > 0 {
-                filled_material.push(table);
-            } else {
-                let material = material_gen.get_wire_gen().generate_input_wire();
-                let table = vec![material.w0().clone(), material.w1().clone()];
-                filled_material.push(table);
+            if !table.is_empty() {
+                filled_material.push(table.clone());
             }
         }
         
@@ -228,16 +234,14 @@ pub trait Evaluator: Sized {
                 BuildType::Gate => {
                     let gate_build = build.unwrap_to_gate();
                     if gate_build.gate_type() == &GateType::XOR || gate_build.gate_type() == &GateType::XNOR {
-                        unstacked_material.remove(0);
+                        // unstacked_material.remove(0);
                         unstacked_with_xor_gates.push(vec![]);
                     } else {
                         unstacked_with_xor_gates.push(unstacked_material.remove(0));
                     }
                 }   
                 BuildType::Stack => {
-                    let stack_build = build.unwrap_to_stack();
-                    let amount_material_in_stack = stack_build.input_wires.len() * 4 + stack_build.m_cond_len + stack_build.output_wires.len() * 2; // demux material + mux material + subcircuit material. 
-                    let stack_material: Vec<Vec<BigUint>> = unstacked_material.drain(0..amount_material_in_stack).collect(); 
+                    let stack_material: Vec<Vec<BigUint>> = unstacked_material.drain(0..build.get_material_len()).collect(); 
                     unstacked_with_xor_gates.extend(stack_material);
                 }             
             }
@@ -264,12 +268,11 @@ fn evaluate_builds<E : Evaluator>(builds: &Vec<Build>, build_material: &Vec<Vec<
             }
             BuildType::Stack => {
                 let stack_build = build.unwrap_to_stack();
-                let stack_material_len = (stack_build.input_wires.len() * 4) + stack_build.m_cond_len + (stack_build.output_wires.len() * 2);
                 let mut stack_material = vec![];
-                for _ in 0..stack_material_len {
+                for _ in 0..build.get_material_len() {
                     stack_material.push(material_iter.next().unwrap().clone())
                 }
-                let stack = get_stack_from_material( &stack_material, stack_build); // perhaps provide the iter instead of extracting material here
+                let stack = get_stack_from_material(&stack_material, stack_build); // perhaps provide the iter instead of extracting material here
                 evaluator.evaluate_stack(stack_build, &stack, known_wires);
             }
         }

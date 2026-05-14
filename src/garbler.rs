@@ -212,24 +212,37 @@ impl<G: GateGen> Garbler<G> {
         let mut c1_material_gen = HalfGatesGateGen::new_with_seed(seed.w0());
         
         // insert material for empty tables, the FreeXOR gates
+        // for table in c0 {
+        //     if table.is_empty() {
+        //         let material = c0_material_gen.get_wire_gen().generate_input_wire();
+        //         let table = vec![material.w0().clone(), material.w1().clone()];
+        //         filled_c0.push(table);
+        //     } else {
+        //         filled_c0.push(table.clone());
+        //     }
+        // }
+        // for table in c1 {
+        //     if table.is_empty() {
+        //         let material = c1_material_gen.get_wire_gen().generate_input_wire();
+        //         let table = vec![material.w0().clone(), material.w1().clone()];
+        //         filled_c1.push(table);
+        //     } else {
+        //         filled_c1.push(table.clone());
+        //     }
+        // }
+
+        // Prune xor gates
         for table in c0 {
-            if table.is_empty() {
-                let material = c0_material_gen.get_wire_gen().generate_input_wire();
-                let table = vec![material.w0().clone(), material.w1().clone()];
-                filled_c0.push(table);
-            } else {
+            if !table.is_empty() {
                 filled_c0.push(table.clone());
             }
         }
         for table in c1 {
-            if table.is_empty() {
-                let material = c1_material_gen.get_wire_gen().generate_input_wire();
-                let table = vec![material.w0().clone(), material.w1().clone()];
-                filled_c1.push(table);
-            } else {
+            if !table.is_empty() {
                 filled_c1.push(table.clone());
             }
         }
+
         // Pad so the subcircuits material has equal length
         let longest_material = max(filled_c0.len(), filled_c1.len());
         filled_c0.resize_with(longest_material, || {

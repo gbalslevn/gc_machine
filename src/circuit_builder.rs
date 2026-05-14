@@ -31,26 +31,17 @@ pub struct SubcircuitBuild {
 
 pub trait BuildCount {
     fn get_len(&self) -> usize;
+    fn get_material_len(&self) -> usize;
 }
 
 impl BuildCount for Vec<Build> {    
+    // Returns amount of tables for the list of builds
     fn get_len(&self) -> usize {
-        let mut material_count = 0;
-        for build in self {
-            match build.get_type() {
-                BuildType::Gate => {
-                    material_count += 1;
-                }
-                BuildType::Stack => {
-                    let stack_build = build.unwrap_to_stack();
-                    let demux_material_len = stack_build.input_wires.len() * 4;
-                    let mux_material_len = stack_build.output_wires.len() * 2;
-                    let stack_material_len = demux_material_len + stack_build.m_cond_len + mux_material_len; 
-                    material_count += stack_material_len;
-                }
-            }
-        }
-        material_count
+        self.iter().map(|b| b.get_gates_len()).sum()
+    }
+    // Returns amount of tables containing material for the list of builds
+    fn get_material_len(&self) -> usize {
+        self.iter().map(|b| b.get_material_len()).sum()
     }
 }
 
@@ -212,7 +203,7 @@ impl CircuitBuilder {
         }
 
         let branch_id = self.stacks.len();
-        let m_cond_len = max(false_block.builds.get_len(), true_block.builds.get_len());
+        let m_cond_len = max(false_block.builds.get_material_len(), true_block.builds.get_material_len());
         let stack_build = StackBuild { input_wires : input_wires.clone(), output_wires : output_wires.clone(), conditional : cond.clone(), c0_circuit: c0_build, c1_circuit: c1_build, id: branch_id, m_cond_len};
         self.stacks.insert(branch_id, stack_build.clone());
         self.set_output_wires(output_wires.clone());
@@ -522,6 +513,35 @@ impl Build {
         match self {
             Build::Gate(g) => g,
             Build::Stack(_) => panic!("Called unwrap_to_gate on a Stack"),
+        }
+    }
+
+    pub fn get_material_len(&self) -> usize {
+        self.get_len(false)
+    }
+
+    pub fn get_gates_len(&self) -> usize {
+        self.get_len(true)
+    }
+
+    fn get_len(&self, with_empty_tables: bool) -> usize {
+        match self.get_type() {
+            BuildType::Gate => {
+                if with_empty_tables {
+                    1
+                } else {
+                    let gate_build = self.unwrap_to_gate();
+                    if gate_build.gate_type() != &GateType::XOR && gate_build.gate_type() != &GateType::XNOR {
+                        1
+                    } else {
+                        0
+                    }
+                }
+            },
+            BuildType::Stack => {
+                let stack_build = self.unwrap_to_stack();
+                stack_build.input_wires.len() * 4 + stack_build.m_cond_len + stack_build.output_wires.len() * 2
+            }
         }
     }
 }

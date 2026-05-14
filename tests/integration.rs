@@ -223,7 +223,7 @@ fn can_evaluate_stacked_if_with_adder_and_mul_circuit() {
 
     // Create circuit build which from a function computes true if garblers and evaluators inputs are equal. Else it returns false. 
     // If true return garbler_input * evaluator_input, else return garbler_input+evaluator_input
-    let required_bits = 6; //  Enable working with numbers up to 64
+    let required_bits = 7; //  Enable working with numbers up to 64
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
     let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
     let mut garbl_plus_eval = circuit_builder.build_adder(&garbler_wires, &evaluator_wires);
@@ -242,8 +242,8 @@ fn can_evaluate_stacked_if_with_adder_and_mul_circuit() {
     assert_eq!(result.to_biguint().unwrap(), a*b);
     
     // **** Evaluate for false case ****
-    let c = 1.to_biguint().unwrap();
-    let d = 2.to_biguint().unwrap();
+    let c = 80.to_biguint().unwrap();
+    let d = 74.to_biguint().unwrap();
     let garbler_input_choices = garbler.create_circuit_input(&c, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&d, required_bits);
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
