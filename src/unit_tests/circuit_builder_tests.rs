@@ -1,4 +1,4 @@
-use crate::circuit_builder::{BuildType, CircuitBuild, CircuitBuilder};
+use crate::{circuit_builder::{BuildCount, BuildType, CircuitBuild, CircuitBuilder}};
 
 #[test]
 fn builds_are_sorted_by_increasing_output_layer() {
@@ -44,3 +44,15 @@ fn get_stacked_if_build() -> CircuitBuild {
 
     builder.get_circuit_build()
 }
+
+#[test]
+fn can_count_material_in_builds() {
+    let mut builder = CircuitBuilder::new();
+    builder.set_input_wires(1);
+    let input = builder.build_input_wires(1);
+    
+    let and_build = builder.build_and(&input[0], &input[0]);
+    assert_eq!(and_build.builds.get_len(), 1);
+}
+
+// perhaps make test for stacked that c0 and c1 input, output and elements has equal length

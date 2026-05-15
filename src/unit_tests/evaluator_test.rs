@@ -224,8 +224,7 @@ fn evaluation_panics_if_unequal_input_length() {
     let secret_key = eg_elliptic::gen_keypair(&mut rng).get_sk().clone();
     let secret_keys = vec![(secret_key, 0 as u8)];
 
-    let empty_circuit = Circuit {gates : vec![], constant_wires : vec![], garbler_input: HashMap::new(), evaluator_input: HashMap::new(), output_conversion: vec![], stacks: HashMap::new()};
-
+    let empty_circuit = Circuit {material : vec![], constant_wires : vec![], garbler_input: HashMap::new(), evaluator_input: HashMap::new(), output_conversion: vec![]};
 
     evaluator.evaluate_circuit(&cb, empty_circuit, &secret_keys);
 }
