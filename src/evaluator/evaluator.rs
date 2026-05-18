@@ -1,9 +1,9 @@
 use k256::{PublicKey, SecretKey};
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::{BigUint};
 use std::{collections::{HashMap, VecDeque}};
 
 use crate::{
-    circuit_builder::{Build, BuildType, StackBuild, SubcircuitBuild}, crypto_utils::{gc_kdf, gc_kdf_128}, evaluator::{half_gates_evaluator::HalfGatesEvaluator}, garbler::{Circuit, Garbler, Stack}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self}, wires::wire_gen::{WireGen},
+    circuit_builder::{Build, BuildType, StackBuild, SubcircuitBuild, WireId}, crypto_utils::{gc_kdf, gc_kdf_128}, evaluator::half_gates_evaluator::HalfGatesEvaluator, garbler::{Circuit, Garbler, Stack}, gates::{gate_gen::{GateGen, GateType}, half_gates_gate_gen::HalfGatesGateGen}, ot::eg_elliptic::{self}, wires::wire_gen::WireGen,
 };
 use crate::circuit_builder::{CircuitBuild};
 
@@ -44,15 +44,15 @@ pub trait Evaluator: Sized {
         circuit: Circuit,
         secret_keys: &Vec<(SecretKey, u8)>,
     ) -> u32 {
-        let mut known_wires: HashMap<BigUint, BigUint> = HashMap::new(); // id, wire
+        let mut known_wires: HashMap<WireId, BigUint> = HashMap::new(); // id, wire
 
         if secret_keys.len() != circuit.evaluator_input.len() {
             panic!("Evaluator input length and its secret keys length must be equal")
         }
 
         // Insert constant values
-        known_wires.insert(0.to_biguint().unwrap(), circuit.constant_wires[0].to_biguint().unwrap());
-        known_wires.insert(1.to_biguint().unwrap(), circuit.constant_wires[1].to_biguint().unwrap());
+        known_wires.insert(0, circuit.constant_wires[0].clone());
+        known_wires.insert(1, circuit.constant_wires[1].clone());
 
         // Insert garblers input wires
         let garbler_hash_keys = circuit.garbler_input.keys().collect::<Vec<_>>();
@@ -87,7 +87,7 @@ pub trait Evaluator: Sized {
         interpret_result(result_wires, &circuit.output_conversion)
     }
 
-    fn evaluate_stack(&mut self, stack_build : &StackBuild, stack : &Stack, known_wires : &mut HashMap<BigUint, BigUint>) -> Vec<BigUint> {
+    fn evaluate_stack(&mut self, stack_build : &StackBuild, stack : &Stack, known_wires : &mut HashMap<WireId, BigUint>) -> Vec<BigUint> {
         let mut result_wires = vec![];
         let seed = known_wires.get(stack_build.conditional.wire_id()).unwrap().clone();
         let c0 = self.unstack_material(&seed, &stack.m_cond, &stack_build.c1, &stack_build.c0);
@@ -121,7 +121,7 @@ pub trait Evaluator: Sized {
     // Evaluates a subcircuit from a stack
     fn evaluate_subcircuit(&mut self, input_wires: Vec<BigUint>, subcircuit_tables: Vec<Vec<BigUint>>, subcircuit_build : &SubcircuitBuild) -> Vec<BigUint> {
         let mut evaluator = HalfGatesEvaluator::new(); // When evaluating subcircuits we reset gate_index to zero so it matches when garbler uses the method, therefore we make a new evaluator. 
-        let mut known_wires : HashMap<BigUint, BigUint> = HashMap::new();
+        let mut known_wires : HashMap<WireId, BigUint> = HashMap::new();
 
         for i in 0..input_wires.len() {
             known_wires.insert(subcircuit_build.input_wires[i].wire_id().clone(), input_wires[i].clone());
@@ -243,7 +243,7 @@ pub trait Evaluator: Sized {
     fn get_index(&self) -> &BigUint;
 }
 
-fn evaluate_builds<E : Evaluator>(builds: &Vec<Build>, build_material: &Vec<Vec<BigUint>>, known_wires: &mut HashMap<BigUint, BigUint>, evaluator: &mut E) {
+fn evaluate_builds<E : Evaluator>(builds: &Vec<Build>, build_material: &Vec<Vec<BigUint>>, known_wires: &mut HashMap<WireId, BigUint>, evaluator: &mut E) {
     let mut material_iter = build_material.iter();
     for build in builds {
         match build.get_type() {

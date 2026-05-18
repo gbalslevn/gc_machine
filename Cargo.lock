@@ -338,6 +338,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit_macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "clap"
 version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -923,6 +932,7 @@ dependencies = [
 name = "gc_machine"
 version = "0.1.0"
 dependencies = [
+ "circuit_macro",
  "criterion",
  "futures",
  "futures-channel",

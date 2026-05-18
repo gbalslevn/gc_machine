@@ -2,20 +2,21 @@ use core::fmt;
 use std::{cmp::max, collections::{HashMap, HashSet, VecDeque}};
 
 use crate::gates::gate_gen::GateType;
-use num_bigint::{BigUint, ToBigUint};
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id.
 // This way we can provide two wire id's from other gates as input, and ensure to provide the correct values. The wire id does not neccesarilly correlate to the id of the gate generated in wire_gen.
 
 type StackID = usize;
-type GateID = BigUint;
+type GateID = usize;
+pub type WireId = usize;
+
 pub struct CircuitBuilder {
     gates: HashMap<GateID, GateBuild>,
     stacks: HashMap<StackID, StackBuild>,
     false_constant: WireBuild,
     true_constant: WireBuild,
-    wires_created : BigUint, 
+    wires_created : usize, 
     garbler_wires: Vec<WireBuild>,
     evaluator_wires : Vec<WireBuild>,
     output_wires: Vec<WireBuild>,
@@ -45,7 +46,7 @@ impl BuildCount for Vec<Build> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CircuitBuild {
     pub builds: Vec<Build>,
     pub output_wires: Vec<WireBuild>,
@@ -75,8 +76,8 @@ impl CircuitBuilder {
     pub fn new() -> Self {
         let gates = HashMap::new();
         let stacks = HashMap::new();
-        let false_constant = WireBuild::new(0, 0.to_biguint().unwrap());
-        let true_constant = WireBuild::new(0, 1.to_biguint().unwrap());
+        let false_constant = WireBuild::new(0, 0);
+        let true_constant = WireBuild::new(0, 1);
         let garbler_wires = Vec::new();
         let evaluator_wires = Vec::new();
         let output_wires = Vec::new();
@@ -86,7 +87,7 @@ impl CircuitBuilder {
             gates,
             stacks,
             false_constant,
-            wires_created : 2.to_biguint().unwrap(),
+            wires_created : 2,
             true_constant,
             garbler_wires,
             evaluator_wires,
@@ -118,7 +119,7 @@ impl CircuitBuilder {
         let mut stack_builds: Vec<Build> = stacks.into_iter().map(Build::Stack).collect(); 
         builds.append(&mut stack_builds);
         if builds.len() > 0 {
-            builds.sort_by_key(|build| build.ready_at_layer().clone());
+            builds.sort_by_key(|build| (build.ready_at_layer().clone(), build.get_id()));
         }
         CircuitBuild {
             builds: builds,
@@ -133,14 +134,14 @@ impl CircuitBuilder {
         // input wires are derived implicitely from the input wires of c0 and c1. We combine them to find all input wires needed for both subcircuits 
         let c0_inputs = get_input_wires(false_block.builds.clone());
         let c1_inputs = get_input_wires(true_block.builds.clone());
-        let padding_wire = WireBuild::new(0, 0.to_biguint().unwrap());
+        let padding_wire = WireBuild::new(0, 0);
         let combined_input: HashSet<WireBuild> = c0_inputs.clone().into_iter().chain(c1_inputs.clone().into_iter()).collect();
         let mut input_wires: Vec<WireBuild> = combined_input.into_iter().collect();
         input_wires.sort_by_key(|w| w.wire_id.clone());
 
         // Align inputs in each subcircuit such that they are used with the correct input wires in the mux. 
-        let c0_input_set: HashSet<BigUint> = c0_inputs.iter().map(|w| w.wire_id().clone()).collect();
-        let c1_input_set: HashSet<BigUint> = c1_inputs.iter().map(|w| w.wire_id().clone()).collect();
+        let c0_input_set: HashSet<WireId> = c0_inputs.iter().map(|w| w.wire_id().clone()).collect();
+        let c1_input_set: HashSet<WireId> = c1_inputs.iter().map(|w| w.wire_id().clone()).collect();
 
         let mut c0_inputs_aligned = vec![];
         let mut c1_inputs_aligned = vec![];
@@ -178,7 +179,7 @@ impl CircuitBuilder {
         }
 
         // Add padding if neccesary to ensure equal output length of subcircuits 
-        let padding_wire = WireBuild::new(0, 0.to_biguint().unwrap());
+        let padding_wire = WireBuild::new(0, 0);
         false_block.output.resize(output_len, padding_wire.clone());
         true_block.output.resize(output_len, padding_wire);
         
@@ -218,7 +219,7 @@ impl CircuitBuilder {
         conditional: &WireBuild,
         true_output: &Vec<WireBuild>,
         false_output: &Vec<WireBuild>
-    ) -> (Vec<Build>, Vec<WireBuild>) {
+    ) -> BuildBlock {
         let true_constant = &self.true_constant.clone();
         let mut output = vec![];
         let (padded_true, padded_false) = self.pad_input(true_output, false_output);
@@ -233,7 +234,7 @@ impl CircuitBuilder {
             output.push(output_wire.wo);
         }
         self.set_output_wires(output.clone());
-        (self.get_latest_builds(), output)
+        BuildBlock {output : output.clone(), builds: self.get_latest_builds()}
     }
 
     /*
@@ -268,8 +269,8 @@ impl CircuitBuilder {
             partial_sums.push_back(adder_block.output); // addition should not produce a 1-carry bit
         }
         let result: Vec<WireBuild> = partial_sums.pop_front().unwrap();
-        self.output_wires = result.clone();
         let multiplier_builds: Vec<Build> = adder_blocks.into_iter().flat_map(|block| block.builds).collect();
+        self.set_output_wires(result.clone());
         BuildBlock {output: result, builds : multiplier_builds}
     }
 
@@ -283,7 +284,7 @@ impl CircuitBuilder {
     }
 
 
-    pub fn build_is_equal(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> WireBuild {
+    pub fn build_is_equal(&mut self, input_wires_a: &Vec<WireBuild>, input_wires_b: &Vec<WireBuild>) -> BuildBlock {
         // Compares each bit in a tree like structure
         let (padded_a, padded_b) = self.pad_input(input_wires_a, input_wires_b);
         let mut deque: VecDeque<WireBuild> = VecDeque::new();
@@ -297,8 +298,7 @@ impl CircuitBuilder {
         }
         let output = deque.pop_front().unwrap();
         self.set_output_wires(vec![output.clone()]);
-        self.get_latest_builds();
-        output
+        BuildBlock { output: vec![output], builds: self.get_latest_builds() }
     }
 
     pub fn build_and(&mut self, wi: &WireBuild, wj: &WireBuild) -> BuildBlock {
@@ -316,7 +316,7 @@ impl CircuitBuilder {
         for _i in 0..amount {
             let input_wire = WireBuild::new(0, self.wires_created.clone());
             input_wires.push(input_wire);
-            self.wires_created += 1.to_biguint().unwrap();
+            self.wires_created += 1;
         }
         input_wires
     }
@@ -397,7 +397,7 @@ impl CircuitBuilder {
     }
 
     fn increment_wires_created(&mut self) {
-        self.wires_created += 1u32;
+        self.wires_created += 1usize;
     }
 }
 
@@ -452,11 +452,11 @@ impl CircuitBuilder {
 #[derive(Clone, PartialEq, Debug, Eq, Hash, PartialOrd, Ord)]
 pub struct WireBuild {
     ready_at_layer: i32,
-    wire_id: BigUint,
+    wire_id: WireId,
 }
 
 impl WireBuild {
-    pub fn new(ready_at_layer: i32, wire_id: BigUint) -> Self {
+    pub fn new(ready_at_layer: i32, wire_id: WireId) -> Self {
         WireBuild {
             ready_at_layer,
             wire_id,
@@ -465,7 +465,7 @@ impl WireBuild {
     pub fn ready_at_layer(&self) -> &i32 {
         &self.ready_at_layer
     }
-    pub fn wire_id(&self) -> &BigUint {
+    pub fn wire_id(&self) -> &usize {
         &self.wire_id
     }
 }
@@ -474,6 +474,16 @@ impl WireBuild {
 pub struct BuildBlock {
     pub output: Vec<WireBuild>,
     pub builds: Vec<Build> 
+}
+
+pub trait AsWires {
+    fn as_wires(&self) -> &Vec<WireBuild>;
+}
+impl AsWires for Vec<WireBuild> {
+    fn as_wires(&self) -> &Vec<WireBuild> { self }
+}
+impl AsWires for BuildBlock {
+    fn as_wires(&self) -> &Vec<WireBuild> { &self.output }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -542,6 +552,12 @@ impl Build {
                 let stack_build = self.unwrap_to_stack();
                 stack_build.input_wires.len() * 4 + stack_build.m_cond_len + stack_build.output_wires.len() * 2
             }
+        }
+    }
+    pub fn get_id(&self) -> usize {
+        match self.get_type() {
+            BuildType::Gate => self.unwrap_to_gate().wo().wire_id,
+            BuildType::Stack => self.unwrap_to_stack().id,
         }
     }
 }
