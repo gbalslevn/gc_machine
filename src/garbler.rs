@@ -8,7 +8,7 @@ use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
 use crate::{circuit_builder::CircuitBuild,gates::gate_gen::GateGen,ot::eg_elliptic::{self, CipherText},wires::wire_gen::{Wire, WireGen},
 };
 use k256::PublicKey;
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::{BigUint};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use crate::evaluator::half_gates_evaluator::HalfGatesEvaluator;

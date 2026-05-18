@@ -46,27 +46,12 @@ impl BuildCount for Vec<Build> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CircuitBuild {
     pub builds: Vec<Build>,
     pub output_wires: Vec<WireBuild>,
     pub garbler_wires: Vec<WireBuild>,
     pub evaluator_wires: Vec<WireBuild>
-}
-
-impl PartialEq for CircuitBuild {
-    fn eq(&self, other: &Self) -> bool {
-        // Compare as multisets, not ordered lists
-        let mut a = self.builds.clone();
-        let mut b = other.builds.clone();
-        a.sort_by_key(|g | g.get_id());
-        b.sort_by_key(|g| g.get_id());
-        
-        a == b
-            && self.output_wires == other.output_wires
-            && self.garbler_wires == other.garbler_wires
-            && self.evaluator_wires == other.evaluator_wires
-    }
 }
 
 impl CircuitBuild {
@@ -134,7 +119,7 @@ impl CircuitBuilder {
         let mut stack_builds: Vec<Build> = stacks.into_iter().map(Build::Stack).collect(); 
         builds.append(&mut stack_builds);
         if builds.len() > 0 {
-            builds.sort_by_key(|build| build.ready_at_layer().clone());
+            builds.sort_by_key(|build| (build.ready_at_layer().clone(), build.get_id()));
         }
         CircuitBuild {
             builds: builds,

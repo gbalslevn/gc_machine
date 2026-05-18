@@ -1,5 +1,5 @@
 use k256::{PublicKey, SecretKey};
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::{BigUint};
 use std::{collections::{HashMap, VecDeque}};
 
 use crate::{
