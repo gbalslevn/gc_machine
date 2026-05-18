@@ -89,7 +89,8 @@ fn inner_circuit_fn(item: TokenStream) -> TokenStream {
         cb: &mut gc_machine::circuit_builder::CircuitBuilder,  
         #g: Vec<gc_machine::circuit_builder::WireBuild>,       
         #e: Vec<gc_machine::circuit_builder::WireBuild>,      
-    ) -> Vec<gc_machine::circuit_builder::WireBuild> {         
+    ) -> gc_machine::circuit_builder::BuildBlock {     
+        use gc_machine::circuit_builder::AsWires as _;    
         #circuit_body
     }}
     .into()
@@ -155,21 +156,35 @@ fn lower_block(block: &syn::Block) -> proc_macro2::TokenStream {
 
 fn lower_expr(expr: &syn::Expr) -> proc_macro2::TokenStream {
     match expr {
-        syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Add(_)) => {
-            let l = lower_expr(&bin.left);
-            let r = lower_expr(&bin.right);
-            quote! { cb.build_adder(&#l, &#r) }
-        }
-        syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Mul(_)) => {
-            let l = lower_expr(&bin.left);
-            let r = lower_expr(&bin.right);
-            quote! { cb.build_multiplier(&#l, &#r) }
-        }
-        syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Eq(_)) => {
-            let l = lower_expr(&bin.left);
-            let r = lower_expr(&bin.right);
-            quote! { vec![cb.build_is_equal(&#l, &#r)] }
-        }
+       syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Add(_)) => {
+    let l = lower_expr(&bin.left);
+    let r = lower_expr(&bin.right);
+    quote! {{
+        let __lhs__ = { #l };
+        let __rhs__ = { #r };
+        cb.build_adder(__lhs__.as_wires(), __rhs__.as_wires())
+        }}
+    }
+
+    syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Mul(_)) => {
+        let l = lower_expr(&bin.left);
+        let r = lower_expr(&bin.right);
+        quote! {{
+            let __lhs__ = { #l };
+            let __rhs__ = { #r };
+            cb.build_multiplier(__lhs__.as_wires(), __rhs__.as_wires())
+        }}
+    }
+
+    syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Eq(_)) => {
+        let l = lower_expr(&bin.left);
+        let r = lower_expr(&bin.right);
+        quote! {{
+            let __lhs__ = { #l };
+            let __rhs__ = { #r };
+            cb.build_is_equal(__lhs__.as_wires(), __rhs__.as_wires())
+        }}
+    }
         syn::Expr::If(expr_if) => {
             let cond = lower_expr(&expr_if.cond);
             let then_block = lower_block(&expr_if.then_branch);
@@ -182,14 +197,14 @@ fn lower_expr(expr: &syn::Expr) -> proc_macro2::TokenStream {
                 })
                 .unwrap_or(quote! { vec![] });
             quote! {{
-                let __cond__     = #cond;
+                let __cond__     = {#cond}.as_wires()[0].clone();
                 let __then_out__ = { #then_block };
                 let __else_out__ = { #else_block };
-                cb.build_if(&__cond__[0], &__then_out__, &__else_out__)
+                cb.build_if(&__cond__, &__then_out__.as_wires(), &__else_out__.as_wires())
             }}
         }
         syn::Expr::Paren(p) => lower_expr(&p.expr),
         syn::Expr::Block(b) => lower_block(&b.block),
-        other => quote! { #other },
+        other => quote! { #other.clone() },
     }
 }

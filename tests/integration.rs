@@ -145,7 +145,7 @@ fn can_evaulate_naive_if_circuit() {
     // Create circuit build which from a function computes true if garblers and evaluators inputs are equal. Else it returns false. 
     let required_bits = 6; //  Enable working with numbers up to 64
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
-    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires); 
+    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires).output[0].clone(); 
     let true_block = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1
     let false_block = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
     circuit_builder.build_if(&is_equal, &true_block.output, &false_block.output);
@@ -184,7 +184,7 @@ fn can_evaluate_stacked_if_circuit() {
     // Create circuit build which from a function computes true if garblers and evaluators inputs are equal. Else it returns false. 
     let required_bits = 6; //  Enable working with numbers up to 64
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
-    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires); // is_equal is true as 32==32
+    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires).output[0].clone(); // is_equal is true as 32==32
     let mut true_block = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1 
     let mut false_block = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
     
@@ -225,7 +225,7 @@ fn can_evaluate_stacked_if_with_adder_and_mul_circuit() {
     // If true return garbler_input * evaluator_input, else return garbler_input+evaluator_input
     let required_bits = 7; //  Enable working with numbers up to 64
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
-    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
+    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires).output[0].clone();
     let mut garbl_plus_eval = circuit_builder.build_adder(&garbler_wires, &evaluator_wires);
     let mut garbl_times_eval = circuit_builder.build_multiplier(&garbler_wires, &evaluator_wires);
     
@@ -260,7 +260,7 @@ fn can_evaluate_nested_stacked_if() {
 
     let required_bits = 7;
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
-    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
+    let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires).output[0].clone();
     let mut adder_0 = circuit_builder.build_adder(&garbler_wires, &evaluator_wires);
     let mut adder_1 = circuit_builder.build_adder(&garbler_wires, &garbler_wires);
     

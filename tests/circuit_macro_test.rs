@@ -69,9 +69,9 @@ fn can_produce_naive_if() {
     let mut manual = CircuitBuilder::new();
     let (g, e) = manual.set_input_wires(1);
 
-    let is_equal = manual.build_is_equal(&g, &e);
+    let is_equal = manual.build_is_equal(&g, &e).output[0].clone();
     let true_case = manual.build_adder(&g, &g);
-    manual.build_if(&is_equal, &true_case, &g);
+    manual.build_if(&is_equal, &true_case.output, &g);
 
     assert_eq!(cb, manual.get_circuit_build());
 }

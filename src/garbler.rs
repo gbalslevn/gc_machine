@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::collections::{HashMap, VecDeque};
 
-use crate::circuit_builder::{Build, BuildType, StackBuild, SubcircuitBuild};
+use crate::circuit_builder::{Build, BuildType, StackBuild, SubcircuitBuild, WireId};
 use crate::crypto_utils::{gc_kdf, gc_kdf_128};
 use crate::evaluator::evaluator::{Evaluator};
 use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
@@ -17,8 +17,8 @@ use crate::evaluator::half_gates_evaluator::HalfGatesEvaluator;
 pub struct Circuit {
     pub material: Vec<Vec<BigUint>>,
     pub constant_wires: Vec<BigUint>,
-    pub garbler_input: HashMap<BigUint, BigUint>,
-    pub evaluator_input: HashMap<BigUint, (CipherText, CipherText)>,
+    pub garbler_input: HashMap<WireId, BigUint>,
+    pub evaluator_input: HashMap<WireId, (CipherText, CipherText)>,
     pub output_conversion: Vec<[(BigUint, u8); 2]>,
 }
 
@@ -63,8 +63,8 @@ impl Circuit {
     pub fn new(
         material: Vec<Vec<BigUint>>,
         constant_wires: Vec<BigUint>,
-        garbler_input: HashMap<BigUint, BigUint>,
-        evaluator_input: HashMap<BigUint, (CipherText, CipherText)>,
+        garbler_input: HashMap<WireId, BigUint>,
+        evaluator_input: HashMap<WireId, (CipherText, CipherText)>,
         output_conversion: Vec<[(BigUint, u8); 2]>,
     ) -> Self {
         Circuit {
@@ -95,7 +95,7 @@ impl<G: GateGen> Garbler<G> {
         if garblers_input_choices.len() != evaluators_input_choices.len() {
             panic!("Garbler and evaluator input length must be equal")
         }
-        let mut known_wires: HashMap<BigUint, Wire> = HashMap::new();
+        let mut known_wires: HashMap<WireId, Wire> = HashMap::new();
         let mut output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
         let builds = circuit_build.get_builds();
         
@@ -125,7 +125,7 @@ impl<G: GateGen> Garbler<G> {
         )
     }
 
-    pub fn generate_stack(&mut self, stack_build : &StackBuild, known_wires: &mut HashMap<BigUint, Wire>) -> Stack {
+    pub fn generate_stack(&mut self, stack_build : &StackBuild, known_wires: &mut HashMap<WireId, Wire>) -> Stack {
         // insert all input wires
         let mut input_wires = vec![];
         for input_wire in &stack_build.input_wires {
@@ -300,13 +300,13 @@ impl<G: GateGen> Garbler<G> {
     // Inserts the garbler and evaluators input wires
     fn insert_input_wires(
         &mut self,
-        known_wires: &mut HashMap<BigUint, Wire>,
+        known_wires: &mut HashMap<WireId, Wire>,
         build: &CircuitBuild,
         garblers_input_choices: &mut VecDeque<u8>,
         evaluators_input_choices: &mut VecDeque<[PublicKey; 2]>,
     ) -> (
-        HashMap<BigUint, BigUint>,
-        HashMap<BigUint, (CipherText, CipherText)>,
+        HashMap<WireId, BigUint>,
+        HashMap<WireId, (CipherText, CipherText)>,
     ) {
         let mut rng = self.gate_gen.get_wire_gen().get_rng().clone();
         let garbler_wires = &build.garbler_wires;
@@ -342,12 +342,12 @@ impl<G: GateGen> Garbler<G> {
         (garbler_inputs, evaluator_inputs)
     }
 
-    fn insert_constant_wires(&mut self, known_wires: &mut HashMap<BigUint, Wire>) -> Vec<BigUint> {
+    fn insert_constant_wires(&mut self, known_wires: &mut HashMap<WireId, Wire>) -> Vec<BigUint> {
         let mut constant_wires = vec![];
         let true_constant = self.gate_gen.get_wire_gen().generate_input_wire();
         let false_constant = self.gate_gen.get_wire_gen().generate_input_wire();
-        known_wires.insert(0.to_biguint().unwrap(), false_constant.clone());
-        known_wires.insert(1.to_biguint().unwrap(), true_constant.clone());
+        known_wires.insert(0, false_constant.clone());
+        known_wires.insert(1, true_constant.clone());
         constant_wires.insert(0, false_constant.w0().clone());
         constant_wires.insert(1, true_constant.w1().clone());
         constant_wires
@@ -370,7 +370,7 @@ impl<G: GateGen> Garbler<G> {
     }
 }
 
-fn garble_builds<G: GateGen>(builds: &Vec<Build>, known_wires: &mut HashMap<BigUint, Wire>, garbler: &mut Garbler<G>) -> Vec<Vec<BigUint>> {
+fn garble_builds<G: GateGen>(builds: &Vec<Build>, known_wires: &mut HashMap<WireId, Wire>, garbler: &mut Garbler<G>) -> Vec<Vec<BigUint>> {
     let mut material = vec![];
     for build in builds {
         match build.get_type() {
