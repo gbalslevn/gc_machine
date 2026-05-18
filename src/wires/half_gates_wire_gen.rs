@@ -16,6 +16,7 @@ impl HalfGatesWireGen {
     pub fn delta(&self) -> &BigUint {
         &self.delta
     }
+
     pub fn reset_gate_values(&mut self) {
         self.tg = BigUint::from(0u32);
         self.te = BigUint::from(0u32);
@@ -29,7 +30,13 @@ impl WireGen for HalfGatesWireGen {
     fn new() -> Self {
         let mut rng = crypto_utils::gen_rng();
         let delta = generate_label_lsb(&mut rng, true); // to ensure point and permute holds
-        HalfGatesWireGen { delta, tg: BigUint::from(0u32), te: BigUint::from(0u32), rng : rng }
+        HalfGatesWireGen { delta, tg: BigUint::from(0u32), te: BigUint::from(0u32), rng }
+    }
+
+    fn new_with_rng(rng: ChaCha20Rng) -> Self {
+        let mut rng = rng;
+        let delta = generate_label_lsb(&mut rng, true); // to ensure point and permute holds
+        HalfGatesWireGen { delta, tg: BigUint::from(0u32), te: BigUint::from(0u32), rng }
     }
 
     fn generate_input_wire(&mut self) -> Wire {
@@ -50,7 +57,7 @@ impl WireGen for HalfGatesWireGen {
     fn get_rng(&self) -> &ChaCha20Rng { &self.rng }
     fn get_seed(&self) -> [u8; 32] { self.rng.get_seed().clone() }
     fn new_rng(&mut self) { self.rng = crypto_utils::gen_rng(); }
-    fn set_rng(&mut self, seed: [u8; 32]) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
+    fn set_rng(&mut self, seed: &BigUint) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
 }
 
 pub fn generate_and_wires(wire_gen: &mut HalfGatesWireGen, wi: &Wire, wj: &Wire, index: &BigUint) -> Wire {

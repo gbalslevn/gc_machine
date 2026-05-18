@@ -13,17 +13,6 @@ pub fn gc_kdf(left: &BigUint, right: &BigUint, gate_id: &BigUint) -> BigUint {
     BigUint::from_bytes_be(&bit_result)
 }
 
-pub fn gc_kdf_mux(seed: &BigUint, left: &BigUint, right: &BigUint, gate_id: &BigUint) -> BigUint {
-    let mut hasher = Sha256::new();
-    hasher.update(seed.to_bytes_le());
-    hasher.update(left.to_bytes_le());
-    hasher.update(right.to_bytes_le());
-    hasher.update(gate_id.to_bytes_le());
-    let bit_result = hasher.finalize(); // u32 bit result
-    let result = BigUint::from_bytes_be(&bit_result);
-    result >> 128
-}
-
 pub fn gc_kdf_128(left: &BigUint, right: &BigUint, gate_id: &BigUint) -> BigUint {
     let bit_result = gc_kdf(left, right, gate_id);
     bit_result >> 128
@@ -67,8 +56,15 @@ pub fn gen_rng() -> ChaCha20Rng {
     ChaCha20Rng::from_seed(seed)
 }
 
-pub fn gen_rng_with_seed(seed: [u8; 32]) -> ChaCha20Rng {
-    ChaCha20Rng::from_seed(seed)
+pub fn gen_rng_with_seed(seed: &BigUint) -> ChaCha20Rng {
+    let seed_bytes = seed.to_bytes_le();
+
+    let mut seed_array = [0u8; 32];
+    let copy_len = seed_bytes.len().min(16);
+    seed_array[..copy_len].copy_from_slice(&seed_bytes[..copy_len]);
+    // Upper 16 bytes (128 bits) remain 0
+
+    ChaCha20Rng::from_seed(seed_array)
 }
 
 pub fn sha256(data : &[u8]) -> BigUint {

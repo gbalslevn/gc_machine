@@ -16,6 +16,12 @@ impl WireGen for OriginalWireGen {
         let rng = crypto_utils::gen_rng();
         Self { rng }
     }
+
+    fn new_with_rng(rng: ChaCha20Rng) -> Self {
+        let rng = rng;
+        Self { rng }
+    }
+
     fn generate_input_wire(&mut self) -> Wire {
         generate_wire(&mut self.rng)
     }
@@ -30,7 +36,7 @@ impl WireGen for OriginalWireGen {
     fn new_rng(&mut self) {
         self.rng = crypto_utils::gen_rng();
     }
-    fn set_rng(&mut self, seed: [u8; 32]) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
+    fn set_rng(&mut self, seed: &BigUint) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
 }
 
 fn generate_wire(rng : &mut ChaCha20Rng) -> Wire {

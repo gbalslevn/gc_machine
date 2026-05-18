@@ -3,7 +3,7 @@ use strum_macros::{Display, EnumIter};
 use crate::{wires::wire_gen::{Wire, WireGen}};
 
 
-#[derive(Clone, Copy, Debug, PartialEq, Display, EnumIter)]
+#[derive(Clone, Copy, Debug, PartialEq, Display, EnumIter, Hash, Eq)]
 pub enum GateType {
     XOR,
     XNOR,
@@ -16,6 +16,8 @@ pub enum GateType {
 pub trait GateGen {
     type W: WireGen;
     fn new() -> Self;
+
+    fn new_with_seed(seed: &BigUint) -> Self;
     fn get_wire_gen(&mut self) -> &mut Self::W;
     fn generate_gate(&mut self, gate : GateType, wi: Wire, wj: Wire) -> Gate;
     
@@ -52,7 +54,7 @@ pub trait GateGen {
     fn increment_index(&mut self) -> &BigUint;
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct Gate {
     pub gate_type: GateType,
     pub table : Vec<BigUint>,

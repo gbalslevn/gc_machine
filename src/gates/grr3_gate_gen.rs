@@ -1,5 +1,6 @@
 use num_bigint::BigUint;
 use crate::crypto_utils;
+use crate::crypto_utils::gen_rng_with_seed;
 use crate::gates::gate_gen::{Gate, GateType, GateGen};
 use crate::wires::grr3_wire_gen::GRR3WireGen;
 use crate::wires::wire_gen::{Wire, WireGen};
@@ -16,6 +17,11 @@ impl GateGen for GRR3GateGen  {
         GRR3GateGen { wire_gen, index: BigUint::from(0u32), }
     }
 
+    fn new_with_seed(seed: &BigUint) -> Self {
+        let rng = gen_rng_with_seed(seed);
+        let wire_gen = GRR3WireGen::new_with_rng(rng);
+        GRR3GateGen { wire_gen, index: BigUint::from(0u32) }
+    }
     fn generate_gate(&mut self, gate: GateType, wi: Wire, wj: Wire) -> Gate {
         let wo = self.wire_gen.generate_output_wire(&wi, &wj, &gate, &self.index);
         let tt = self.get_tt(&wi, &wj, &wo, &gate);
