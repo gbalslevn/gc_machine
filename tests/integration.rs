@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::ops::{Shr};
 use std::sync::Arc;
 use std::time::Duration;
-use gc_machine::circuit_builder::{CircuitBuilder};
+use gc_machine::circuit_builder::{AsWires, CircuitBuilder};
 use gc_machine::evaluator::evaluator::Evaluator;
 use gc_machine::evaluator::free_xor_evaluator::FreeXOREvaluator;
 use gc_machine::evaluator::grr3_evaluator::GRR3Evaluator;
@@ -287,25 +287,28 @@ fn can_evaluate_nested_stacked_if() {
     assert_eq!(result.to_biguint().unwrap(), c.clone()+d) 
 }
 
-#[track_caller]
-fn evaluate_is_equal<G, E>(a : BigUint, b : BigUint, expected_result : bool, garbler : &mut Garbler<G>, evaluator : &mut E) where G: GateGen, E: Evaluator, {
-    // Garbler's and Evaluator's input
-    let required_bits = max(a.bits(), b.bits());
+#[test]
+fn can_evaluate_variables() {
+    let gate_gen = HalfGatesGateGen::new();
+    let mut garbler = Garbler::new(gate_gen);
+    let mut evaluator = HalfGatesEvaluator::new();
     let mut circuit_builder = CircuitBuilder::new();
-    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
 
-    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
-    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
-
-    // Create circuit build
-    circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
+    // Add two variables
+    let a = 422;
+    let a_block = circuit_builder.build_variable(a.to_biguint().unwrap().to_bytes_le());
+    let b = 4352;
+    let b_block = circuit_builder.build_variable(b.to_biguint().unwrap().to_bytes_le());
+    circuit_builder.build_adder(a_block.as_wires(), b_block.as_wires());
+    circuit_builder.set_input_wires(1); // we have to set to avoid failing, should make a method which initiates a new circuitbuild with a specific input length instead
     let circuit_build = circuit_builder.get_circuit_build();
+    let garbler_input = garbler.create_circuit_input(&0.to_biguint().unwrap(), 1);
+    let (evaluator_input, secret_keys) = evaluator.create_circuit_input(&0.to_biguint().unwrap(), 1);
 
-    // Garbler garbles and evaluator evaluates
-    let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let circuit = garbler.create_circuit(&circuit_build, &garbler_input, &evaluator_input);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &secret_keys);
 
-    assert_eq!(result, expected_result as u32);
+    assert_eq!(result, a+b);
 }
 
 #[test]
@@ -371,7 +374,6 @@ fn evaluate_multiplier() {
 
 }
 
-
 // Maybe this test shows we do not need to provide equal amount of bits as input. If we do not then this test can be simplified. Should we use a constant wire for padding? Or another solution. 
 #[test]
 fn can_add_numbers_of_unequal_bitlength() {
@@ -403,6 +405,27 @@ fn can_add_numbers_of_unequal_bitlength() {
     let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
 
     assert_eq!(result.to_biguint().unwrap(), two_bit_number);
+}
+
+#[track_caller]
+fn evaluate_is_equal<G, E>(a : BigUint, b : BigUint, expected_result : bool, garbler : &mut Garbler<G>, evaluator : &mut E) where G: GateGen, E: Evaluator, {
+    // Garbler's and Evaluator's input
+    let required_bits = max(a.bits(), b.bits());
+    let mut circuit_builder = CircuitBuilder::new();
+    let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
+
+    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
+
+    // Create circuit build
+    circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires);
+    let circuit_build = circuit_builder.get_circuit_build();
+
+    // Garbler garbles and evaluator evaluates
+    let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+
+    assert_eq!(result, expected_result as u32);
 }
 
 async fn get_peer<G, E>(gate_gen : G, evaluator : E, with_logging : bool) -> Arc<Peer<G, E>> where
