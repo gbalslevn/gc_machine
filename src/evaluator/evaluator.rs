@@ -243,8 +243,8 @@ pub trait Evaluator: Sized {
     fn get_index(&self) -> &BigUint;
 }
 
-fn evaluate_builds<E : Evaluator>(builds: &Vec<Build>, build_material: &Vec<Vec<BigUint>>, known_wires: &mut HashMap<WireId, BigUint>, evaluator: &mut E) {
-    let mut material_iter = build_material.iter();
+fn evaluate_builds<E : Evaluator>(builds: &Vec<Build>, material: &Vec<Vec<BigUint>>, known_wires: &mut HashMap<WireId, BigUint>, evaluator: &mut E) {
+    let mut material_iter = material.iter();
     for build in builds {
         match build.get_type() {
             BuildType::Gate => {

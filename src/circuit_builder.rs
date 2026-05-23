@@ -1,7 +1,6 @@
 use core::fmt;
 use std::{cmp::max, collections::{HashMap, HashSet, VecDeque}};
-
-use crate::gates::gate_gen::GateType;
+use crate::{gates::gate_gen::GateType};
 // Responsible for creating "recipes" for the gates. Garbler will construct a circuit based on this recipe, creating the wires and output tables.
 
 // Each gate has a build id, where the output wire of the gate has the same id.
@@ -127,6 +126,25 @@ impl CircuitBuilder {
             garbler_wires : self.garbler_wires.clone(),
             evaluator_wires : self.evaluator_wires.clone(),
         }
+    }
+
+    // Creates a variable containing the provided value
+    pub fn build_variable(&mut self, value : Vec<u8>) -> BuildBlock{
+        let mut output = vec![];
+        let false_wire = self.false_constant.clone();
+        let true_wire = self.true_constant.clone();
+        for byte in value {
+            for i in 0..8 {
+                let bit = (byte >> i) & 1; // go to the bit index and remove all other bits
+                match bit as usize {
+                    0 => output.push(false_wire.clone()),
+                    1 => output.push(true_wire.clone()),
+                    _ => panic!("Bit had a value other than 0 or 1")
+                }
+            }
+        }
+        self.set_output_wires(output.clone());
+        BuildBlock { output, builds: vec![] }
     }
 
     // Builds a if which uses stacked garbling 
