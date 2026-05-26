@@ -4,8 +4,9 @@ use quote::quote;
 use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat};
 
 #[proc_macro_attribute]
-pub fn circuit_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let result = std::panic::catch_unwind(|| inner_circuit_fn(item));
+pub fn circuit_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let bits = parse_attr(attr);
+    let result = std::panic::catch_unwind(|| inner_circuit_fn(item, bits));
     match result {
         Ok(ts) => ts,
         Err(e) => {
@@ -23,7 +24,26 @@ pub fn circuit_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-fn inner_circuit_fn(item: TokenStream) -> TokenStream {
+// Parses the option to set a specific bit size of input. Defaults to 64 bits. 
+fn parse_attr(attr: TokenStream) -> u64 {
+    if attr.is_empty() {
+        println!("Warning using default 64 bit input wires, which might create a lot. To set specific input bits of x length do, #[circuit_fn(bits = x)]");
+        return 64; // default
+    }
+    let tokens: Vec<_> = proc_macro2::TokenStream::from(attr).into_iter().collect();
+    match &tokens[..] {
+        [proc_macro2::TokenTree::Ident(name),
+         proc_macro2::TokenTree::Punct(eq),
+         proc_macro2::TokenTree::Literal(lit)]
+            if name.to_string() == "input_bits" && eq.as_char() == '=' =>
+        {
+            lit.to_string().parse().unwrap_or(64)
+        }
+        _ => 64,
+    }
+}
+
+fn inner_circuit_fn(item: TokenStream, bits: u64) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
 
     let fn_name = &input.sig.ident;
@@ -44,11 +64,11 @@ fn inner_circuit_fn(item: TokenStream) -> TokenStream {
     let ret_ty = &input.sig.output;
     if ret_ty == &syn::ReturnType::Default {
         return syn::Error::new(
-        fn_name.span(),
-        "#[circuit_fn] requires an explicit return type, e.g. `-> Vec<u8>`",
-    )
-    .to_compile_error()
-    .into();
+            fn_name.span(),
+            "#[circuit_fn] requires an explicit return type, e.g. `-> Vec<u8>`",
+        )
+        .to_compile_error()
+        .into();
     }
     let fn_body = &input.block;
 
@@ -79,18 +99,23 @@ fn inner_circuit_fn(item: TokenStream) -> TokenStream {
     let builder_name = Ident::new(&format!("__circuit_{}", fn_name), Span::call_site());
 
     let circuit_body = lower_block(fn_body);
+    let bits_fn_name = Ident::new(&format!("__circuit_{}_bits", fn_name), Span::call_site());
 
     // In inner_circuit_fn — the circuit twin
     quote! {
-    #fn_vis fn #fn_name(#params) #ret_ty #fn_body
+        #fn_vis fn #fn_name(#params) #ret_ty #fn_body
+        #[doc(hidden)]
+        #fn_vis fn #bits_fn_name() -> u64 {
+            #bits
+        }
 
     #[doc(hidden)]
     #fn_vis fn #builder_name(
-        cb: &mut gc_machine::circuit_builder::CircuitBuilder,  
-        #g: Vec<gc_machine::circuit_builder::WireBuild>,       
-        #e: Vec<gc_machine::circuit_builder::WireBuild>,      
-    ) -> gc_machine::circuit_builder::BuildBlock {     
-        use gc_machine::circuit_builder::AsWires as _;    
+        cb: &mut gc_machine::circuit_builder::CircuitBuilder,
+        #g: Vec<gc_machine::circuit_builder::WireBuild>,
+        #e: Vec<gc_machine::circuit_builder::WireBuild>,
+    ) -> gc_machine::circuit_builder::BuildBlock {
+        use gc_machine::circuit_builder::AsWires as _;
         #circuit_body
     }}
     .into()
@@ -114,10 +139,11 @@ pub fn circuit(input: TokenStream) -> TokenStream {
     };
 
     let builder_name = Ident::new(&format!("__circuit_{}", fn_name), fn_name.span());
+    let bits_fn_name = Ident::new(&format!("__circuit_{}_bits", fn_name), fn_name.span());
 
     quote! {{
         let mut __cb__ = CircuitBuilder::new();
-        let (__g__, __e__) = __cb__.set_input_wires(1);
+        let (__g__, __e__) = __cb__.set_input_wires(#bits_fn_name());
         #builder_name(&mut __cb__, __g__, __e__);
         __cb__.get_circuit_build()
     }}
@@ -156,35 +182,49 @@ fn lower_block(block: &syn::Block) -> proc_macro2::TokenStream {
 
 fn lower_expr(expr: &syn::Expr) -> proc_macro2::TokenStream {
     match expr {
-       syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Add(_)) => {
-    let l = lower_expr(&bin.left);
-    let r = lower_expr(&bin.right);
-    quote! {{
-        let __lhs__ = { #l };
-        let __rhs__ = { #r };
-        cb.build_adder(__lhs__.as_wires(), __rhs__.as_wires())
-        }}
-    }
-
-    syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Mul(_)) => {
-        let l = lower_expr(&bin.left);
-        let r = lower_expr(&bin.right);
-        quote! {{
+        // variable
+        syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
+            syn::Lit::Int(lit_int) => {
+                quote! {
+                    cb.build_variable({
+                        use num_bigint::ToBigUint;
+                        #lit_int.to_biguint().unwrap().to_bytes_le()
+                    })
+                }
+            }
+            _ => quote! { #expr_lit.clone() },
+        },
+        // addition
+        syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Add(_)) => {
+            let l = lower_expr(&bin.left);
+            let r = lower_expr(&bin.right);
+            quote! {{
             let __lhs__ = { #l };
             let __rhs__ = { #r };
-            cb.build_multiplier(__lhs__.as_wires(), __rhs__.as_wires())
-        }}
-    }
-
-    syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Eq(_)) => {
-        let l = lower_expr(&bin.left);
-        let r = lower_expr(&bin.right);
-        quote! {{
-            let __lhs__ = { #l };
-            let __rhs__ = { #r };
-            cb.build_is_equal(__lhs__.as_wires(), __rhs__.as_wires())
-        }}
-    }
+            cb.build_adder(__lhs__.as_wires(), __rhs__.as_wires())
+            }}
+        }
+        // multiplication
+        syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Mul(_)) => {
+            let l = lower_expr(&bin.left);
+            let r = lower_expr(&bin.right);
+            quote! {{
+                let __lhs__ = { #l };
+                let __rhs__ = { #r };
+                cb.build_multiplier(__lhs__.as_wires(), __rhs__.as_wires())
+            }}
+        }
+        // is_equal
+        syn::Expr::Binary(bin) if matches!(bin.op, syn::BinOp::Eq(_)) => {
+            let l = lower_expr(&bin.left);
+            let r = lower_expr(&bin.right);
+            quote! {{
+                let __lhs__ = { #l };
+                let __rhs__ = { #r };
+                cb.build_is_equal(__lhs__.as_wires(), __rhs__.as_wires())
+            }}
+        }
+        // naive if
         syn::Expr::If(expr_if) => {
             let cond = lower_expr(&expr_if.cond);
             let then_block = lower_block(&expr_if.then_branch);

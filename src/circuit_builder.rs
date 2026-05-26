@@ -50,7 +50,8 @@ pub struct CircuitBuild {
     pub builds: Vec<Build>,
     pub output_wires: Vec<WireBuild>,
     pub garbler_wires: Vec<WireBuild>,
-    pub evaluator_wires: Vec<WireBuild>
+    pub evaluator_wires: Vec<WireBuild>,
+    pub required_input_bits: u64
 }
 
 impl CircuitBuild {
@@ -125,6 +126,7 @@ impl CircuitBuilder {
             output_wires: self.output_wires.clone(),
             garbler_wires : self.garbler_wires.clone(),
             evaluator_wires : self.evaluator_wires.clone(),
+            required_input_bits : self.garbler_wires.len() as u64 // could also use evaluator_wires.len()
         }
     }
 
@@ -246,8 +248,8 @@ impl CircuitBuilder {
             let true_bit = &padded_true[i];
             let false_bit = &padded_false[i];
             let neg_boolean = self.build_gate(&conditional, &true_constant, GateType::XOR);
-            let and_0 = self.build_gate(true_bit, neg_boolean.wo(), GateType::AND);
-            let and_1 = self.build_gate(false_bit, conditional, GateType::AND);
+            let and_0 = self.build_gate(false_bit, neg_boolean.wo(), GateType::AND);
+            let and_1 = self.build_gate(true_bit, conditional, GateType::AND);
             let output_wire = self.build_gate(and_0.wo(), and_1.wo(), GateType::XOR);
             output.push(output_wire.wo);
         }

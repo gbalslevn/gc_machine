@@ -212,7 +212,7 @@ fn cannot_decrypt_multiple_gates_with_wrong_order() {
     assert_ne!(&dec3, gt3.wo.w0());
 }
 
-#[should_panic(expected = "Evaluator input length and its secret keys length must be equal")]
+#[should_panic(expected = "Evaluator input length in circuit build must be equal to the length of provided secret keys")]
 #[test]
 fn evaluation_panics_if_unequal_input_length() {
     let mut evaluator = OriginalEvaluator::new();

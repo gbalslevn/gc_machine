@@ -95,6 +95,9 @@ impl<G: GateGen> Garbler<G> {
         if garblers_input_choices.len() != evaluators_input_choices.len() {
             panic!("Garbler and evaluator input length must be equal")
         }
+        if garblers_input_choices.len() > circuit_build.required_input_bits as usize {
+            panic!("Garblers input cannot be greater than what is set in the circuitbuild")
+        }
         let mut known_wires: HashMap<WireId, Wire> = HashMap::new();
         let mut output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
         let builds = circuit_build.get_builds();
@@ -244,6 +247,7 @@ impl<G: GateGen> Garbler<G> {
         m_cond
     }
 
+    // perhaps use bytes as input instead
     pub fn create_circuit_input(&self, input: &BigUint, required_bits: u64) -> VecDeque<u8> {
         let mut list = VecDeque::new();
         for i in 0..required_bits {
@@ -316,7 +320,7 @@ impl<G: GateGen> Garbler<G> {
         let mut garbler_inputs = HashMap::new();
         for wirebuild in garbler_wires {
             let wire = self.gate_gen.get_wire_gen().generate_input_wire();
-            let garbler_input_choice = garblers_input_choices.pop_front().unwrap();
+            let garbler_input_choice = garblers_input_choices.pop_front().expect("Insufficient amount of garbler input provided compared to the amount declared from the CircuitBuild");
             let selected_wirelabel = match garbler_input_choice {
                 0 => wire.w0(),
                 1 => wire.w1(),
@@ -332,7 +336,7 @@ impl<G: GateGen> Garbler<G> {
             let wire = self.gate_gen.get_wire_gen().generate_input_wire();
             let wire_encrypted = self.gen_encrypted_wire(
                 &wire,
-                &evaluators_input_choices.pop_front().unwrap(),
+                &evaluators_input_choices.pop_front().expect("Insufficient amount of evaluator input provided compared to the amount declared from the CircuitBuild"),
                 &mut rng,
             );
             evaluator_inputs.insert(wirebuild.wire_id().clone(), wire_encrypted.clone());

@@ -2,7 +2,8 @@ use std::cmp::max;
 use std::ops::{Shr};
 use std::sync::Arc;
 use std::time::Duration;
-use gc_machine::circuit_builder::{AsWires, CircuitBuilder};
+use circuit_macro::{circuit, circuit_fn};
+use gc_machine::circuit_builder::{CircuitBuilder};
 use gc_machine::evaluator::evaluator::Evaluator;
 use gc_machine::evaluator::free_xor_evaluator::FreeXOREvaluator;
 use gc_machine::evaluator::grr3_evaluator::GRR3Evaluator;
@@ -146,32 +147,32 @@ fn can_evaulate_naive_if_circuit() {
     let required_bits = 6; //  Enable working with numbers up to 64
     let (garbler_wires, evaluator_wires) = circuit_builder.set_input_wires(required_bits);
     let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires).output[0].clone(); 
-    let true_block = circuit_builder.build_and(&is_equal, &is_equal); // 1 AND 1 = 1
-    let false_block = circuit_builder.build_and(&is_equal, &is_equal); // 0 AND 0 = 0
+    let true_block = circuit_builder.build_adder(&garbler_wires, &evaluator_wires); 
+    let false_block = circuit_builder.build_multiplier(&garbler_wires, &evaluator_wires); // 0 AND 0 = 0
     circuit_builder.build_if(&is_equal, &true_block.output, &false_block.output);
     let circuit_build = circuit_builder.get_circuit_build();
     
     // **** Evaluate for true case ****
-    let a = 32.to_biguint().unwrap();
-    let b = 32.to_biguint().unwrap();
-    let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
-    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
+    let a = 32;
+    let b = 32;
+    let garbler_input_choices = garbler.create_circuit_input(&a.to_biguint().unwrap(), required_bits);
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b.to_biguint().unwrap(), required_bits);
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect true to return as a = b
     let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
-    assert_eq!(result, true as u32);
+    assert_eq!(result, a+b);
     
     // **** Evaluate for false case ****
-    let c = 15.to_biguint().unwrap();
-    let d = 32.to_biguint().unwrap();
-    let garbler_input_choices = garbler.create_circuit_input(&c, required_bits);
-    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&d, required_bits);
+    let c = 15;
+    let d = 32;
+    let garbler_input_choices = garbler.create_circuit_input(&c.to_biguint().unwrap(), required_bits);
+    let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&d.to_biguint().unwrap(), required_bits);
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect false to return as c != d
     let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
-    assert_eq!(result, false as u32) 
+    assert_eq!(result, c*d) 
 }
 
 #[test]
@@ -299,7 +300,7 @@ fn can_evaluate_variables() {
     let a_block = circuit_builder.build_variable(a.to_biguint().unwrap().to_bytes_le());
     let b = 4352;
     let b_block = circuit_builder.build_variable(b.to_biguint().unwrap().to_bytes_le());
-    circuit_builder.build_adder(a_block.as_wires(), b_block.as_wires());
+    circuit_builder.build_adder(&a_block.output, &b_block.output);
     circuit_builder.set_input_wires(1); // we have to set to avoid failing, should make a method which initiates a new circuitbuild with a specific input length instead
     let circuit_build = circuit_builder.get_circuit_build();
     let garbler_input = garbler.create_circuit_input(&0.to_biguint().unwrap(), 1);
@@ -405,6 +406,59 @@ fn can_add_numbers_of_unequal_bitlength() {
     let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
 
     assert_eq!(result.to_biguint().unwrap(), two_bit_number);
+}
+
+#[test]
+fn can_evaluate_fn_circuit() {
+    let circuit_build = circuit!(produce_function_with_macro);
+    let gate_gen = HalfGatesGateGen::new();
+    let mut garbler = Garbler::new(gate_gen);
+    let mut evaluator = HalfGatesEvaluator::new();
+    let function_variable = 2; 
+    
+    // First if true, second if true 
+    let a = function_variable;
+    let garblers_input = garbler.create_circuit_input(&a.to_biguint().unwrap(), circuit_build.required_input_bits);
+    let b = function_variable;
+    let (evaluators_input, secret_keys) = evaluator.create_circuit_input(&b.to_biguint().unwrap(), circuit_build.required_input_bits);
+
+    let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &secret_keys);
+
+    // First if true, second if false
+    let a = 10;
+    let garblers_input = garbler.create_circuit_input(&a.to_biguint().unwrap(), circuit_build.required_input_bits);
+    let b = 10;
+    let (evaluators_input, secret_keys) = evaluator.create_circuit_input(&b.to_biguint().unwrap(), circuit_build.required_input_bits);
+    assert_eq!(result, function_variable);
+
+    let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &secret_keys);
+    assert_eq!(result, a*b+function_variable);
+
+    // First if false
+    let a = 35;
+    let garblers_input = garbler.create_circuit_input(&a.to_biguint().unwrap(), circuit_build.required_input_bits);
+    let b = 203;
+    let (evaluators_input, secret_keys) = evaluator.create_circuit_input(&b.to_biguint().unwrap(), circuit_build.required_input_bits);
+
+    let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
+    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &secret_keys);
+    assert_eq!(result, a+b);
+}
+
+#[circuit_fn(input_bits=10)]
+fn produce_function_with_macro(garbler_input : usize, evaluator_intput : usize) -> usize {
+    let number = 2;
+    if garbler_input == evaluator_intput {
+        if garbler_input == number {
+            number
+        } else {
+            garbler_input * evaluator_intput + number
+        }
+    } else {
+        garbler_input + evaluator_intput
+    }
 }
 
 #[track_caller]
