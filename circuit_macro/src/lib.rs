@@ -46,11 +46,11 @@ impl syn::parse::Parse for CircuitFnArgs {
         }
 
         if input_bits.is_none() {
-            println!("Warning using default 64 bit input wires, which might create a lot. To set specific input bits of x length do, #[circuit_fn(bits = x)]");
+            println!("Warning using default 16 bit input wires, which might create a lot of padding gates. To set specific input bits of x length do, #[circuit_fn(bits = x)]");
         }
 
         Ok(CircuitFnArgs {
-            input_bits: input_bits.unwrap_or(64),
+            input_bits: input_bits.unwrap_or(16),
             naive_stack
         })
     }
