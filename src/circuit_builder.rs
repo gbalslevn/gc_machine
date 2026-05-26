@@ -50,7 +50,8 @@ pub struct CircuitBuild {
     pub builds: Vec<Build>,
     pub output_wires: Vec<WireBuild>,
     pub garbler_wires: Vec<WireBuild>,
-    pub evaluator_wires: Vec<WireBuild>
+    pub evaluator_wires: Vec<WireBuild>,
+    pub required_input_bits: u64
 }
 
 impl CircuitBuild {
@@ -125,6 +126,7 @@ impl CircuitBuilder {
             output_wires: self.output_wires.clone(),
             garbler_wires : self.garbler_wires.clone(),
             evaluator_wires : self.evaluator_wires.clone(),
+            required_input_bits : self.garbler_wires.len() as u64 // could also use evaluator_wires.len()
         }
     }
 
@@ -150,8 +152,8 @@ impl CircuitBuilder {
     // Builds a if which uses stacked garbling 
     pub fn build_stacked_if(&mut self, conditional : &WireBuild, false_block: &mut BuildBlock, true_block: &mut BuildBlock) -> BuildBlock {
         // input wires are derived implicitely from the input wires of c0 and c1. We combine them to find all input wires needed for both subcircuits 
-        let c0_inputs = get_input_wires(false_block.builds.clone());
-        let c1_inputs = get_input_wires(true_block.builds.clone());
+        let c0_inputs = get_input_wires(false_block.clone());
+        let c1_inputs = get_input_wires(true_block.clone());
         let padding_wire = WireBuild::new(0, 0);
         let combined_input: HashSet<WireBuild> = c0_inputs.clone().into_iter().chain(c1_inputs.clone().into_iter()).collect();
         let mut input_wires: Vec<WireBuild> = combined_input.into_iter().collect();
@@ -235,19 +237,19 @@ impl CircuitBuilder {
     pub fn build_if(
         &mut self,
         conditional: &WireBuild,
-        true_output: &Vec<WireBuild>,
-        false_output: &Vec<WireBuild>
+        false_block: &BuildBlock,
+        true_block: &BuildBlock
     ) -> BuildBlock {
         let true_constant = &self.true_constant.clone();
         let mut output = vec![];
-        let (padded_true, padded_false) = self.pad_input(true_output, false_output);
+        let (padded_true, padded_false) = self.pad_input(&true_block.output, &false_block.output);
 
         for i in 0..padded_false.len() {
             let true_bit = &padded_true[i];
             let false_bit = &padded_false[i];
             let neg_boolean = self.build_gate(&conditional, &true_constant, GateType::XOR);
-            let and_0 = self.build_gate(true_bit, neg_boolean.wo(), GateType::AND);
-            let and_1 = self.build_gate(false_bit, conditional, GateType::AND);
+            let and_0 = self.build_gate(false_bit, neg_boolean.wo(), GateType::AND);
+            let and_1 = self.build_gate(true_bit, conditional, GateType::AND);
             let output_wire = self.build_gate(and_0.wo(), and_1.wo(), GateType::XOR);
             output.push(output_wire.wo);
         }
@@ -420,10 +422,14 @@ impl CircuitBuilder {
 }
 
 // Get all input wires to the build
- fn get_input_wires(circuit: Vec<Build>) -> Vec<WireBuild> {
+ fn get_input_wires(circuit: BuildBlock) -> Vec<WireBuild> {
+    // If block contains no builds the output wires is esentially also the input wires. In the case where an if only contains a variable which is returned
+    if circuit.builds.len() == 0 {
+        return circuit.output
+    }
     // insert all output wires which is used as input in another gate
     let mut output_wires = HashSet::new();
-    for build in &circuit {
+    for build in &circuit.builds {
         match build.get_type() { 
             BuildType::Gate => {
                 let gate = build.unwrap_to_gate();
@@ -437,7 +443,7 @@ impl CircuitBuilder {
     }
     // Check if a wire is a input wire 
     let mut input_wires = Vec::new();
-    for build in &circuit {
+    for build in &circuit.builds {
         match build.get_type() {
             BuildType::Gate => {
                 let gate = build.unwrap_to_gate();
@@ -502,6 +508,12 @@ impl AsWires for Vec<WireBuild> {
 }
 impl AsWires for BuildBlock {
     fn as_wires(&self) -> &Vec<WireBuild> { &self.output }
+}
+
+impl From<Vec<WireBuild>> for BuildBlock {
+    fn from(output: Vec<WireBuild>) -> Self {
+        BuildBlock { output, builds: vec![] }
+    }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

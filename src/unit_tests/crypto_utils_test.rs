@@ -5,7 +5,7 @@ use num_bigint::{BigUint};
 fn label_is_128_bits() {
     let mut rng = crypto_utils::gen_rng();
     let label = crypto_utils::generate_label(&mut rng);
-    assert!(label.to_bytes_be().len() == 16)
+    assert_eq!(label.to_bytes_be().len(), 16) // fails with approx 6% probability when a byte is 0, (1 - (255/256)^16 ≈ 6.1%
 }
 #[test]
 fn label_is_non_deterministic() {

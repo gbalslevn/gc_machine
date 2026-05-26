@@ -47,7 +47,7 @@ pub trait Evaluator: Sized {
         let mut known_wires: HashMap<WireId, BigUint> = HashMap::new(); // id, wire
 
         if secret_keys.len() != circuit.evaluator_input.len() {
-            panic!("Evaluator input length and its secret keys length must be equal")
+            panic!("Evaluator input length in circuit build must be equal to the length of provided secret keys")
         }
 
         // Insert constant values

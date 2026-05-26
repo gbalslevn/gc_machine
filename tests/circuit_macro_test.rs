@@ -1,7 +1,8 @@
-use gc_machine::circuit_builder::{CircuitBuild, CircuitBuilder};
+use gc_machine::circuit_builder::{BuildBlock, CircuitBuild, CircuitBuilder};
 use circuit_macro::{circuit_fn, circuit};
+use num_bigint::{ToBigUint};
 
-#[circuit_fn]
+#[circuit_fn(input_bits = 1)]
 fn add(garbler_input: usize, evaluator_input: usize) -> usize {
     garbler_input + evaluator_input   
 }
@@ -18,7 +19,7 @@ fn can_produce_adder() {
     assert_eq!(cb, manuel.get_circuit_build());
 }
 
-#[circuit_fn]
+#[circuit_fn(input_bits = 1)]
 fn multiplication(garbler_input: usize, evaluator_input: usize) -> usize {
     garbler_input * evaluator_input   
 }
@@ -35,7 +36,7 @@ fn can_produce_multiplication() {
     assert_eq!(cb, manual.get_circuit_build());
 }
 
-#[circuit_fn]
+#[circuit_fn(input_bits = 1)]
 fn is_equal(garbler_input: usize, evaluator_input: usize) -> bool {
     garbler_input == evaluator_input   
 }
@@ -52,7 +53,7 @@ fn can_produce_is_equal() {
     assert_eq!(cb, manual.get_circuit_build());
 }
 
-#[circuit_fn]
+#[circuit_fn(input_bits = 1, naive_stack = true)]
 fn produce_naive_if(garbler_input: usize, evaluator_input: usize) -> usize {
     if garbler_input == evaluator_input {
         garbler_input + garbler_input
@@ -71,40 +72,31 @@ fn can_produce_naive_if() {
 
     let is_equal = manual.build_is_equal(&g, &e).output[0].clone();
     let true_case = manual.build_adder(&g, &g);
-    manual.build_if(&is_equal, &true_case.output, &g);
+    manual.build_if(&is_equal, &true_case, &BuildBlock{output : g, builds : vec![]});
 
     assert_eq!(cb, manual.get_circuit_build());
 }
 
-// #[circuit_fn]
-// fn produce_stacked_if(garbler_input: usize, evaluator_input: usize) -> usize {
-//     if garbler_input == evaluator_input {
-//         garbler_input + garbler_input
-//     } else {
-//         garbler_input
-//     }
-// }
+#[circuit_fn(input_bits = 1)]
+fn produce_add_variables(__: usize, ___: usize) -> usize {
+    let a = 2;
+    let b = 2;
+    a + b
+}
 
-// #[test]
-// fn can_produce_stacked_if() {
-//     todo!()
-// }
+#[test]
+fn can_produce_add_variables() {
+    let cb: CircuitBuild = circuit!(produce_add_variables);
 
-// #[test]
-// fn can_produce_nested_stacked_if() {
-//     todo!()
-// }
+    // Manual equivalent for assertion
+    let mut manual = CircuitBuilder::new();
+    let (_, _) = manual.set_input_wires(1);
 
-// #[circuit_fn] 
-// fn produce_constant(garbler_input: usize, evaluator_input: usize) -> usize {
-//     garbler_input + 2
-// }
-// #[test]
-// fn can_use_constants() {
-
-// }
-
-// #[test]
-// fn can_use_constants_which_is_not_numbers() {
-//     // appending a string somewhere
-// }
+    let a = 2;
+    let a_build = manual.build_variable(a.to_biguint().unwrap().to_bytes_le());
+    let b = 2;
+    let b_build = manual.build_variable(b.to_biguint().unwrap().to_bytes_le());
+    manual.build_adder(&a_build.output, &b_build.output);
+    let manual_cb = manual.get_circuit_build();
+    assert_eq!(cb, manual_cb)
+}
