@@ -41,7 +41,7 @@ pub trait Evaluator: Sized {
     fn evaluate_circuit(
         &mut self,
         circuit_build: &CircuitBuild,
-        circuit: Circuit,
+        circuit: &Circuit,
         secret_keys: &Vec<(SecretKey, u8)>,
     ) -> u32 {
         let mut known_wires: HashMap<WireId, BigUint> = HashMap::new(); // id, wire
@@ -240,6 +240,7 @@ pub trait Evaluator: Sized {
     }
 
     fn increment_index(&mut self);
+    fn reset_index(&mut self);
     fn get_index(&self) -> &BigUint;
 }
 

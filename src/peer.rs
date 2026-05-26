@@ -149,7 +149,7 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
                 let mut evaluator = self.evaluator.lock().await;
                 let context = self.get_circuit_context().await;
 
-                let result = evaluator.evaluate_circuit(&context.build, circuit, &context.evaluator_keys);
+                let result = evaluator.evaluate_circuit(&context.build, &circuit, &context.evaluator_keys);
                 self.reset_circuit_context().await;
                 Response::GCResult(result)
             }
