@@ -1,4 +1,4 @@
-use gc_machine::circuit_builder::{CircuitBuild, CircuitBuilder};
+use gc_machine::circuit_builder::{BuildBlock, CircuitBuild, CircuitBuilder};
 use circuit_macro::{circuit_fn, circuit};
 use num_bigint::{ToBigUint};
 
@@ -53,7 +53,7 @@ fn can_produce_is_equal() {
     assert_eq!(cb, manual.get_circuit_build());
 }
 
-#[circuit_fn(input_bits = 1)]
+#[circuit_fn(input_bits = 1, naive_stack = true)]
 fn produce_naive_if(garbler_input: usize, evaluator_input: usize) -> usize {
     if garbler_input == evaluator_input {
         garbler_input + garbler_input
@@ -72,12 +72,12 @@ fn can_produce_naive_if() {
 
     let is_equal = manual.build_is_equal(&g, &e).output[0].clone();
     let true_case = manual.build_adder(&g, &g);
-    manual.build_if(&is_equal, &true_case.output, &g);
+    manual.build_if(&is_equal, &true_case, &BuildBlock{output : g, builds : vec![]});
 
     assert_eq!(cb, manual.get_circuit_build());
 }
 
-#[circuit_fn(bits= 64)]
+#[circuit_fn(input_bits = 64)]
 fn produce_add_variables(__: usize, ___: usize) -> usize {
     let a = 2;
     let b = 2;

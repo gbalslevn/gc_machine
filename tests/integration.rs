@@ -149,7 +149,7 @@ fn can_evaulate_naive_if_circuit() {
     let is_equal = circuit_builder.build_is_equal(&garbler_wires, &evaluator_wires).output[0].clone(); 
     let true_block = circuit_builder.build_adder(&garbler_wires, &evaluator_wires); 
     let false_block = circuit_builder.build_multiplier(&garbler_wires, &evaluator_wires); // 0 AND 0 = 0
-    circuit_builder.build_if(&is_equal, &true_block.output, &false_block.output);
+    circuit_builder.build_if(&is_equal, &false_block, &true_block);
     let circuit_build = circuit_builder.get_circuit_build();
     
     // **** Evaluate for true case ****
