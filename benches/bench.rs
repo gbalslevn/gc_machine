@@ -86,8 +86,8 @@ pub fn half_gates_xor_gate(c: &mut Criterion) {
 pub fn original_and_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
-        "original xor",
-        GateType::XOR,
+        "original and",
+        GateType::AND,
         OriginalGateGen::new(),
         OriginalEvaluator::new(),
     );
@@ -141,6 +141,7 @@ pub fn original_function(c: &mut Criterion) {
         "original",
         Garbler { gate_gen: OriginalGateGen::new() },
         OriginalEvaluator::new(),
+        true, true
     );
 }
 
@@ -150,6 +151,7 @@ pub fn point_and_permute_function(c: &mut Criterion) {
         "point and permute",
         Garbler { gate_gen: PointAndPermuteGateGen::new() },
         PointAndPermuteEvaluator::new(),
+        true, true
     );
 }
 
@@ -159,6 +161,7 @@ pub fn grr3_function(c: &mut Criterion) {
         "grr3",
         Garbler { gate_gen: GRR3GateGen::new() },
         GRR3Evaluator::new(),
+        true, true
     );
 }
 
@@ -168,6 +171,7 @@ pub fn free_xor_function(c: &mut Criterion) {
         "free xor",
         Garbler { gate_gen: FreeXORGateGen::new() },
         FreeXOREvaluator::new(),
+        true, true
     );
 }
 
@@ -177,6 +181,109 @@ pub fn half_gates_function(c: &mut Criterion) {
         "half gates",
         Garbler { gate_gen: HalfGatesGateGen::new() },
         HalfGatesEvaluator::new(),
+        true,true
+    );
+}
+
+// *********** BENCH FOR A FUNCTION CONTAINING ONLY AND ***********
+pub fn original_only_and_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "original - only AND",
+        Garbler { gate_gen: OriginalGateGen::new() },
+        OriginalEvaluator::new(),
+        false, true
+    );
+}
+
+pub fn point_and_permute_only_and_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "point and permute - only AND",
+        Garbler { gate_gen: PointAndPermuteGateGen::new() },
+        PointAndPermuteEvaluator::new(),
+        false, true
+    );
+}
+
+pub fn grr3_only_and_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "grr3 - only AND",
+        Garbler { gate_gen: GRR3GateGen::new() },
+        GRR3Evaluator::new(),
+        false, true
+    );
+}
+
+pub fn free_xor_only_and_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "free xor - only AND",
+        Garbler { gate_gen: FreeXORGateGen::new() },
+        FreeXOREvaluator::new(),
+        false, true
+    );
+}
+
+pub fn half_gates_only_and_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "half gates - only AND",
+        Garbler { gate_gen: HalfGatesGateGen::new() },
+        HalfGatesEvaluator::new(),
+        false,true
+    );
+}
+
+// *********** BENCH FOR A FUNCTION CONTAINING ONLY XOR ***********
+pub fn original_only_xor_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "original - only XOR",
+        Garbler { gate_gen: OriginalGateGen::new() },
+        OriginalEvaluator::new(),
+        true, false
+    );
+}
+
+pub fn point_and_permute_only_xor_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "point and permute - only XOR",
+        Garbler { gate_gen: PointAndPermuteGateGen::new() },
+        PointAndPermuteEvaluator::new(),
+        true, false
+    );
+}
+
+pub fn grr3_only_xor_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "grr3 - only XOR",
+        Garbler { gate_gen: GRR3GateGen::new() },
+        GRR3Evaluator::new(),
+        true, false
+    );
+}
+
+pub fn free_xor_only_xor_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "free xor - only XOR",
+        Garbler { gate_gen: FreeXORGateGen::new() },
+        FreeXOREvaluator::new(),
+        true, false
+    );
+}
+
+pub fn half_gates_only_xor_function(c: &mut Criterion) {
+    bench_optimisation_function(
+        c,
+        "half gates - only XOR",
+        Garbler { gate_gen: HalfGatesGateGen::new() },
+        HalfGatesEvaluator::new(),
+        true,false
     );
 }
 
@@ -185,6 +292,8 @@ pub fn bench_optimisation_function<E, G>(
     optimisation_name: &str,
     mut garbler: Garbler<G>,
     mut evaluator: E,
+    build_xor : bool,
+    build_and : bool
 )
 where
     G: GateGen,
@@ -195,9 +304,15 @@ where
     let gates_to_build = 100;
     let required_input_bits = 1;     // Garbler and Evaluator only provides an input of 1 bit, as the only thing that matters in this benchmark, is the amount of gates being created and evaluated. The underlying input values are not of interest. 
     let (input_a, input_b) = circuit_builder.set_input_wires(required_input_bits);
-    for _ in 0..gates_to_build / 2 + 1 {
-        circuit_builder.build_and(&input_a[0], &input_b[0]);
-        circuit_builder.build_xor(&input_a[0], &input_b[0]);
+    if build_xor {
+        for _ in 0..gates_to_build / 2 + 1 {
+            circuit_builder.build_xor(&input_a[0], &input_b[0]);
+        }
+    }
+    if build_and {
+        for _ in 0..gates_to_build / 2 + 1 {
+            circuit_builder.build_and(&input_a[0], &input_b[0]);
+        }
     }
     let cb = circuit_builder.get_circuit_build();
     let garbler_input = garbler.create_circuit_input(&0.to_biguint().unwrap(), cb.required_input_bits);
@@ -280,8 +395,10 @@ where
 }
 
 
-criterion_group!(xor_gates_bench, original_xor_gate, grr3_xor_gate, point_and_permute_xor_gate, free_xor_xor_gate, half_gates_function);
+criterion_group!(xor_gates_bench, original_xor_gate, grr3_xor_gate, point_and_permute_xor_gate, free_xor_xor_gate, half_gates_xor_gate);
 criterion_group!(and_gates_bench, original_and_gate, grr3_and_gate, point_and_permute_and_gate, free_xor_and_gate, half_gates_and_gate);
 criterion_group!(function_bench, original_function, grr3_function, point_and_permute_function, free_xor_function, half_gates_function);
-criterion_main!(xor_gates_bench, and_gates_bench, function_bench);
+criterion_group!(function_and_bench, original_only_and_function, grr3_only_and_function, point_and_permute_only_and_function, free_xor_only_and_function, half_gates_only_and_function);
+criterion_group!(function_xor_bench, original_only_xor_function, grr3_only_xor_function, point_and_permute_only_xor_function, free_xor_only_xor_function, half_gates_only_xor_function);
+criterion_main!(xor_gates_bench, and_gates_bench, function_bench, function_and_bench, function_xor_bench);
 
