@@ -17,7 +17,7 @@ use gc_machine::wires::wire_gen::WireGen;
 use gc_machine::{global_mem_alloc};
 use num_bigint::{ToBigUint};
 
-use crate::bench_utils::write_bench_metrics;
+use crate::bench_utils::{InsnCounter, get_memory, write_bench_metrics};
 
 // run with `cargo bench`
 // report available in /target/criterion/report
@@ -59,10 +59,9 @@ pub fn free_xor_xor_gate(c: &mut Criterion) {
         "free xor xor",
         GateType::XOR,
         FreeXORGateGen::new(),
-        FreeXOREvaluator::new(),
-    );
+        FreeXOREvaluator::new()
+    )
 }
-
 
 pub fn grr3_xor_gate(c: &mut Criterion) {
     bench_optimisation_gate(
@@ -319,9 +318,10 @@ where
     let cb = circuit_builder.get_circuit_build();
     let garbler_input = garbler.create_circuit_input(&0.to_biguint().unwrap(), cb.required_input_bits);
     let (eval_input, eval_keys) = evaluator.create_circuit_input(&0.to_biguint().unwrap(), cb.required_input_bits);
+    let instruction_counter = InsnCounter::new();
 
     // *** Bench garbling ***
-    let (_, garble_mem) = bench_utils::get_memory(|| {
+    let (_, garble_mem) = get_memory(|| {
         garbler.create_circuit(&cb, &garbler_input, &eval_input);
     }, global_mem_alloc::GLOBAL);
 
@@ -329,6 +329,11 @@ where
         garbler.create_circuit(&cb, &garbler_input, &eval_input);
     }));
 
+    let (_, garble_insns) = instruction_counter.measure(|| {
+        garbler.create_circuit(&cb, &garbler_input, &eval_input);
+    });
+
+    // *** Get required bytes to complete protocol ***
     garbler.gate_gen.reset_index();
     let circuit = garbler.create_circuit(&cb, &garbler_input, &eval_input);
     
@@ -337,7 +342,7 @@ where
     let protocol_bytes = serialized_circuit.len() + serialized_eval_input.len();
 
     // *** Bench evaluating ***
-    let (_, eval_mem) = bench_utils::get_memory(|| {
+    let (_, eval_mem) = get_memory(|| {
         evaluator.reset_index();
         evaluator.evaluate_circuit(&cb, &circuit, &eval_keys);
     }, global_mem_alloc::GLOBAL);
@@ -347,7 +352,12 @@ where
         evaluator.evaluate_circuit(&cb, &circuit, &eval_keys);
     }));
 
-    write_bench_metrics(optimisation_name, protocol_bytes, &garble_mem, &eval_mem);
+    let (_, eval_insns) = instruction_counter.measure(|| {
+        evaluator.reset_index();
+        evaluator.evaluate_circuit(&cb, &circuit, &eval_keys);
+    });
+
+    write_bench_metrics(optimisation_name, protocol_bytes, &garble_mem, &eval_mem, garble_insns, eval_insns);
 }
 
 
@@ -367,7 +377,7 @@ where
     let wj = gate_gen.get_wire_gen().generate_input_wire();
 
     // *** Bench garbling ***
-    bench_utils::get_memory(|| {
+    get_memory(|| {
         gate_gen.generate_gate(gate_type.clone(), wi.clone(), wj.clone());
     }, global_mem_alloc::GLOBAL);
 
@@ -382,7 +392,7 @@ where
     gate_gen.reset_index();
     let gate = gate_gen.generate_gate(gate_type.clone(), wi, wj);
     // *** Bench evaluating ***
-    bench_utils::get_memory(|| {
+    get_memory(|| {
         evaluator.reset_index();
         evaluator.evaluate_gate(&gate.wi.w0(), &gate.wj.w1(), &gate.gate_type, &gate.table);
     }, global_mem_alloc::GLOBAL);

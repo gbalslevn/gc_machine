@@ -220,6 +220,17 @@ def format_bytes(n: int) -> str:
         return f"{n/1_000:.1f} KB"
     return f"{n} B"
 
+def format_instructions(n: int | None) -> str:
+    if n is None:
+        return "—"
+    if n >= 1_000_000_000:
+        return f"{n/1_000_000_000:.2f}B"
+    if n >= 1_000_000:
+        return f"{n/1_000_000:.2f}M"
+    if n >= 1_000:
+        return f"{n/1_000:.1f}K"
+    return str(n)
+
 def print_metrics_tables(metrics_table: dict, btypes: list, opts: list):
     if not metrics_table:
         return
@@ -234,10 +245,12 @@ def print_metrics_tables(metrics_table: dict, btypes: list, opts: list):
         "- only XOR": "only XOR",
     }
 
-    for title, field in [
-        ("── Protocol Bytes ──",         "protocol_bytes"),
-        ("── Garble Memory Allocated ──", "garble_bytes_allocated"),
-        ("── Eval Memory Allocated ──",   "eval_bytes_allocated"),
+    for title, field, formatter in [
+        ("── Protocol Bytes ──",            "protocol_bytes",         format_bytes),
+        ("── Garble Memory Allocated ──",   "garble_bytes_allocated", format_bytes),
+        ("── Eval Memory Allocated ──",     "eval_bytes_allocated",   format_bytes),
+        ("── Garble Instructions ──",       "garble_instructions",    format_instructions),
+        ("── Eval Instructions ──",         "eval_instructions",      format_instructions),
     ]:
         print(f"\n{title}")
         print(header)
@@ -247,7 +260,7 @@ def print_metrics_tables(metrics_table: dict, btypes: list, opts: list):
             row = [f"{label:<35}"]
             for opt in opts:
                 m = metrics_table.get(btype, {}).get(opt)
-                val = format_bytes(m[field]) if m else "—"
+                val = formatter(m[field]) if m and m.get(field) is not None else "—"
                 row.append(f"{val:>{col_width}}")
             print("".join(row))
 
