@@ -3,6 +3,10 @@ use std::alloc::System;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
+#[cfg(target_os = "linux")]
+#[path = "bench_perf.rs"]
+mod perf; 
+
 /// Measures heap allocations for a closure.
 pub fn get_memory<F, R>(f: F, global: &StatsAlloc<System>) -> (R, Stats)
 where
@@ -13,7 +17,7 @@ where
     (result, reg.change())
 }
 
-/// Instruction counter — only functional on Linux.
+/// Instruction counter — only functional on Linux with perf_event_paranoid <= 1.
 pub struct InsnCounter {
     #[cfg(target_os = "linux")]
     inner: Option<perf::Counter>,
@@ -22,16 +26,21 @@ pub struct InsnCounter {
 impl InsnCounter {
     pub fn new() -> Self {
         #[cfg(not(target_os = "linux"))]
-        eprintln!("Warning: instruction counting is only supported on Linux.");
+        eprintln!("Warning: instruction counting is only supported on Linux, instruction count will be null.");
 
         Self {
             #[cfg(target_os = "linux")]
-            inner: perf::Counter::new()
-                .inspect_err(|e| eprintln!("perf_event_open failed: {e}")).ok(),
+            inner: {
+                let result = perf::Counter::new();
+                if let Err(ref e) = result {
+                    eprintln!("Instruction counting unavailable: {e}");
+                }
+                result.ok()
+            },
         }
     }
 
-    /// Returns the result and instruction count (None on non-Linux or if perf unavailable).
+    /// Returns instruction count on Linux, None elsewhere.
     pub fn measure<F, R>(&self, f: F) -> (R, Option<u64>)
     where
         F: FnOnce() -> R,
@@ -63,7 +72,6 @@ pub fn write_bench_metrics(
     eval_instructions: Option<u64>,
 ) {
     const PATH: &str = "target/criterion/bench_metrics.json";
-
     let mut map: HashMap<String, BenchMetrics> = std::fs::read_to_string(PATH)
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
