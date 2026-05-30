@@ -17,6 +17,8 @@ use gc_machine::wires::wire_gen::WireGen;
 use gc_machine::{global_mem_alloc};
 use num_bigint::{ToBigUint};
 
+use crate::bench_utils::write_bench_metrics;
+
 // run with `cargo bench`
 // report available in /target/criterion/report
 
@@ -301,7 +303,7 @@ where
     GateType: Clone, {
     // Create function of equal amount of XOR and AND gates
     let mut circuit_builder = CircuitBuilder::new();
-    let gates_to_build = 100;
+    let gates_to_build = 10000;
     let required_input_bits = 1;     // Garbler and Evaluator only provides an input of 1 bit, as the only thing that matters in this benchmark, is the amount of gates being created and evaluated. The underlying input values are not of interest. 
     let (input_a, input_b) = circuit_builder.set_input_wires(required_input_bits);
     if build_xor {
@@ -319,7 +321,7 @@ where
     let (eval_input, eval_keys) = evaluator.create_circuit_input(&0.to_biguint().unwrap(), cb.required_input_bits);
 
     // *** Bench garbling ***
-    bench_utils::get_memory(|| {
+    let (_, garble_mem) = bench_utils::get_memory(|| {
         garbler.create_circuit(&cb, &garbler_input, &eval_input);
     }, global_mem_alloc::GLOBAL);
 
@@ -331,10 +333,11 @@ where
     let circuit = garbler.create_circuit(&cb, &garbler_input, &eval_input);
     
     let serialized_circuit = postcard::to_allocvec(&circuit).expect("serialization failed");
-    println!("Circuit size: {} bytes", serialized_circuit.len());
+    let serialized_eval_input = postcard::to_allocvec(&eval_input).expect("serialization failed");
+    let protocol_bytes = serialized_circuit.len() + serialized_eval_input.len();
 
     // *** Bench evaluating ***
-    bench_utils::get_memory(|| {
+    let (_, eval_mem) = bench_utils::get_memory(|| {
         evaluator.reset_index();
         evaluator.evaluate_circuit(&cb, &circuit, &eval_keys);
     }, global_mem_alloc::GLOBAL);
@@ -344,6 +347,7 @@ where
         evaluator.evaluate_circuit(&cb, &circuit, &eval_keys);
     }));
 
+    write_bench_metrics(optimisation_name, protocol_bytes, &garble_mem, &eval_mem);
 }
 
 
@@ -400,5 +404,5 @@ criterion_group!(and_gates_bench, original_and_gate, grr3_and_gate, point_and_pe
 criterion_group!(function_bench, original_function, grr3_function, point_and_permute_function, free_xor_function, half_gates_function);
 criterion_group!(function_and_bench, original_only_and_function, grr3_only_and_function, point_and_permute_only_and_function, free_xor_only_and_function, half_gates_only_and_function);
 criterion_group!(function_xor_bench, original_only_xor_function, grr3_only_xor_function, point_and_permute_only_xor_function, free_xor_only_xor_function, half_gates_only_xor_function);
-criterion_main!(xor_gates_bench, and_gates_bench, function_bench, function_and_bench, function_xor_bench);
+criterion_main!(function_bench, function_and_bench, function_xor_bench);
 

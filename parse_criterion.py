@@ -120,8 +120,8 @@ def format_cell(stats: dict | None, unit: str) -> tuple[str, str]:
     if stats is None:
         return "—", "—"
     mean, ulabel = convert(stats["mean_ns"], unit)
-    std,  _      = convert(stats["std_ns"],  unit)
-    return f"{mean:>9.1f} {ulabel}", f"±{std:.1f}"
+    std_ns_converted = stats["std_ns"] / (stats["mean_ns"] / mean) if mean != 0 else 0
+    return f"{mean:>9.1f} {ulabel}", f"±{std_ns_converted:.1f}"
 
 def print_markdown(table: dict, btypes: list, opts: list, unit: str):
     col_width = 22
@@ -155,7 +155,8 @@ def write_csv(table: dict, btypes: list, opts: list, unit: str, path: Path):
                 row += ["", ""]
             else:
                 mean, ulabel = convert(stats["mean_ns"], unit)
-                std,  _      = convert(stats["std_ns"],  unit)
+                scale = stats["mean_ns"] / mean if mean != 0 else 1
+                std = stats["std_ns"] / scale
                 row += [f"{mean:.1f} {ulabel}", f"{std:.1f} {ulabel}"]
         rows.append(row)
 
@@ -196,45 +197,90 @@ def print_speedup_summary(table: dict, btypes: list, opts: list):
                 print(f"{speedup:>18.2f}x {marker}", end="")
         print()
 
+# Bench metrics helpers - Formatting memory usage and amount of protocol bytes 
+def load_bench_metrics(criterion_dir: Path) -> dict:
+    path = criterion_dir / "bench_metrics.json"
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        return json.load(f)
+    
+def organise_metrics(raw_metrics: dict) -> dict:
+    """Mirrors organise() but for metrics data."""
+    table = defaultdict(dict)
+    for name, metrics in raw_metrics.items():
+        opt, btype = split_benchmark_name(name)
+        table[btype][opt] = metrics
+    return table
+
+def format_bytes(n: int) -> str:
+    if n >= 1_000_000:
+        return f"{n/1_000_000:.1f} MB"
+    if n >= 1_000:
+        return f"{n/1_000:.1f} KB"
+    return f"{n} B"
+
+def print_metrics_tables(metrics_table: dict, btypes: list, opts: list):
+    if not metrics_table:
+        return
+
+    col_width = 18
+    header = f"{'Benchmark':<35}" + "".join(f"{o.title():>{col_width}}" for o in opts)
+    divider = "-" * len(header)
+
+    BTYPE_LABELS = {
+        "":          "AND + XOR",
+        "- only AND": "only AND",
+        "- only XOR": "only XOR",
+    }
+
+    for title, field in [
+        ("── Protocol Bytes ──",         "protocol_bytes"),
+        ("── Garble Memory Allocated ──", "garble_bytes_allocated"),
+        ("── Eval Memory Allocated ──",   "eval_bytes_allocated"),
+    ]:
+        print(f"\n{title}")
+        print(header)
+        print(divider)
+        for btype in btypes:
+            label = BTYPE_LABELS.get(btype, btype)
+            row = [f"{label:<35}"]
+            for opt in opts:
+                m = metrics_table.get(btype, {}).get(opt)
+                val = format_bytes(m[field]) if m else "—"
+                row.append(f"{val:>{col_width}}")
+            print("".join(row))
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Criterion benchmark comparison table")
-    parser.add_argument("--dir",    default="target/criterion",
-                        help="Path to criterion output directory (default: target/criterion)")
-    parser.add_argument("--format", choices=["md", "csv", "both"], default="md",
-                        help="Output format (default: md)")
     parser.add_argument("--unit",   choices=["auto", "ns", "us", "ms", "s"], default="auto",
                         help="Time unit (default: auto)")
-    parser.add_argument("--csv-out", default="criterion_comparison.csv",
-                        help="CSV output filename (default: criterion_comparison.csv)")
-    parser.add_argument("--no-speedup", action="store_true",
-                        help="Skip the speedup summary table")
     args = parser.parse_args()
 
-    criterion_dir = Path(args.dir)
+    criterion_dir = Path("target/criterion")
     if not criterion_dir.exists():
         print(f"Error: directory not found: {criterion_dir}", file=sys.stderr)
-        print("Run this script from your Rust project root, or pass --dir <path>", file=sys.stderr)
         sys.exit(1)
 
     print(f"Scanning: {criterion_dir.resolve()}\n")
-    raw     = load_estimates(criterion_dir)
+    raw = load_estimates(criterion_dir)
     if not raw:
         print("No estimates.json files found. Have you run `cargo bench` yet?", file=sys.stderr)
         sys.exit(1)
 
     print(f"Found {len(raw)} benchmarks.\n")
     table, btypes, opts = organise(raw)
-
-    if args.format in ("md", "both"):
-        print_markdown(table, btypes, opts, args.unit)
-
-    if not args.no_speedup:
-        print_speedup_summary(table, btypes, opts)
-
-    if args.format in ("csv", "both"):
-        write_csv(table, btypes, opts, args.unit, Path(args.csv_out))
+    print_markdown(table, btypes, opts, args.unit)
+    print_speedup_summary(table, btypes, opts)
+    # write_csv(table, btypes, opts, args.unit, Path(args.csv_out))
+    
+    raw_metrics = load_bench_metrics(criterion_dir)
+    if raw_metrics:
+        metrics_table = organise_metrics(raw_metrics)
+        metrics_btypes = sorted(metrics_table.keys())  
+        print_metrics_tables(metrics_table, metrics_btypes, opts)
 
 if __name__ == "__main__":
     main()

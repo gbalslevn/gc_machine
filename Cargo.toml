@@ -25,6 +25,7 @@ postcard = { version = "1.0", features = ["alloc"] }
 strum_macros = "0.28.0"
 strum = "0.28.0"
 circuit_macro = { path = "./circuit_macro" }
+serde_json = "1.0.150"
 
 [[bench]]
 name = "bench"
