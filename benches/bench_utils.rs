@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_os = "linux")]
-#[path = "bench_perf.rs"]
-mod perf; 
+#[path = "perf.rs"]
+mod perf;
 
 /// Measures heap allocations for a closure.
 pub fn get_memory<F, R>(f: F, global: &StatsAlloc<System>) -> (R, Stats)

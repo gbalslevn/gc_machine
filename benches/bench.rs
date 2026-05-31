@@ -17,7 +17,6 @@ use gc_machine::gates::original_gate_gen::OriginalGateGen;
 use gc_machine::wires::wire_gen::WireGen;
 use gc_machine::{global_mem_alloc};
 use num_bigint::{ToBigUint};
-
 use crate::bench_utils::{InsnCounter, get_memory, write_bench_metrics};
 
 // run with `cargo bench`
@@ -421,7 +420,6 @@ where
 }
 
 fn get_test_circuit(build_xor : bool, build_and: bool) -> CircuitBuild {
-    // Create function of equal amount of XOR and AND gates
     let mut circuit_builder = CircuitBuilder::new();
     let gates_to_build = 10000;
     let required_input_bits = 1;     // Garbler and Evaluator only provides an input of 1 bit, as the only thing that matters in this benchmark, is the amount of gates being created and evaluated. The underlying input values are not of interest. 
