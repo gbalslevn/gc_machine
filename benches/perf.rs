@@ -1,3 +1,4 @@
+#![cfg(target_os = "linux")]
 use std::fs::File;
 use std::io;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
@@ -43,7 +44,6 @@ const IOC_ENABLE:  u64 = 0x2400;
 const IOC_DISABLE: u64 = 0x2401;
 
 pub struct Counter(File);
-
 impl Counter {
     pub fn new() -> io::Result<Self> {
         let attr = PerfEventAttr::instructions();

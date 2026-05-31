@@ -3,7 +3,6 @@ use std::alloc::System;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-#[cfg(target_os = "linux")]
 #[path = "perf.rs"]
 mod perf;
 
