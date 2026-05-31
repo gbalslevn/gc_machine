@@ -22,18 +22,21 @@ use crate::bench_utils::{InsnCounter, get_memory, write_bench_metrics};
 // run with `cargo bench`
 // report available in /target/criterion/report
 
+// python script can construct a comparison report
+// start venv and then run `parse_criterion.py` after `cargo bench`
+
 // To compensate for unreliable hardware, each bench is ran for x samples and then the average is taken.
 // Criterion's defaults are:
 // 100 samples
-// 5 seconds warm-up
 // Each sample runs the function enough times to fill a ~5ms measurement window
+// 3 seconds warm-up where it measures how many times it needs to run the function to fill the window
 // So for a fast function it may run thousands of iterations per sample; for a slow function it may run just once per sample.
 
 #[path = "bench_utils.rs"] 
 mod bench_utils;
 
 // *********** BENCH FOR XOR GATE ***********
-pub fn original_xor_gate(c: &mut Criterion) {
+fn original_xor_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "original xor",
@@ -43,7 +46,7 @@ pub fn original_xor_gate(c: &mut Criterion) {
     );
 }
 
-pub fn point_and_permute_xor_gate(c: &mut Criterion) {
+fn point_and_permute_xor_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "point and permute xor",
@@ -53,7 +56,7 @@ pub fn point_and_permute_xor_gate(c: &mut Criterion) {
     );
 }
 
-pub fn free_xor_xor_gate(c: &mut Criterion) {
+fn free_xor_xor_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "free xor xor",
@@ -63,7 +66,7 @@ pub fn free_xor_xor_gate(c: &mut Criterion) {
     )
 }
 
-pub fn grr3_xor_gate(c: &mut Criterion) {
+fn grr3_xor_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "grr3 xor",
@@ -73,7 +76,7 @@ pub fn grr3_xor_gate(c: &mut Criterion) {
     );
 }
 
-pub fn half_gates_xor_gate(c: &mut Criterion) {
+fn half_gates_xor_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "half gates xor",
@@ -84,7 +87,7 @@ pub fn half_gates_xor_gate(c: &mut Criterion) {
 }
 
 // *********** BENCH FOR AND GATE ***********
-pub fn original_and_gate(c: &mut Criterion) {
+fn original_and_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "original and",
@@ -94,7 +97,7 @@ pub fn original_and_gate(c: &mut Criterion) {
     );
 }
 
-pub fn point_and_permute_and_gate(c: &mut Criterion) {
+fn point_and_permute_and_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "point and permute and",
@@ -104,7 +107,7 @@ pub fn point_and_permute_and_gate(c: &mut Criterion) {
     );
 }
 
-pub fn free_xor_and_gate(c: &mut Criterion) {
+fn free_xor_and_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "free xor and",
@@ -115,7 +118,7 @@ pub fn free_xor_and_gate(c: &mut Criterion) {
 }
 
 
-pub fn grr3_and_gate(c: &mut Criterion) {
+fn grr3_and_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "grr3 and",
@@ -125,7 +128,7 @@ pub fn grr3_and_gate(c: &mut Criterion) {
     );
 }
 
-pub fn half_gates_and_gate(c: &mut Criterion) {
+fn half_gates_and_gate(c: &mut Criterion) {
     bench_optimisation_gate(
         c,
         "half gates and",
@@ -136,7 +139,7 @@ pub fn half_gates_and_gate(c: &mut Criterion) {
 }
 
 // *********** BENCH FOR A FUNCTION ***********
-pub fn original_function(c: &mut Criterion) {
+fn original_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "original",
@@ -146,7 +149,7 @@ pub fn original_function(c: &mut Criterion) {
     );
 }
 
-pub fn point_and_permute_function(c: &mut Criterion) {
+fn point_and_permute_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "point and permute",
@@ -156,7 +159,7 @@ pub fn point_and_permute_function(c: &mut Criterion) {
     );
 }
 
-pub fn grr3_function(c: &mut Criterion) {
+fn grr3_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "grr3",
@@ -166,7 +169,7 @@ pub fn grr3_function(c: &mut Criterion) {
     );
 }
 
-pub fn free_xor_function(c: &mut Criterion) {
+fn free_xor_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "free xor",
@@ -176,7 +179,7 @@ pub fn free_xor_function(c: &mut Criterion) {
     );
 }
 
-pub fn half_gates_function(c: &mut Criterion) {
+fn half_gates_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "half gates",
@@ -187,7 +190,7 @@ pub fn half_gates_function(c: &mut Criterion) {
 }
 
 // *********** BENCH FOR A FUNCTION CONTAINING ONLY AND ***********
-pub fn original_only_and_function(c: &mut Criterion) {
+fn original_only_and_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "original - only AND",
@@ -197,7 +200,7 @@ pub fn original_only_and_function(c: &mut Criterion) {
     );
 }
 
-pub fn point_and_permute_only_and_function(c: &mut Criterion) {
+fn point_and_permute_only_and_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "point and permute - only AND",
@@ -207,7 +210,7 @@ pub fn point_and_permute_only_and_function(c: &mut Criterion) {
     );
 }
 
-pub fn grr3_only_and_function(c: &mut Criterion) {
+fn grr3_only_and_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "grr3 - only AND",
@@ -217,7 +220,7 @@ pub fn grr3_only_and_function(c: &mut Criterion) {
     );
 }
 
-pub fn free_xor_only_and_function(c: &mut Criterion) {
+fn free_xor_only_and_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "free xor - only AND",
@@ -227,7 +230,7 @@ pub fn free_xor_only_and_function(c: &mut Criterion) {
     );
 }
 
-pub fn half_gates_only_and_function(c: &mut Criterion) {
+fn half_gates_only_and_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "half gates - only AND",
@@ -238,7 +241,7 @@ pub fn half_gates_only_and_function(c: &mut Criterion) {
 }
 
 // *********** BENCH FOR A FUNCTION CONTAINING ONLY XOR ***********
-pub fn original_only_xor_function(c: &mut Criterion) {
+fn original_only_xor_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "original - only XOR",
@@ -248,7 +251,7 @@ pub fn original_only_xor_function(c: &mut Criterion) {
     );
 }
 
-pub fn point_and_permute_only_xor_function(c: &mut Criterion) {
+fn point_and_permute_only_xor_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "point and permute - only XOR",
@@ -258,7 +261,7 @@ pub fn point_and_permute_only_xor_function(c: &mut Criterion) {
     );
 }
 
-pub fn grr3_only_xor_function(c: &mut Criterion) {
+fn grr3_only_xor_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "grr3 - only XOR",
@@ -268,7 +271,7 @@ pub fn grr3_only_xor_function(c: &mut Criterion) {
     );
 }
 
-pub fn free_xor_only_xor_function(c: &mut Criterion) {
+fn free_xor_only_xor_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "free xor - only XOR",
@@ -278,7 +281,7 @@ pub fn free_xor_only_xor_function(c: &mut Criterion) {
     );
 }
 
-pub fn half_gates_only_xor_function(c: &mut Criterion) {
+fn half_gates_only_xor_function(c: &mut Criterion) {
     bench_optimisation_function(
         c,
         "half gates - only XOR",
@@ -305,11 +308,11 @@ fn produce_naive_conditional(garbler_input: u64, evaluator_input: u64) -> u64 {
     }
 }
 
-pub fn bench_naive_conditional(c: &mut Criterion) {
+fn bench_naive_conditional(c: &mut Criterion) {
     let cb = circuit!(produce_naive_conditional); // or in some other way provide a relevant circuit_build
     bench_optimisation_function(c, "naive_conditional", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), cb);
 }
-pub fn bench_stacked_conditional(c: &mut Criterion) {
+fn bench_stacked_conditional(c: &mut Criterion) {
     let cb = circuit!(produce_stacked_conditional); // or in some other way provide a relevant circuit_build
     bench_optimisation_function(c, "stacked_conditional", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), cb);
 }

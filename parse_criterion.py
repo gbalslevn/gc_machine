@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-"""
-parse_criterion.py — Parses Criterion benchmark output and prints a comparison table.
-
-Usage:
-    python parse_criterion.py               # looks for ./target/criterion
-    python parse_criterion.py --unit ns     # ns | us | ms | s | auto (default)
-"""
-
 import json, csv, sys, argparse
 from pathlib import Path
 from collections import defaultdict
@@ -20,9 +11,7 @@ CONDITIONALS = ["naive_conditional", "stacked_conditional"]
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def convert(ns: float, unit: str) -> tuple[float, str]:
-    if unit != "auto":
-        return ns / UNITS[unit], unit
+def convert(ns: float) -> tuple[float, str]:
     for label, divisor in [("s", 1e9), ("ms", 1e6), ("µs", 1e3)]:
         if ns >= divisor:
             return ns / divisor, label
@@ -105,7 +94,7 @@ def make_header(opts: list, col: int = 22) -> str:
     return f"{'Benchmark':<35}" + "".join(f"{o.title():>{col}}" for o in opts)
 
 
-def print_timing(table: dict, btypes: list, opts: list, unit: str):
+def print_timing(table: dict, btypes: list, opts: list):
     print(header := make_header(opts))
     print("-" * len(header))
     for btype in btypes:
@@ -115,7 +104,7 @@ def print_timing(table: dict, btypes: list, opts: list, unit: str):
             if s is None:
                 cell = "—"
             else:
-                mean, ulabel = convert(s["mean_ns"], unit)
+                mean, ulabel = convert(s["mean_ns"])
                 divisor = s["mean_ns"] / mean
                 std = s["std_ns"] / divisor
                 cell = f"{mean:>9.1f} {ulabel} ±{std:.1f}"
@@ -210,10 +199,6 @@ def print_metrics(metrics_raw: dict, opts: list):
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Criterion benchmark comparison table")
-    parser.add_argument("--unit", choices=["auto", "ns", "us", "ms", "s"], default="auto")
-    args = parser.parse_args()
-
     criterion_dir = Path("target/criterion")
     if not criterion_dir.exists():
         sys.exit(f"Error: directory not found: {criterion_dir}")
@@ -225,10 +210,10 @@ def main():
 
     print(f"Found {len(raw)} benchmarks.\n")
     table, btypes, opts, cond_table, cond_btypes, cond_opts = organise(raw)
-    print_timing(table, btypes, opts, args.unit)
+    print_timing(table, btypes, opts)
     print_speedup(table, btypes, opts)
     print("\n── Conditional benchmarks (half gates) ──")
-    print_timing(cond_table, cond_btypes, cond_opts, args.unit)
+    print_timing(cond_table, cond_btypes, cond_opts)
 
     metrics = load_metrics(criterion_dir)
     if metrics:
