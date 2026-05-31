@@ -11,11 +11,11 @@ import json, csv, sys, argparse
 from pathlib import Path
 from collections import defaultdict
 
-OPTIMISATIONS = ["original", "free xor", "grr3", "point and permute", "half gates"]
-
 UNITS = {"ns": 1, "us": 1_000, "ms": 1_000_000, "s": 1_000_000_000}
-
+OPTIMISATIONS = ["original", "free xor", "grr3", "point and permute", "half gates"]
 BTYPE_LABELS = {"": "AND + XOR", "- only AND": "only AND", "- only XOR": "only XOR"}
+CONDITIONAL_OPTS = {"naive conditional", "stacked conditional"}
+CONDITIONALS = ["naive_conditional", "stacked_conditional"]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -48,24 +48,35 @@ def format_instructions(n: int | None) -> str:
 # ── Parsing ────────────────────────────────────────────────────────────────────
 
 def split_name(name: str) -> tuple[str, str]:
-    """Split 'free xor gate garbling' → ('free xor', 'gate garbling')."""
     lower = name.lower()
     for opt in OPTIMISATIONS:
         if lower.startswith(opt):
             return opt, name[len(opt):].strip()
+    for cond in CONDITIONALS:
+        if lower.startswith(cond):
+            return cond.replace("_", " "), name[len(cond):].strip()
     return "unknown", name
 
 
-def organise(raw: dict) -> tuple[dict, list, list]:
-    table = defaultdict(dict)
-    opts_found = set()
+
+def organise(raw: dict):
+    table, cond_table = defaultdict(dict), defaultdict(dict)
+    opts_found, cond_opts_found = set(), set()
+
     for name, stats in raw.items():
         opt, btype = split_name(name)
-        table[btype][opt] = stats
-        opts_found.add(opt)
+        if opt in CONDITIONAL_OPTS:
+            cond_table[btype][opt] = stats
+            cond_opts_found.add(opt)
+        elif opt != "unknown":
+            table[btype][opt] = stats
+            opts_found.add(opt)
+
     ordered_opts = [o for o in OPTIMISATIONS if o in opts_found]
     ordered_opts += sorted(opts_found - set(OPTIMISATIONS))
-    return table, sorted(table), ordered_opts
+
+    return (table, sorted(table), ordered_opts,
+            cond_table, sorted(cond_table), sorted(cond_opts_found))
 
 
 def load_estimates(criterion_dir: Path) -> dict:
@@ -135,21 +146,31 @@ def print_speedup(table: dict, btypes: list, opts: list):
 
 
 def print_metrics(metrics_raw: dict, opts: list):
-    table = defaultdict(dict)
+    opt_metrics, conditional_metrics = {}, {}
     for name, m in metrics_raw.items():
+        opt, _ = split_name(name)
+        if opt in CONDITIONAL_OPTS or opt == "unknown":
+            conditional_metrics[name] = m
+        else:
+            opt_metrics[name] = m
+
+    # ── Standard optimisation tables ──────────────────────────────────────────
+    table = defaultdict(dict)
+    for name, m in opt_metrics.items():
         opt, btype = split_name(name)
         table[btype][opt] = m
     btypes = sorted(table)
 
-    header  = make_header(opts)
+    col = 22
+    header  = make_header(opts, col)
     divider = "-" * len(header)
 
     for title, field, fmt in [
-        ("── Protocol Bytes ──",           "protocol_bytes",         format_bytes),
-        ("── Garble Memory Allocated ──",  "garble_bytes_allocated", format_bytes),
-        ("── Eval Memory Allocated ──",    "eval_bytes_allocated",   format_bytes),
-        ("── Garble Instructions ──",      "garble_instructions",    format_instructions),
-        ("── Eval Instructions ──",        "eval_instructions",      format_instructions),
+        ("── Protocol Bytes ──",          "protocol_bytes",         format_bytes),
+        ("── Garble Memory Allocated ──", "garble_bytes_allocated", format_bytes),
+        ("── Eval Memory Allocated ──",   "eval_bytes_allocated",   format_bytes),
+        ("── Garble Instructions ──",     "garble_instructions",    format_instructions),
+        ("── Eval Instructions ──",       "eval_instructions",      format_instructions),
     ]:
         print(f"\n{title}\n{header}\n{divider}")
         for btype in btypes:
@@ -158,8 +179,32 @@ def print_metrics(metrics_raw: dict, opts: list):
             for opt in opts:
                 m = table.get(btype, {}).get(opt)
                 val = fmt(m[field]) if m and m.get(field) is not None else "—"
-                row.append(f"{val:>18}")
+                row.append(f"{val:>{col}}")
             print("".join(row))
+
+    # ── Conditional benchmarks ────────────────────────────────────────────────
+    if not conditional_metrics:
+        return
+
+    names = sorted(conditional_metrics)
+    col_c  = 22
+    header_c  = f"{'Metric':<35}" + "".join(f"{n.replace('_', ' ').title():>{col_c}}" for n in names)
+    divider_c = "-" * len(header_c)
+
+    print(f"\n── Conditional Benchmarks ──\n{header_c}\n{divider_c}")
+    for label, field, fmt in [
+        ("Protocol Bytes",  "protocol_bytes",         format_bytes),
+        ("Garble Memory",   "garble_bytes_allocated", format_bytes),
+        ("Eval Memory",     "eval_bytes_allocated",   format_bytes),
+        ("Garble Instr.",   "garble_instructions",    format_instructions),
+        ("Eval Instr.",     "eval_instructions",      format_instructions),
+    ]:
+        row = [f"{label:<35}"]
+        for name in names:
+            m = conditional_metrics.get(name, {})
+            val = fmt(m[field]) if m.get(field) is not None else "—"
+            row.append(f"{val:>{col_c}}")
+        print("".join(row))
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
@@ -179,9 +224,11 @@ def main():
         sys.exit("No estimates.json files found. Have you run `cargo bench` yet?")
 
     print(f"Found {len(raw)} benchmarks.\n")
-    table, btypes, opts = organise(raw)
+    table, btypes, opts, cond_table, cond_btypes, cond_opts = organise(raw)
     print_timing(table, btypes, opts, args.unit)
     print_speedup(table, btypes, opts)
+    print("\n── Conditional benchmarks (half gates) ──")
+    print_timing(cond_table, cond_btypes, cond_opts, args.unit)
 
     metrics = load_metrics(criterion_dir)
     if metrics:
