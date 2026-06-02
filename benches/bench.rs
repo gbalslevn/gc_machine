@@ -353,7 +353,7 @@ where
     
     let serialized_circuit = postcard::to_allocvec(&circuit).expect("serialization failed");
     let serialized_eval_input = postcard::to_allocvec(&eval_input).expect("serialization failed");
-    let protocol_bytes = serialized_circuit.len() + serialized_eval_input.len();
+    let circuit_bytes_without_ot = serialized_circuit.len() - serialized_eval_input.len();
 
     // *** Bench evaluating ***
     let (_, eval_mem) = get_memory(|| {
@@ -371,7 +371,7 @@ where
         evaluator.evaluate_circuit(&cb, &circuit, &eval_keys);
     });
 
-    write_bench_metrics(optimisation_name, protocol_bytes, &garble_mem, &eval_mem, garble_insns, eval_insns);
+    write_bench_metrics(optimisation_name, circuit_bytes_without_ot, &garble_mem, &eval_mem, garble_insns, eval_insns);
 }
 
 
@@ -424,7 +424,7 @@ where
 
 fn get_test_circuit(build_xor : bool, build_and: bool) -> CircuitBuild {
     let mut circuit_builder = CircuitBuilder::new();
-    let gates_to_build = 10000;
+    let gates_to_build = 100000;
     let required_input_bits = 1;     // Garbler and Evaluator only provides an input of 1 bit, as the only thing that matters in this benchmark, is the amount of gates being created and evaluated. The underlying input values are not of interest. 
     let (input_a, input_b) = circuit_builder.set_input_wires(required_input_bits);
     if build_xor {

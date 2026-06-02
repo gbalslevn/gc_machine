@@ -3,10 +3,10 @@ from pathlib import Path
 from collections import defaultdict
 
 UNITS = {"ns": 1, "us": 1_000, "ms": 1_000_000, "s": 1_000_000_000}
-OPTIMISATIONS = ["original", "free xor", "grr3", "point and permute", "half gates"]
-BTYPE_LABELS = {"": "AND + XOR", "- only AND": "only AND", "- only XOR": "only XOR"}
-CONDITIONAL_OPTS = {"naive conditional", "stacked conditional"}
-CONDITIONALS = ["naive_conditional", "stacked_conditional"]
+OPTIMISATIONS = ["original", "point and permute", "grr3", "free xor", "half gates"]
+BTYPE_LABELS = {"": "AND + XOR", "- only AND": "AND", "- only XOR": "XOR"}
+CONDITIONAL_OPTS = {"naive", "stacked"}
+CONDITIONALS = ["naive", "stacked"]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
