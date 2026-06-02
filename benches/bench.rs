@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use circuit_macro::{circuit, circuit_fn};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use gc_machine::circuit_builder::{CircuitBuild, CircuitBuilder};
@@ -424,28 +426,51 @@ where
 
 fn get_test_circuit(build_xor : bool, build_and: bool) -> CircuitBuild {
     let mut circuit_builder = CircuitBuilder::new();
-    let gates_to_build = 100000;
+    let gates_to_build = 10000;
     let required_input_bits = 1;     // Garbler and Evaluator only provides an input of 1 bit, as the only thing that matters in this benchmark, is the amount of gates being created and evaluated. The underlying input values are not of interest. 
     let (input_a, input_b) = circuit_builder.set_input_wires(required_input_bits);
     if build_xor {
-        for _ in 0..gates_to_build / 2 + 1 {
+        for _ in 0..gates_to_build / 2 {
             circuit_builder.build_xor(&input_a[0], &input_b[0]);
         }
     }
     if build_and {
-        for _ in 0..gates_to_build / 2 + 1 {
+        for _ in 0..gates_to_build / 2 {
             circuit_builder.build_and(&input_a[0], &input_b[0]);
         }
     }
     circuit_builder.get_circuit_build()
 }
 
-
-criterion_group!(xor_gates_bench, original_xor_gate, grr3_xor_gate, point_and_permute_xor_gate, free_xor_xor_gate, half_gates_xor_gate);
-criterion_group!(and_gates_bench, original_and_gate, grr3_and_gate, point_and_permute_and_gate, free_xor_and_gate, half_gates_and_gate);
-criterion_group!(function_bench, original_function, grr3_function, point_and_permute_function, free_xor_function, half_gates_function);
-criterion_group!(function_and_bench, original_only_and_function, grr3_only_and_function, point_and_permute_only_and_function, free_xor_only_and_function, half_gates_only_and_function);
-criterion_group!(function_xor_bench, original_only_xor_function, grr3_only_xor_function, point_and_permute_only_xor_function, free_xor_only_xor_function, half_gates_only_xor_function);
-criterion_group!(conditional_bench, bench_naive_conditional, bench_stacked_conditional);
+criterion_group!(
+    name = xor_gates_bench;
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
+    targets = original_xor_gate, grr3_xor_gate, point_and_permute_xor_gate, free_xor_xor_gate, half_gates_xor_gate
+);
+criterion_group!(
+    name = and_gates_bench;
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
+    targets = original_and_gate, grr3_and_gate, point_and_permute_and_gate, free_xor_and_gate, half_gates_and_gate
+);
+criterion_group!(
+    name = function_bench;
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
+    targets = original_function, grr3_function, point_and_permute_function, free_xor_function, half_gates_function
+);
+criterion_group!(
+    name = function_and_bench;
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
+    targets = original_only_and_function, grr3_only_and_function, point_and_permute_only_and_function, free_xor_only_and_function, half_gates_only_and_function
+);
+criterion_group!(
+    name = function_xor_bench;
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
+    targets = original_only_xor_function, grr3_only_xor_function, point_and_permute_only_xor_function, free_xor_only_xor_function, half_gates_only_xor_function
+);
+criterion_group!(
+    name = conditional_bench;
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
+    targets = bench_naive_conditional, bench_stacked_conditional
+);
 criterion_main!(function_bench, function_and_bench, function_xor_bench, conditional_bench);
 
