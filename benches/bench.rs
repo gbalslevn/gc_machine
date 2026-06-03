@@ -353,9 +353,14 @@ where
     garbler.gate_gen.reset_index();
     let circuit = garbler.create_circuit(&cb, &garbler_input, &eval_input);
     
-    let serialized_circuit = postcard::to_allocvec(&circuit).expect("serialization failed");
-    let serialized_eval_input = postcard::to_allocvec(&eval_input).expect("serialization failed");
-    let circuit_bytes_without_ot = serialized_circuit.len() - serialized_eval_input.len();
+    let serialized_circuit_material = postcard::to_allocvec(&circuit.material).expect("serialization failed");
+    println!("circuit material {}", serialized_circuit_material.len());
+    let circuit_bytes: Vec<u8> = circuit.material.clone()
+        .into_iter()
+        .flatten() // Turns Vec<Vec<BigUint>> into an iterator of BigUint
+        .flat_map(|big_uint| big_uint.to_bytes_be()) // Convert each to big-endian bytes
+        .collect();
+    // assert_eq!(serialized_circuit_material.len(), circuit_bytes.len());
 
     // *** Bench evaluating ***
     let (_, eval_mem) = get_memory(|| {
@@ -373,7 +378,7 @@ where
         evaluator.evaluate_circuit(&cb, &circuit, &eval_keys);
     });
 
-    write_bench_metrics(optimisation_name, circuit_bytes_without_ot, &garble_mem, &eval_mem, garble_insns, eval_insns);
+    write_bench_metrics(optimisation_name, circuit_bytes.len(), &garble_mem, &eval_mem, garble_insns, eval_insns);
 }
 
 
@@ -472,5 +477,6 @@ criterion_group!(
     config = Criterion::default().measurement_time(Duration::from_secs(10));
     targets = bench_naive_conditional, bench_stacked_conditional
 );
-criterion_main!(function_bench, function_and_bench, function_xor_bench, conditional_bench);
+// criterion_main!(function_bench, function_and_bench, function_xor_bench, conditional_bench);
+criterion_main!(function_bench, function_and_bench, function_xor_bench);
 

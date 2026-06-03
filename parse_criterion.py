@@ -19,9 +19,9 @@ def convert(ns: float) -> tuple[float, str]:
 
 
 def format_bytes(n: int) -> str:
-    for suffix, div in [("MB", 1_000_000), ("KB", 1_000)]:
+    for suffix, div in [("MB", 1_048_576), ("KB", 1_024)]:
         if n >= div:
-            return f"{n/div:.1f} {suffix}"
+            return f"{n/div:.2f} {suffix}"
     return f"{n} B"
 
 
