@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use circuit_macro::{circuit, circuit_fn};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use gc_machine::circuit_builder::{BuildBlock, CircuitBuild, CircuitBuilder, WireBuild, get_input_wires};
 use gc_machine::evaluator::evaluator::Evaluator;
@@ -518,25 +517,23 @@ criterion_group!(
 );
 criterion_group!(
     name = function_and_bench;
-    config = Criterion::default().measurement_time(Duration::from_secs(30));
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
     targets = original_only_and_function, grr3_only_and_function, point_and_permute_only_and_function, free_xor_only_and_function, half_gates_only_and_function
 );
 criterion_group!(
     name = function_xor_bench;
-    config = Criterion::default().measurement_time(Duration::from_secs(30));
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
     targets = original_only_xor_function, grr3_only_xor_function, point_and_permute_only_xor_function, free_xor_only_xor_function, half_gates_only_xor_function
 );
 criterion_group!(
     name = conditional_bench;
-    config = Criterion::default().measurement_time(Duration::from_secs(30));
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
     targets = bench_equal_naive_conditional, bench_equal_stacked_conditional, bench_loosing_naive_conditional, bench_winning_stacked_conditional, bench_winning_naive_conditional, bench_loosing_stacked_conditional
 );
 criterion_group!(
     name = conditional_bench_test;
-    config = Criterion::default().measurement_time(Duration::from_secs(30));
+    config = Criterion::default().measurement_time(Duration::from_secs(10));
     targets = bench_loosing_naive_conditional, bench_winning_stacked_conditional
 );
-// criterion_main!(function_bench, function_and_bench, function_xor_bench, conditional_bench);
-// criterion_main!(function_bench, function_and_bench, function_xor_bench);
-criterion_main!(conditional_bench);
+criterion_main!(function_bench, function_and_bench, function_xor_bench, conditional_bench);
 
