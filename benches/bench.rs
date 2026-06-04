@@ -1,8 +1,9 @@
+use std::collections::HashSet;
 use std::time::Duration;
 
 use circuit_macro::{circuit, circuit_fn};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use gc_machine::circuit_builder::{CircuitBuild, CircuitBuilder};
+use gc_machine::circuit_builder::{BuildBlock, CircuitBuild, CircuitBuilder, WireBuild, get_input_wires};
 use gc_machine::evaluator::evaluator::Evaluator;
 use gc_machine::evaluator::free_xor_evaluator::FreeXOREvaluator;
 use gc_machine::garbler::Garbler;
@@ -293,32 +294,35 @@ fn half_gates_only_xor_function(c: &mut Criterion) {
     );
 }
 
-#[circuit_fn]
-fn produce_stacked_conditional(garbler_input: u64, evaluator_input: u64) -> u64 {
-    if garbler_input == evaluator_input {
-        garbler_input + evaluator_input
-    } else {
-        garbler_input + evaluator_input
-    }
+// Finds the sweetspot between naive and stacked
+fn bench_equal_naive_conditional(c: &mut Criterion) {
+    let naive_circuit = get_conditional_test_circuit(false, 1250, 10000);
+    bench_optimisation_function(c, "naive_conditional - equal", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), naive_circuit);
 }
-#[circuit_fn(naive_stack=true)]
-fn produce_naive_conditional(garbler_input: u64, evaluator_input: u64) -> u64 {
-    if garbler_input == evaluator_input {
-        garbler_input + evaluator_input
-    } else {
-        garbler_input + evaluator_input
-    }
+fn bench_equal_stacked_conditional(c: &mut Criterion) {
+    let stacked_circuit = get_conditional_test_circuit(true, 1250, 10000);
+    bench_optimisation_function(c, "stacked_conditional - equal", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), stacked_circuit);
 }
 
-fn bench_naive_conditional(c: &mut Criterion) {
-    let cb = circuit!(produce_naive_conditional); // or in some other way provide a relevant circuit_build
-    bench_optimisation_function(c, "naive_conditional", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), cb);
+// Show naive winning
+fn bench_winning_naive_conditional(c: &mut Criterion) {
+    let naive_circuit = get_conditional_test_circuit(false, 20000, 10000);
+    bench_optimisation_function(c, "naive_conditional - winning", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), naive_circuit);
 }
-fn bench_stacked_conditional(c: &mut Criterion) {
-    let cb = circuit!(produce_stacked_conditional); // or in some other way provide a relevant circuit_build
-    bench_optimisation_function(c, "stacked_conditional", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), cb);
+fn bench_loosing_stacked_conditional(c: &mut Criterion) {
+    let stacked_circuit = get_conditional_test_circuit(true, 20000, 10000);
+    bench_optimisation_function(c, "stacked_conditional - loosing", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), stacked_circuit);
 }
 
+// Show stacked winning
+fn bench_loosing_naive_conditional(c: &mut Criterion) {
+    let naive_circuit = get_conditional_test_circuit(false, 2, 10000);
+    bench_optimisation_function(c, "naive_conditional - loosing", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), naive_circuit);
+}
+fn bench_winning_stacked_conditional(c: &mut Criterion) {
+    let stacked_circuit = get_conditional_test_circuit(true, 2, 10000);
+    bench_optimisation_function(c, "stacked_conditional - winning", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), stacked_circuit);
+}
 
 fn bench_optimisation_function<E, G>(
     c: &mut Criterion,
@@ -447,6 +451,56 @@ fn get_test_circuit(build_xor : bool, build_and: bool) -> CircuitBuild {
     circuit_builder.get_circuit_build()
 }
 
+fn get_conditional_test_circuit(stacked : bool, input_length : usize, gates_in_each_subcircuit : usize) -> CircuitBuild {
+    let total_gates = gates_in_each_subcircuit * 2;
+    if input_length > total_gates * 2 {
+        panic!("The input length is not possible if each gate in the circuit has exactly two inputs. Only possible if input is a variable, which this function cannot create.")
+    }
+    let mut circuit_builder = CircuitBuilder::new();
+    let mut true_gates = vec![];
+    let mut false_gates = vec![];
+    let (input_a, input_b) = circuit_builder.set_input_wires(input_length as u64);
+    let dummy_wire = input_a[0].clone();
+
+    // Ensure build will have gates_in_each_subcircuit gates
+    if stacked {
+        // Ensure each subcircuit has gates_in_each_subcircuit AND gates
+        for i in 0..gates_in_each_subcircuit {
+            let and_gate;
+            // ensure gates in each block uses the right amount of unique input wires, then if required, add redudent gates if input_length < gates_in_each_subcircuit
+            if i < input_length / 2 {
+                and_gate = circuit_builder.build_and(&input_a[i], &input_b[i]); 
+            } else {
+                and_gate = circuit_builder.build_and(&input_a[0], &input_b[0]);
+            }
+            true_gates.push(and_gate.builds[0].clone());
+            false_gates.push(and_gate.builds[0].clone());
+        }
+        let mut true_block = BuildBlock { builds : true_gates.clone(), output : vec![dummy_wire.clone()]};
+        let mut false_block = BuildBlock { builds : false_gates.clone(), output : vec![dummy_wire.clone()]};
+        circuit_builder.build_stacked_if(&input_a[0], &mut false_block, &mut true_block);
+
+        assert_eq!(true_gates.len(), gates_in_each_subcircuit);
+        assert_eq!(false_gates.len(), gates_in_each_subcircuit);
+        let true_block_inputs = get_input_wires(true_block);
+        let false_block_inputs = get_input_wires(false_block);
+        let combined_input: HashSet<WireBuild> = true_block_inputs.clone().into_iter().chain(false_block_inputs.clone().into_iter()).collect();
+        assert_eq!(combined_input.len(), input_length);
+    } else {
+        // naive produces two AND gates per output wire pair
+        let mut true_output = vec![];
+        let mut false_output = vec![];
+        for i in 0..gates_in_each_subcircuit {
+            true_output.push(dummy_wire.clone());
+            false_output.push(dummy_wire.clone());
+        }
+        let true_block = BuildBlock { builds : vec![], output : true_output.clone()};
+        let false_block = BuildBlock { builds : vec![], output : false_output.clone()};
+        circuit_builder.build_if(&input_a[0], &false_block, &true_block);
+    }
+    circuit_builder.get_circuit_build()
+}
+
 criterion_group!(
     name = xor_gates_bench;
     config = Criterion::default().measurement_time(Duration::from_secs(10));
@@ -464,19 +518,25 @@ criterion_group!(
 );
 criterion_group!(
     name = function_and_bench;
-    config = Criterion::default().measurement_time(Duration::from_secs(10));
+    config = Criterion::default().measurement_time(Duration::from_secs(30));
     targets = original_only_and_function, grr3_only_and_function, point_and_permute_only_and_function, free_xor_only_and_function, half_gates_only_and_function
 );
 criterion_group!(
     name = function_xor_bench;
-    config = Criterion::default().measurement_time(Duration::from_secs(10));
+    config = Criterion::default().measurement_time(Duration::from_secs(30));
     targets = original_only_xor_function, grr3_only_xor_function, point_and_permute_only_xor_function, free_xor_only_xor_function, half_gates_only_xor_function
 );
 criterion_group!(
     name = conditional_bench;
-    config = Criterion::default().measurement_time(Duration::from_secs(10));
-    targets = bench_naive_conditional, bench_stacked_conditional
+    config = Criterion::default().measurement_time(Duration::from_secs(30));
+    targets = bench_equal_naive_conditional, bench_equal_stacked_conditional, bench_loosing_naive_conditional, bench_winning_stacked_conditional, bench_winning_naive_conditional, bench_loosing_stacked_conditional
+);
+criterion_group!(
+    name = conditional_bench_test;
+    config = Criterion::default().measurement_time(Duration::from_secs(30));
+    targets = bench_loosing_naive_conditional, bench_winning_stacked_conditional
 );
 // criterion_main!(function_bench, function_and_bench, function_xor_bench, conditional_bench);
-criterion_main!(function_bench, function_and_bench, function_xor_bench);
+// criterion_main!(function_bench, function_and_bench, function_xor_bench);
+criterion_main!(conditional_bench);
 

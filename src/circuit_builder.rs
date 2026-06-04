@@ -422,7 +422,7 @@ impl CircuitBuilder {
 }
 
 // Get all input wires to the build
- fn get_input_wires(circuit: BuildBlock) -> Vec<WireBuild> {
+pub fn get_input_wires(circuit: BuildBlock) -> Vec<WireBuild> {
     // If block contains no builds the output wires is esentially also the input wires. In the case where an if only contains a variable which is returned
     if circuit.builds.len() == 0 {
         return circuit.output

@@ -131,13 +131,7 @@ pub fn generate_nor_wires(wire_gen: &mut HalfGatesWireGen, wi: &Wire, wj: &Wire,
 }
 
 pub fn get_00_wire(wi: &Wire, wj: &Wire, gate_id: &BigUint) -> BigUint {
-    for left in [&wi.w0(), &wi.w1()] {
-        for right in [&wj.w0(), &wj.w1()] {
-            if !left.bit(0) && !right.bit(0) {
-                return gc_kdf_128(&left, &right, gate_id)
-
-            }
-        }
-    }
-    panic!("Couldn't find where both wires lsb was 0");
+    let left = if !wi.w0().bit(0) { wi.w0()} else { wi.w1() };
+    let right = if !wj.w0().bit(0) { wj.w0() } else { wj.w1() };
+    gc_kdf_128(&left, &right, gate_id)
 }

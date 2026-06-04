@@ -54,23 +54,6 @@ fn test_get_00_wire_finds_correct_pair() {
 }
 
 #[test]
-#[should_panic(expected = "Couldn't find where both wires lsb was 0")]
-fn test_get_00_wire_panics_when_no_pair() {
-    let mut rng = crypto_utils::gen_rng();
-    let w0i = generate_label_lsb(&mut rng,true);  // LSB = 1
-    let w1i = generate_label_lsb(&mut rng,true);  // LSB = 1
-    let w0j = generate_label_lsb(&mut rng, true); // LSB = 1
-    let w1j = generate_label_lsb(&mut rng, true); // LSB = 1
-    let gate_id = BigUint::from(1u32);
-
-    let wi = Wire::new(w0i, w1i);
-    let wj = Wire::new(w0j, w1j);
-    
-    let mut wire_gen = GRR3WireGen::new();
-    wire_gen.generate_output_wire(&wi, &wj, &GateType::AND, &gate_id);
-}
-
-#[test]
 fn test_generate_grr3_and_wires_opposite_lsb() {
     let mut wire_gen = GRR3WireGen::new();
     let wi = wire_gen.generate_input_wire();

@@ -1,9 +1,10 @@
 use std::cmp::max;
+use std::collections::HashSet;
 use std::ops::{Shr};
 use std::sync::Arc;
 use std::time::Duration;
 use circuit_macro::{circuit, circuit_fn};
-use gc_machine::circuit_builder::{CircuitBuilder};
+use gc_machine::circuit_builder::{BuildBlock, BuildType, CircuitBuilder, WireBuild, get_input_wires};
 use gc_machine::evaluator::evaluator::Evaluator;
 use gc_machine::evaluator::free_xor_evaluator::FreeXOREvaluator;
 use gc_machine::evaluator::grr3_evaluator::GRR3Evaluator;
@@ -21,7 +22,7 @@ use gc_machine::websocket::Response;
 use gc_machine::gates::gate_gen::{GateType, GateGen};
 use gc_machine::gates::original_gate_gen::OriginalGateGen;
 use gc_machine::wires::original_wire_gen::OriginalWireGen;
-use gc_machine::{crypto_utils};
+use gc_machine::{crypto_utils, evaluator};
 use num_bigint::{BigUint, ToBigUint};
 use gc_machine::wires::wire_gen::WireGen;
 
@@ -409,6 +410,92 @@ fn can_add_numbers_of_unequal_bitlength() {
 }
 
 #[test]
+fn conditional_bench_test() {
+    let gates_in_each_subcircuit = 10000;
+    let input_length = 1250;
+    let stacked = false;
+
+    let mut circuit_builder = CircuitBuilder::new();
+    let mut true_gates = vec![];
+    let mut false_gates = vec![];
+    let (input_a, input_b) = circuit_builder.set_input_wires(input_length as u64);
+    let dummy_wire = input_a[0].clone();
+
+    // Ensure build will have gates_in_each_subcircuit gates
+    if stacked {
+        for i in 0..gates_in_each_subcircuit {
+            let and_gate;
+            // ensure gates in each block uses the right amount of unique input wires, then if required, add redudent gates if input_length < gates_in_each_subcircuit
+            if i < input_length / 2 {
+                and_gate = circuit_builder.build_and(&input_a[i], &input_b[i]); 
+            } else {
+                and_gate = circuit_builder.build_and(&input_a[0], &input_b[0]);
+            }
+            true_gates.push(and_gate.builds[0].clone());
+            false_gates.push(and_gate.builds[0].clone());
+        }
+        let mut true_block = BuildBlock { builds : true_gates.clone(), output : vec![dummy_wire.clone()]};
+        let mut false_block = BuildBlock { builds : false_gates.clone(), output : vec![dummy_wire.clone()]};
+        circuit_builder.build_stacked_if(&input_a[0], &mut false_block, &mut true_block);
+       
+
+        assert_eq!(true_gates.len(), gates_in_each_subcircuit);
+        assert_eq!(false_gates.len(), gates_in_each_subcircuit);
+        let true_block_inputs = get_input_wires(true_block);
+        let false_block_inputs = get_input_wires(false_block);
+        let combined_input: HashSet<WireBuild> = true_block_inputs.clone().into_iter().chain(false_block_inputs.clone().into_iter()).collect();
+        assert_eq!(combined_input.len(), input_length);
+    } else {
+        // naive produces two AND gates per output wire
+        let mut true_output = vec![];
+        let mut false_output = vec![];
+        for i in 0..gates_in_each_subcircuit {
+            true_output.push(dummy_wire.clone());
+            false_output.push(dummy_wire.clone());
+        }
+        let true_block = BuildBlock { builds : vec![], output : true_output.clone()};
+        let false_block = BuildBlock { builds : vec![], output : false_output.clone()};
+        circuit_builder.build_if(&input_a[0], &false_block, &true_block);
+    }
+    
+    let cb = circuit_builder.get_circuit_build();
+
+    let mut garbler = Garbler::new(HalfGatesGateGen::new());
+    let evaluator = HalfGatesEvaluator::new();
+    let garbler_input = garbler.create_circuit_input(&0.to_biguint().unwrap(), cb.required_input_bits);
+    let (eval_input, eval_keys) = evaluator.create_circuit_input(&0.to_biguint().unwrap(), cb.required_input_bits);
+    let circuit = garbler.create_circuit(&cb, &garbler_input, &eval_input);
+
+    if stacked {
+        assert_eq!(cb.builds.len(), 1);
+        assert_eq!(cb.builds[0].get_type(), BuildType::Stack);
+        // Derive the material length, how many k
+        let demux_size = 8 * input_length;
+        let m_cond_size = gates_in_each_subcircuit * 2; // all AND gates
+        let mux_size = 4 * 1; // We only have a single output 
+        // count all entries
+        let mut entries = 0;
+        for material in circuit.material {
+            for entry in material {
+                entries += 1;
+            }
+        }
+        assert_eq!(entries, demux_size + m_cond_size + mux_size)
+    } else {
+        let total_gates = gates_in_each_subcircuit * 2;
+        assert_eq!(cb.builds.len(), total_gates * 2); // Half AND half XOR
+        let mut entries = 0;
+        for material in circuit.material {
+            for entry in material {
+                entries += 1;
+            }
+        }
+        assert_eq!(entries, total_gates * 2)
+    }
+
+}
+
+#[test]
 fn can_evaluate_fn_circuit() {
     let circuit_build = circuit!(produce_function_with_macro);
     let gate_gen = HalfGatesGateGen::new();
@@ -416,7 +503,7 @@ fn can_evaluate_fn_circuit() {
     let mut evaluator = HalfGatesEvaluator::new();
     let function_variable = 2; 
     
-    // First if true, second if true 
+    // First if true, second if true
     let a = function_variable;
     let garblers_input = garbler.create_circuit_input(&a.to_biguint().unwrap(), circuit_build.required_input_bits);
     let b = function_variable;
@@ -424,6 +511,7 @@ fn can_evaluate_fn_circuit() {
 
     let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &secret_keys);
+    assert_eq!(result, function_variable);
 
     // First if true, second if false
     let a = 10;
@@ -436,7 +524,17 @@ fn can_evaluate_fn_circuit() {
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &secret_keys);
     assert_eq!(result, a*b+function_variable);
 
-    // First if false
+    // First if false, second if true
+    let a = function_variable;
+    let garblers_input = garbler.create_circuit_input(&a.to_biguint().unwrap(), circuit_build.required_input_bits);
+    let b = 203;
+    let (evaluators_input, secret_keys) = evaluator.create_circuit_input(&b.to_biguint().unwrap(), circuit_build.required_input_bits);
+
+    let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &secret_keys);
+    assert_eq!(result, function_variable + b);
+
+    // First if false, second if false
     let a = 35;
     let garblers_input = garbler.create_circuit_input(&a.to_biguint().unwrap(), circuit_build.required_input_bits);
     let b = 203;
@@ -444,7 +542,7 @@ fn can_evaluate_fn_circuit() {
 
     let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &secret_keys);
-    assert_eq!(result, a+b);
+    assert_eq!(result, a+b*function_variable);
 }
 
 #[circuit_fn(input_bits=10)]
@@ -457,7 +555,11 @@ fn produce_function_with_macro(garbler_input : usize, evaluator_intput : usize) 
             garbler_input * evaluator_intput + number
         }
     } else {
-        garbler_input + evaluator_intput
+        if garbler_input == number {
+            number + evaluator_intput
+        } else {
+            garbler_input + evaluator_intput * number
+        }
     }
 }
 

@@ -163,7 +163,6 @@ impl<G: GateGen> Garbler<G> {
             let demux = self.generate_demux(&input_wires[i], &seed, &c0_input_wires[i], &c1_input_wires[i], &c0_garbage_input_label, &c1_garbage_input_label);
             demuxes.push(demux);
         }
-
         // To create the mux, we need to know what the garbage output wire labels the evaluator will have for the branch not taken.
         // To get these, we unstack both subcircuits with the wrong seed. (w1 is wrong for c1, since c1 is encrypted with w0)
         // The unstacked garbage circuits are then evaluated on the fixed garbage input.
