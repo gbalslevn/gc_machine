@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::collections::{HashMap, VecDeque};
 
 use crate::circuit_builder::{Build, BuildType, StackBuild, SubcircuitBuild, WireId};
-use crate::crypto_utils::{gc_kdf, gc_kdf_128};
+use crate::crypto_utils::{self, gc_kdf, gc_kdf_128};
 use crate::evaluator::evaluator::{Evaluator};
 use crate::gates::half_gates_gate_gen::HalfGatesGateGen;
 use crate::{circuit_builder::CircuitBuild,gates::gate_gen::GateGen,ot::eg_elliptic::{self, CipherText},wires::wire_gen::{Wire, WireGen},
@@ -145,19 +145,17 @@ impl<G: GateGen> Garbler<G> {
         let mut evaluator = HalfGatesEvaluator::new();
         let seed = known_wires.get(&stack_build.conditional.wire_id()).unwrap().clone();
         let (c0_input_wires, m0, c0_output_wires ) = self.generate_subcircuit(seed.w1(), &stack_build.c0); // use seed w1 to encrypt m0 such that evaluator will evaluate m0 with w0. From semantics of the stacked garbling paper
-        let (c0_garbage_input_wires, _,_ ) = self.generate_subcircuit(seed.w0(), &stack_build.c0);
         let (c1_input_wires, m1,c1_output_wires ) = self.generate_subcircuit(seed.w0(), &stack_build.c1);
-        let (c1_garbage_input_wires, _,_ ) = self.generate_subcircuit(seed.w1(), &stack_build.c1);
         let m_cond = self.stack_material(&m0, &m1, &seed);
         
-        // The demuxes are truth tables that, given a conditional wire and an input wire, outputs the input wire to the branch taken and a fixed garbage input to the branch not taken.
-        // To reduce number of entries in demux we choose a specific label from each garbage wire that are used as garbage. We choose w0 but could have used w1 aswell.
+        // The demuxes are truth tables that, given a conditional wire and an input wire, outputs the input wire to the branch taken and a freshly generated garbage input label to the branch not taken.
+        // To reduce number of entries in demux we only generate a fresh garbage wire label and not a garbage wire. Garbage is garbage so it does not matter. 
         let mut demuxes = vec![];
         let mut c0_garbage_input_labels = vec![];
-        let mut c1_garbage_input_labels = vec![];
+        let mut c1_garbage_input_labels = vec![];        
         for i in 0..input_wires.len() {
-            let c0_garbage_input_label = c0_garbage_input_wires[i].w0().clone();
-            let c1_garbage_input_label = c1_garbage_input_wires[i].w0().clone();
+            let c0_garbage_input_label = crypto_utils::generate_label(&mut self.gate_gen.get_wire_gen().get_rng().clone());
+            let c1_garbage_input_label = crypto_utils::generate_label(&mut self.gate_gen.get_wire_gen().get_rng().clone());
             c0_garbage_input_labels.push(c0_garbage_input_label.clone());
             c1_garbage_input_labels.push(c1_garbage_input_label.clone());
             let demux = self.generate_demux(&input_wires[i], &seed, &c0_input_wires[i], &c1_input_wires[i], &c0_garbage_input_label, &c1_garbage_input_label);
@@ -180,18 +178,18 @@ impl<G: GateGen> Garbler<G> {
     }
 
     pub fn generate_subcircuit(&mut self, seed: &BigUint, subcircuit_build: &SubcircuitBuild) -> (Vec<Wire>, Vec<Vec<BigUint>>, Vec<Wire>) {
-        let mut gate_gen = HalfGatesGateGen::new_with_seed(seed);  
+        // A garbler with the randomness from the seed creates material
+        let mut subcircuit_garbler = Garbler::new(HalfGatesGateGen::new_with_seed(seed));
         let mut known_wires = HashMap::new();
         
         // generate all input wires for the subcircuit with the set seed
         let mut input_wires = vec![];
         for input_wire in &subcircuit_build.input_wires {
-            let wire = gate_gen.get_wire_gen().generate_input_wire();
+            let wire = subcircuit_garbler.gate_gen.get_wire_gen().generate_input_wire();
             input_wires.push(wire.clone());
             known_wires.insert(input_wire.wire_id().clone(), wire);
         }  
         // A garbler with the randomness from the seed creates material
-        let mut subcircuit_garbler = Garbler::new(gate_gen);
         let material = garble_builds(&subcircuit_build.builds, &mut known_wires, &mut subcircuit_garbler);
 
         // We retreive the output wires
