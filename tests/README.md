@@ -7,3 +7,5 @@ Run ```cargo test``` to test
 # Code coverage
 Use tarpaulin to get code coverage of unit tests:
 ```cargo tarpaulin --exclude-files "tests/*" --out html```
+
+Install AWS CLI https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html

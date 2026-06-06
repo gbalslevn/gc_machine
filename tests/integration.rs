@@ -22,7 +22,7 @@ use gc_machine::websocket::Response;
 use gc_machine::gates::gate_gen::{GateType, GateGen};
 use gc_machine::gates::original_gate_gen::OriginalGateGen;
 use gc_machine::wires::original_wire_gen::OriginalWireGen;
-use gc_machine::{crypto_utils, evaluator};
+use gc_machine::{crypto_utils};
 use num_bigint::{BigUint, ToBigUint};
 use gc_machine::wires::wire_gen::WireGen;
 
@@ -86,13 +86,48 @@ async fn can_eval_circuit_over_socket() {
     let cb = builder.get_circuit_build();
     
     // They both prepare to start the protocol
-    garbler_peer.setup_circuit_context(garbler_input, cb.clone(), required_bits).await;
-    evaluator_peer.setup_circuit_context(evaluator_input, cb, required_bits).await;
+    garbler_peer.setup_circuit_context(&garbler_input, &cb.clone(), &required_bits).await;
+    evaluator_peer.setup_circuit_context(&evaluator_input, &cb, &required_bits).await;
 
-    let response = garbler_peer.execute_protocol(evaluator_peer.get_peer_id()).await.expect("Execute protocol failed");
+    let response = garbler_peer.execute_protocol().await.expect("Execute protocol failed");
     if let Response::GCResult(result) = response {
         assert_eq!(result, 1);
     }
+}
+
+
+#[circuit_fn]
+fn produce_build(garbler_input: usize, evaluator_input: usize) -> usize {
+    garbler_input + evaluator_input
+}
+
+// Test connecting with aws ec2
+#[tokio::test]
+async fn can_eval_circuit_remote() {
+    let eval_ip = "/ip4/3.250.217.163/tcp/7000";
+
+    let gate_gen = HalfGatesGateGen::new();
+    let evaluator = HalfGatesEvaluator::new();
+    let garbler_peer = get_peer(gate_gen, evaluator, false).await;
+    
+    garbler_peer.connect(eval_ip.parse().unwrap()).await
+        .expect("Could not connect to remote evaluator");
+    tokio::time::sleep(Duration::from_secs(1)).await; // Wait for it to connect
+
+
+    let cb = circuit!(produce_build);
+    let input = 7;
+    garbler_peer.setup_circuit_context(&input.to_biguint().unwrap(), &cb, &cb.required_input_bits).await;
+
+    let response = garbler_peer.execute_protocol().await.expect("Execute protocol failed");
+    if let Response::GCResult(result) = response {
+        assert_eq!(result, 7+input);
+    }
+
+    // ssh -i ~/Desktop/ec2_mac.pem ec2-user@ec2-3-250-217-163.eu-west-1.compute.amazonaws.com
+    // # On EC2:
+    // chmod +x evaluator_server
+    // ./evaluator_server
 }
 
 #[test]
@@ -412,7 +447,7 @@ fn can_add_numbers_of_unequal_bitlength() {
 #[test]
 fn conditional_bench_test() {
     let gates_in_each_subcircuit = 10000;
-    let input_length = 1250;
+    let input_length = 2500;
     let stacked = false;
 
     let mut circuit_builder = CircuitBuilder::new();
@@ -476,7 +511,7 @@ fn conditional_bench_test() {
         // count all entries
         let mut entries = 0;
         for material in circuit.material {
-            for entry in material {
+            for _ in material {
                 entries += 1;
             }
         }
@@ -486,7 +521,7 @@ fn conditional_bench_test() {
         assert_eq!(cb.builds.len(), total_gates * 2); // Half AND half XOR
         let mut entries = 0;
         for material in circuit.material {
-            for entry in material {
+            for _ in material {
                 entries += 1;
             }
         }

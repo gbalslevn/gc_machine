@@ -32,17 +32,17 @@ async fn panics_if_context_not_setup() {
     let cb = builder.get_circuit_build();
 
     // Before execution, circuit context should be empty
-    let response = peer_a.execute_protocol(peer_b.get_peer_id()).await;
+    let response = peer_a.execute_protocol().await;
     let error = response.expect_err("Expected protocol to fail, but it succeded");
     assert!(error.to_string().contains("Circuit context not set"));
     
-    peer_a.setup_circuit_context(garbler_input, cb.clone(), required_bits).await;
-    peer_b.setup_circuit_context(evaluator_input, cb, required_bits).await;
+    peer_a.setup_circuit_context(&garbler_input, &cb.clone(), &required_bits).await;
+    peer_b.setup_circuit_context(&evaluator_input, &cb, &required_bits).await;
     
-    let _result = peer_a.execute_protocol(peer_b.get_peer_id()).await;
+    let _result = peer_a.execute_protocol().await;
     
     // After execution, circuit context should be empty
-    let response = peer_a.execute_protocol(peer_b.get_peer_id()).await;
+    let response = peer_a.execute_protocol().await;
     let error = response.expect_err("Expected protocol to fail, but it succeded");
     assert!(error.to_string().contains("Circuit context not set"));
 }

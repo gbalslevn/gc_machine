@@ -41,8 +41,8 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
     }
 
     // Sets the circuit context, which input the peer wants to provide and what the circuitbuild it wants to evaluate, which is neccesary before each protocol execution. 
-    pub async fn setup_circuit_context(&self, input : BigUint, build : CircuitBuild, required_bits : u64) {
-        let context = CircuitContext { input, build, required_bits, evaluator_keys : vec![] };
+    pub async fn setup_circuit_context(&self, input : &BigUint, build : &CircuitBuild, required_bits : &u64) {
+        let context = CircuitContext { input: input.clone(), build: build.clone(), required_bits: required_bits.clone(), evaluator_keys : vec![] };
         let mut current_context = self.context.lock().await;
         *current_context = Some(context);
     } 
@@ -52,9 +52,10 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
     }
 
     // Garbler executes protocol
-    pub async fn execute_protocol(&self, peer: PeerId) -> Result<Response, Box<dyn Error>> {
+    pub async fn execute_protocol(&self) -> Result<Response, Box<dyn Error>> {
+        let eval_id = self.socket.get_connected_peer_id().await;
         // Get evuluators input
-        let response = self.socket.send_query(peer, websocket::Query::ExecuteProtocol).await.expect("Error with query");
+        let response = self.socket.send_query(eval_id, websocket::Query::ExecuteProtocol).await.expect("Error with query");
         if let Response::EvalInput(eval_input) = response {
             let circuit_preperation = self.get_circuit_context().await;
             let mut garbler = self.garbler.lock().await;
@@ -62,7 +63,7 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
             let circuit = garbler.create_circuit(&circuit_preperation.build, &garbler_input, &eval_input);
 
             // Get evaluator to evaluate circuit 
-            let response = self.socket.send_query(peer, websocket::Query::EvaluateGC(circuit)).await;
+            let response = self.socket.send_query(eval_id, websocket::Query::EvaluateGC(circuit)).await;
             response
         } else {
             Err(format!("Protocol Violation: Expected EvalInput, got {:?}", response).into())
@@ -90,6 +91,10 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
 
     pub fn get_address(&self) -> Multiaddr {
         self.socket.get_address()
+    }
+
+    pub async fn get_connected_peer_id(&self) -> PeerId {
+        self.socket.get_connected_peer_id().await
     }
 
     pub async fn start_logging(&self) -> Result<(), Box<dyn Error>> {

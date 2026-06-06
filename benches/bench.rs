@@ -295,31 +295,31 @@ fn half_gates_only_xor_function(c: &mut Criterion) {
 
 // Finds the sweetspot between naive and stacked
 fn bench_equal_naive_conditional(c: &mut Criterion) {
-    let naive_circuit = get_conditional_test_circuit(false, 1250, 10000);
+    let naive_circuit = get_conditional_test_circuit(false, 250, 1000);
     bench_optimisation_function(c, "naive_conditional - equal", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), naive_circuit);
 }
 fn bench_equal_stacked_conditional(c: &mut Criterion) {
-    let stacked_circuit = get_conditional_test_circuit(true, 1250, 10000);
+    let stacked_circuit = get_conditional_test_circuit(true, 250, 1000);
     bench_optimisation_function(c, "stacked_conditional - equal", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), stacked_circuit);
 }
 
 // Show naive winning
 fn bench_winning_naive_conditional(c: &mut Criterion) {
-    let naive_circuit = get_conditional_test_circuit(false, 20000, 10000);
+    let naive_circuit = get_conditional_test_circuit(false, 2000, 1000);
     bench_optimisation_function(c, "naive_conditional - winning", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), naive_circuit);
 }
 fn bench_loosing_stacked_conditional(c: &mut Criterion) {
-    let stacked_circuit = get_conditional_test_circuit(true, 20000, 10000);
+    let stacked_circuit = get_conditional_test_circuit(true, 4000, 1000);
     bench_optimisation_function(c, "stacked_conditional - loosing", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), stacked_circuit);
 }
 
 // Show stacked winning
 fn bench_loosing_naive_conditional(c: &mut Criterion) {
-    let naive_circuit = get_conditional_test_circuit(false, 2, 10000);
+    let naive_circuit = get_conditional_test_circuit(false, 2, 1000);
     bench_optimisation_function(c, "naive_conditional - loosing", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), naive_circuit);
 }
 fn bench_winning_stacked_conditional(c: &mut Criterion) {
-    let stacked_circuit = get_conditional_test_circuit(true, 2, 10000);
+    let stacked_circuit = get_conditional_test_circuit(true, 2, 1000);
     bench_optimisation_function(c, "stacked_conditional - winning", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), stacked_circuit);
 }
 
@@ -452,7 +452,7 @@ fn get_test_circuit(build_xor : bool, build_and: bool) -> CircuitBuild {
 
 fn get_conditional_test_circuit(stacked : bool, input_length : usize, gates_in_each_subcircuit : usize) -> CircuitBuild {
     let total_gates = gates_in_each_subcircuit * 2;
-    if input_length > total_gates * 2 {
+    if input_length > total_gates * 2 { 
         panic!("The input length is not possible if each gate in the circuit has exactly two inputs. Only possible if input is a variable, which this function cannot create.")
     }
     let mut circuit_builder = CircuitBuilder::new();
@@ -532,8 +532,9 @@ criterion_group!(
 );
 criterion_group!(
     name = conditional_bench_test;
-    config = Criterion::default().measurement_time(Duration::from_secs(10));
+    config = Criterion::default().measurement_time(Duration::from_secs(60));
     targets = bench_loosing_naive_conditional, bench_winning_stacked_conditional
 );
-criterion_main!(function_bench, function_and_bench, function_xor_bench, conditional_bench);
+// criterion_main!(function_bench, function_and_bench, function_xor_bench, conditional_bench);
+criterion_main!(conditional_bench);
 
