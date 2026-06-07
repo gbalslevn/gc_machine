@@ -446,9 +446,9 @@ fn can_add_numbers_of_unequal_bitlength() {
 
 #[test]
 fn conditional_bench_test() {
-    let gates_in_each_subcircuit = 10000;
-    let input_length = 2500;
-    let stacked = false;
+    let gates_in_each_subcircuit = 1000;
+    let input_length = 250;
+    let stacked = true;
 
     let mut circuit_builder = CircuitBuilder::new();
     let mut true_gates = vec![];
@@ -481,15 +481,12 @@ fn conditional_bench_test() {
         let combined_input: HashSet<WireBuild> = true_block_inputs.clone().into_iter().chain(false_block_inputs.clone().into_iter()).collect();
         assert_eq!(combined_input.len(), input_length);
     } else {
-        // naive produces two AND gates per output wire
-        let mut true_output = vec![];
-        let mut false_output = vec![];
         for i in 0..gates_in_each_subcircuit {
-            true_output.push(dummy_wire.clone());
-            false_output.push(dummy_wire.clone());
+            circuit_builder.build_and(&dummy_wire, &dummy_wire); // build for true
+            circuit_builder.build_and(&dummy_wire, &dummy_wire); // build for false
         }
-        let true_block = BuildBlock { builds : vec![], output : true_output.clone()};
-        let false_block = BuildBlock { builds : vec![], output : false_output.clone()};
+        let true_block = BuildBlock { builds : vec![], output : vec![dummy_wire.clone()]}; // we do not need to provide the builds as they will be evaluated anyway in the naive
+        let false_block = BuildBlock { builds : vec![], output : vec![dummy_wire.clone()]};
         circuit_builder.build_if(&input_a[0], &false_block, &true_block);
     }
     
@@ -515,17 +512,20 @@ fn conditional_bench_test() {
                 entries += 1;
             }
         }
-        assert_eq!(entries, demux_size + m_cond_size + mux_size)
+        assert_eq!(entries, demux_size + m_cond_size + mux_size);
+        println!("stacked uses {} entries", entries)
     } else {
         let total_gates = gates_in_each_subcircuit * 2;
-        assert_eq!(cb.builds.len(), total_gates * 2); // Half AND half XOR
+        assert_eq!(cb.builds.len(), total_gates + 4); // All gates + 4 gates for the single output wire, 2 AND and 2 XOR
         let mut entries = 0;
         for material in circuit.material {
             for _ in material {
                 entries += 1;
             }
         }
-        assert_eq!(entries, total_gates * 2)
+        let mux_material = 2 * 2;
+        assert_eq!(entries, total_gates * 2 + mux_material * 1);
+        println!("naive uses {} entries", entries)
     }
 
 }

@@ -309,7 +309,7 @@ fn bench_winning_naive_conditional(c: &mut Criterion) {
     bench_optimisation_function(c, "naive_conditional - winning", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), naive_circuit);
 }
 fn bench_loosing_stacked_conditional(c: &mut Criterion) {
-    let stacked_circuit = get_conditional_test_circuit(true, 4000, 1000);
+    let stacked_circuit = get_conditional_test_circuit(true, 2000, 1000);
     bench_optimisation_function(c, "stacked_conditional - loosing", Garbler::new(HalfGatesGateGen::new()), HalfGatesEvaluator::new(), stacked_circuit);
 }
 
@@ -487,14 +487,12 @@ fn get_conditional_test_circuit(stacked : bool, input_length : usize, gates_in_e
         assert_eq!(combined_input.len(), input_length);
     } else {
         // naive produces two AND gates per output wire pair
-        let mut true_output = vec![];
-        let mut false_output = vec![];
         for i in 0..gates_in_each_subcircuit {
-            true_output.push(dummy_wire.clone());
-            false_output.push(dummy_wire.clone());
+            circuit_builder.build_and(&dummy_wire, &dummy_wire); // build for true
+            circuit_builder.build_and(&dummy_wire, &dummy_wire); // build for false
         }
-        let true_block = BuildBlock { builds : vec![], output : true_output.clone()};
-        let false_block = BuildBlock { builds : vec![], output : false_output.clone()};
+        let true_block = BuildBlock { builds : vec![], output : vec![dummy_wire.clone()]}; // we do not need to provide the builds as they will be evaluated anyway in the naive
+        let false_block = BuildBlock { builds : vec![], output : vec![dummy_wire.clone()]};
         circuit_builder.build_if(&input_a[0], &false_block, &true_block);
     }
     circuit_builder.get_circuit_build()
