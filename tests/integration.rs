@@ -103,6 +103,7 @@ fn produce_build(garbler_input: usize, evaluator_input: usize) -> usize {
 
 // Test connecting with aws ec2
 #[tokio::test]
+#[ignore]
 async fn can_eval_circuit_remote() {
     let eval_ip = "/ip4/3.250.217.163/tcp/7000";
 
@@ -623,7 +624,7 @@ async fn get_peer<G, E>(gate_gen : G, evaluator : E, with_logging : bool) -> Arc
     G: GateGen + Send + Sync + 'static,
     E: Evaluator + Send + Sync + 'static, {
     let garbler = Garbler::new(gate_gen);
-    let peer = Peer::new(garbler, evaluator).await;
+    let peer = Peer::new_in_dev(garbler, evaluator).await;
     if with_logging {
         let _ = peer.start_logging().await;
     }

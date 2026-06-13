@@ -85,6 +85,14 @@ impl SocketClient {
 }
 
 pub async fn run() -> Result<SocketClient, Box<dyn Error>> {
+    run_socket(false).await
+}
+
+pub async fn run_in_dev() -> Result<SocketClient, Box<dyn Error>> {
+    run_socket(true).await
+}
+
+async fn run_socket(devmode: bool) -> Result<SocketClient, Box<dyn Error>> {
     let mut swarm = create_swarm()?;
     let peer_id = *swarm.local_peer_id();
     let control = swarm.behaviour().new_control();
@@ -94,7 +102,12 @@ pub async fn run() -> Result<SocketClient, Box<dyn Error>> {
     let (cmd_sender, mut cmd_receiver) = tokio::sync::mpsc::channel::<SwarmCmd>(8); // To send commands to the swarm like dial
     
     // Listen for connections, move into background
-    let address = "/ip4/0.0.0.0/tcp/7021";
+    let address;
+    if devmode {
+        address = "/ip4/127.0.0.1/tcp/0";
+    } else {
+        address = "/ip4/0.0.0.0/tcp/7021";
+    }
     swarm.listen_on(address.parse()?)?;
     tokio::spawn(async move {
         loop {

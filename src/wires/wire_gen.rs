@@ -12,6 +12,7 @@ pub trait WireGen {
     fn get_seed(&self) -> [u8; 32];
     fn new_rng(&mut self);
     fn set_rng(&mut self, seed: &BigUint);
+    fn refresh(&mut self);
 }
 
 #[derive(Debug, Clone, PartialEq)]

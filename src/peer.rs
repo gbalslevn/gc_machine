@@ -31,7 +31,20 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
     E: Evaluator + Send + Sync + 'static, {
 
     pub async fn new(garbler : Garbler<G>, evaluator : E) -> Arc<Self> {
-        let socket = websocket::run().await.expect("Failed to start socket");
+        Self::start_peer(garbler, evaluator, false).await
+    }
+
+    pub async fn new_in_dev(garbler : Garbler<G>, evaluator : E) -> Arc<Self> {
+        Self::start_peer(garbler, evaluator, true).await
+    }
+
+    async fn start_peer(garbler : Garbler<G>, evaluator : E, devmode: bool) -> Arc<Self> {
+        let socket;
+        if devmode {
+            socket = websocket::run_in_dev().await.expect("Failed to start socket");
+        } else {
+            socket = websocket::run().await.expect("Failed to start socket");
+        }
         
         let peer = Arc::new(Peer { garbler : garbler.into(), evaluator : evaluator.into(), socket, context : None.into() });
         // need to spawn a copy of the peer with Arc which handles ownership and enables to call self inside a new thread

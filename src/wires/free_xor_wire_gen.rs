@@ -52,6 +52,10 @@ impl WireGen for FreeXORWireGen {
     fn new_rng(&mut self) {
         self.rng = crypto_utils::gen_rng()
     }
+    fn refresh(&mut self) {
+        self.new_rng();
+        self.delta = generate_label_lsb(&mut self.rng, true);
+    }
     fn set_rng(&mut self, seed: &BigUint) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
 }
 

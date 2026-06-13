@@ -112,8 +112,9 @@ impl<G: GateGen> Garbler<G> {
             &mut evaluators_input_choices.clone(),
         );
         
-        self.gate_gen.get_wire_gen().new_rng(); // Ensure each circuit creation uses new rng
+        self.gate_gen.get_wire_gen().refresh(); // Ensure each circuit creation uses new rng
         let material = garble_builds(builds, &mut known_wires, self); 
+
         
         for output_wire in &circuit_build.output_wires {
             let wire = known_wires.get(output_wire.wire_id()).unwrap();
