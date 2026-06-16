@@ -1,5 +1,5 @@
 # GC_Machine
-A Garbled Circuit (GC) framework implementing several optimizations of the protocol originally proposed by Andrew Yao in 1986 ([Yao, 1986](https://doi.org/10.1109/SFCS.1986.25)). It enables two parties to jointly compute a function over their private inputs while revealing only the output.
+A Garbled Circuit (GC) implementing as a part of our masters thesis in Computer Science at Aarhus University. It implements several optimisations of the protocol originally proposed by Andrew Yao in 1986 ([Yao, 1986](https://doi.org/10.1109/SFCS.1986.25)), enabling two parties to jointly compute a function over their private inputs while revealing only the output.
 
 The following GC optimisations are implemented: 
 * [Point-and-Permute](https://doi.org/10.1145/100216.100287)
