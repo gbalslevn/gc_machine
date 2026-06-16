@@ -35,6 +35,9 @@ impl WireGen for PointAndPermuteWireGen {
     fn new_rng(&mut self) {
         self.rng = crypto_utils::gen_rng()
     }
+    fn refresh(&mut self) {
+        self.new_rng();
+    }
     fn set_rng(&mut self, seed: &BigUint) { self.rng = crypto_utils::gen_rng_with_seed(seed); }
 }
 

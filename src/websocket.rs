@@ -9,6 +9,7 @@ use crate::{garbler::Circuit};
 
 pub enum SwarmCmd {
     Dial(Multiaddr),
+    GetConnectedPeerId(tokio::sync::oneshot::Sender<PeerId>),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -75,9 +76,23 @@ impl SocketClient {
     pub fn get_peer_id(&self) -> PeerId {
         self.peer_id
     }
+
+    pub async fn get_connected_peer_id(&self) -> PeerId {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.swarm_control.send(SwarmCmd::GetConnectedPeerId(tx)).await.unwrap();
+        rx.await.unwrap()
+    }
 }
 
 pub async fn run() -> Result<SocketClient, Box<dyn Error>> {
+    run_socket(false).await
+}
+
+pub async fn run_in_dev() -> Result<SocketClient, Box<dyn Error>> {
+    run_socket(true).await
+}
+
+async fn run_socket(devmode: bool) -> Result<SocketClient, Box<dyn Error>> {
     let mut swarm = create_swarm()?;
     let peer_id = *swarm.local_peer_id();
     let control = swarm.behaviour().new_control();
@@ -87,18 +102,28 @@ pub async fn run() -> Result<SocketClient, Box<dyn Error>> {
     let (cmd_sender, mut cmd_receiver) = tokio::sync::mpsc::channel::<SwarmCmd>(8); // To send commands to the swarm like dial
     
     // Listen for connections, move into background
-    let address = "/ip4/0.0.0.0/tcp/0";
+    let address;
+    if devmode {
+        address = "/ip4/127.0.0.1/tcp/0";
+    } else {
+        address = "/ip4/0.0.0.0/tcp/7021";
+    }
     swarm.listen_on(address.parse()?)?;
     tokio::spawn(async move {
         loop {
             tokio::select! {
                 // Listen for commands from the PeerClient
-                Some(cmd) = cmd_receiver.recv() => {
+                Some(cmd) = cmd_receiver.recv() => {    
                     match cmd {
                         SwarmCmd::Dial(addr) => {
                             if let Err(e) = swarm.dial(addr) {
                                 tracing::error!("Dial failed: {:?}", e);
                             }
+                        }
+                        SwarmCmd::GetConnectedPeerId(reply) => {
+                            let peers : Vec<_> = swarm.connected_peers().cloned().collect();
+                            let remote_peer_id = peers[0];
+                            let _ = reply.send(remote_peer_id);
                         }
                     }
                 }

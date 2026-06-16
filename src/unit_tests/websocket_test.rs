@@ -9,9 +9,9 @@ async fn can_send_and_receive_hello_query() {
     let gate_gen = OriginalGateGen::new();
     let garbler = Garbler::new(gate_gen);
     let evaluator = OriginalEvaluator::new();
-    let client_a = Peer::new(garbler, evaluator).await;
+    let client_a = Peer::new_in_dev(garbler, evaluator).await;
 
-    let client_b = websocket::run().await.expect("Could not start client_b");
+    let client_b = websocket::run_in_dev().await.expect("Could not start client_b");
     client_b.dial(client_a.get_address()).await.expect("Dialing failed");
     tokio::time::sleep(Duration::from_millis(200)).await;
     

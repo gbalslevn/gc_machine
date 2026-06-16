@@ -85,13 +85,50 @@ async fn can_eval_circuit_over_socket() {
     let cb = builder.get_circuit_build();
     
     // They both prepare to start the protocol
-    garbler_peer.setup_circuit_context(garbler_input, cb.clone(), required_bits).await;
-    evaluator_peer.setup_circuit_context(evaluator_input, cb, required_bits).await;
+    garbler_peer.setup_circuit_context(&garbler_input, &cb.clone(), &required_bits).await;
+    evaluator_peer.setup_circuit_context(&evaluator_input, &cb, &required_bits).await;
 
-    let response = garbler_peer.execute_protocol(evaluator_peer.get_peer_id()).await.expect("Execute protocol failed");
+    let response = garbler_peer.execute_protocol().await.expect("Execute protocol failed");
     if let Response::GCResult(result) = response {
         assert_eq!(result, 1);
     }
+}
+
+
+#[circuit_fn]
+fn produce_build(garbler_input: usize, evaluator_input: usize) -> usize {
+    garbler_input + evaluator_input
+}
+
+// Test connecting with aws ec2. 
+// Requires a running instance on AWS. 
+#[tokio::test]
+#[ignore]
+async fn can_eval_circuit_remote() {
+    let eval_ip = "/ip4/3.250.217.163/tcp/7000";
+
+    let gate_gen = HalfGatesGateGen::new();
+    let evaluator = HalfGatesEvaluator::new();
+    let garbler_peer = get_peer(gate_gen, evaluator, false).await;
+    
+    garbler_peer.connect(eval_ip.parse().unwrap()).await
+        .expect("Could not connect to remote evaluator");
+    tokio::time::sleep(Duration::from_secs(1)).await; // Wait for it to connect
+
+
+    let cb = circuit!(produce_build);
+    let input = 7;
+    garbler_peer.setup_circuit_context(&input.to_biguint().unwrap(), &cb, &cb.required_input_bits).await;
+
+    let response = garbler_peer.execute_protocol().await.expect("Execute protocol failed");
+    if let Response::GCResult(result) = response {
+        assert_eq!(result, 7+input);
+    }
+
+    // ssh -i ~/Desktop/ec2_mac.pem ec2-user@ec2-3-250-217-163.eu-west-1.compute.amazonaws.com
+    // # On EC2:
+    // chmod +x evaluator_server
+    // ./evaluator_server
 }
 
 #[test]
@@ -160,7 +197,7 @@ fn can_evaulate_naive_if_circuit() {
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect true to return as a = b
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
     assert_eq!(result, a+b);
     
     // **** Evaluate for false case ****
@@ -171,7 +208,7 @@ fn can_evaulate_naive_if_circuit() {
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect false to return as c != d
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
     assert_eq!(result, c*d) 
 }
 
@@ -200,7 +237,7 @@ fn can_evaluate_stacked_if_circuit() {
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect true to return as a = b
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
     assert_eq!(result, true as u32);
     
     // **** Evaluate for false case ****
@@ -211,7 +248,7 @@ fn can_evaluate_stacked_if_circuit() {
     // Garbler create circuit
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
     // Evaluator evaluates circuit. We expect false to return as c != d
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
     assert_eq!(result, false as u32) 
 }
 
@@ -239,7 +276,7 @@ fn can_evaluate_stacked_if_with_adder_and_mul_circuit() {
     let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
     assert_eq!(result.to_biguint().unwrap(), a*b);
     
     // **** Evaluate for false case ****
@@ -248,7 +285,7 @@ fn can_evaluate_stacked_if_with_adder_and_mul_circuit() {
     let garbler_input_choices = garbler.create_circuit_input(&c, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&d, required_bits);
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
     assert_eq!(result.to_biguint().unwrap(), c+d) 
 }
 
@@ -275,7 +312,7 @@ fn can_evaluate_nested_stacked_if() {
     let garbler_input_choices = garbler.create_circuit_input(&a, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&b, required_bits);
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
     assert_eq!(result.to_biguint().unwrap(), a+b); 
     
     // **** Evaluate for false case ****
@@ -284,7 +321,7 @@ fn can_evaluate_nested_stacked_if() {
     let garbler_input_choices = garbler.create_circuit_input(&c, required_bits);
     let (evaluator_input_choices, evaluator_decrypt_values) = evaluator.create_circuit_input(&d, required_bits);
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
     assert_eq!(result.to_biguint().unwrap(), c.clone()+d) 
 }
 
@@ -307,7 +344,7 @@ fn can_evaluate_variables() {
     let (evaluator_input, secret_keys) = evaluator.create_circuit_input(&0.to_biguint().unwrap(), 1);
 
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input, &evaluator_input);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &secret_keys);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &secret_keys);
 
     assert_eq!(result, a+b);
 }
@@ -338,7 +375,7 @@ fn evaluate_adder() {
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
 
     // Evaluate circuit
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
 
     assert_eq!(result, 45801);
 }
@@ -369,7 +406,7 @@ fn evaluate_multiplier() {
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
 
     // Evaluate circuit
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
 
     assert_eq!(result, 1522756);
 
@@ -403,7 +440,7 @@ fn can_add_numbers_of_unequal_bitlength() {
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
 
     // Evaluate circuit
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
 
     assert_eq!(result.to_biguint().unwrap(), two_bit_number);
 }
@@ -416,14 +453,15 @@ fn can_evaluate_fn_circuit() {
     let mut evaluator = HalfGatesEvaluator::new();
     let function_variable = 2; 
     
-    // First if true, second if true 
+    // First if true, second if true
     let a = function_variable;
     let garblers_input = garbler.create_circuit_input(&a.to_biguint().unwrap(), circuit_build.required_input_bits);
     let b = function_variable;
     let (evaluators_input, secret_keys) = evaluator.create_circuit_input(&b.to_biguint().unwrap(), circuit_build.required_input_bits);
 
     let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &secret_keys);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &secret_keys);
+    assert_eq!(result, function_variable);
 
     // First if true, second if false
     let a = 10;
@@ -433,18 +471,28 @@ fn can_evaluate_fn_circuit() {
     assert_eq!(result, function_variable);
 
     let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &secret_keys);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &secret_keys);
     assert_eq!(result, a*b+function_variable);
 
-    // First if false
+    // First if false, second if true
+    let a = function_variable;
+    let garblers_input = garbler.create_circuit_input(&a.to_biguint().unwrap(), circuit_build.required_input_bits);
+    let b = 203;
+    let (evaluators_input, secret_keys) = evaluator.create_circuit_input(&b.to_biguint().unwrap(), circuit_build.required_input_bits);
+
+    let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &secret_keys);
+    assert_eq!(result, function_variable + b);
+
+    // First if false, second if false
     let a = 35;
     let garblers_input = garbler.create_circuit_input(&a.to_biguint().unwrap(), circuit_build.required_input_bits);
     let b = 203;
     let (evaluators_input, secret_keys) = evaluator.create_circuit_input(&b.to_biguint().unwrap(), circuit_build.required_input_bits);
 
     let circuit = garbler.create_circuit(&circuit_build, &garblers_input, &evaluators_input);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &secret_keys);
-    assert_eq!(result, a+b);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &secret_keys);
+    assert_eq!(result, a+b*function_variable);
 }
 
 #[circuit_fn(input_bits=10)]
@@ -457,7 +505,11 @@ fn produce_function_with_macro(garbler_input : usize, evaluator_intput : usize) 
             garbler_input * evaluator_intput + number
         }
     } else {
-        garbler_input + evaluator_intput
+        if garbler_input == number {
+            number + evaluator_intput
+        } else {
+            garbler_input + evaluator_intput * number
+        }
     }
 }
 
@@ -477,7 +529,7 @@ fn evaluate_is_equal<G, E>(a : BigUint, b : BigUint, expected_result : bool, gar
 
     // Garbler garbles and evaluator evaluates
     let circuit = garbler.create_circuit(&circuit_build, &garbler_input_choices, &evaluator_input_choices);
-    let result = evaluator.evaluate_circuit(&circuit_build, circuit, &evaluator_decrypt_values);
+    let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
 
     assert_eq!(result, expected_result as u32);
 }
@@ -486,7 +538,7 @@ async fn get_peer<G, E>(gate_gen : G, evaluator : E, with_logging : bool) -> Arc
     G: GateGen + Send + Sync + 'static,
     E: Evaluator + Send + Sync + 'static, {
     let garbler = Garbler::new(gate_gen);
-    let peer = Peer::new(garbler, evaluator).await;
+    let peer = Peer::new_in_dev(garbler, evaluator).await;
     if with_logging {
         let _ = peer.start_logging().await;
     }

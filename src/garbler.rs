@@ -98,6 +98,7 @@ impl<G: GateGen> Garbler<G> {
         if garblers_input_choices.len() > circuit_build.required_input_bits as usize {
             panic!("Garblers input cannot be greater than what is set in the circuitbuild")
         }
+        self.gate_gen.get_wire_gen().refresh(); // Ensure each circuit creation uses new rng
         let mut known_wires: HashMap<WireId, Wire> = HashMap::new();
         let mut output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
         let builds = circuit_build.get_builds();
@@ -112,8 +113,8 @@ impl<G: GateGen> Garbler<G> {
             &mut evaluators_input_choices.clone(),
         );
         
-        self.gate_gen.get_wire_gen().new_rng(); // Ensure each circuit creation uses new rng
         let material = garble_builds(builds, &mut known_wires, self); 
+
         
         for output_wire in &circuit_build.output_wires {
             let wire = known_wires.get(output_wire.wire_id()).unwrap();
@@ -161,7 +162,6 @@ impl<G: GateGen> Garbler<G> {
             let demux = self.generate_demux(&input_wires[i], &seed, &c0_input_wires[i], &c1_input_wires[i], &c0_garbage_input_label, &c1_garbage_input_label);
             demuxes.push(demux);
         }
-
         // To create the mux, we need to know what the garbage output wire labels the evaluator will have for the branch not taken.
         // To get these, we unstack both subcircuits with the wrong seed. (w1 is wrong for c1, since c1 is encrypted with w0)
         // The unstacked garbage circuits are then evaluated on the fixed garbage input.

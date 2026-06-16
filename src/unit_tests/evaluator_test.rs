@@ -226,5 +226,5 @@ fn evaluation_panics_if_unequal_input_length() {
 
     let empty_circuit = Circuit {material : vec![], constant_wires : vec![], garbler_input: HashMap::new(), evaluator_input: HashMap::new(), output_conversion: vec![]};
 
-    evaluator.evaluate_circuit(&cb, empty_circuit, &secret_keys);
+    evaluator.evaluate_circuit(&cb, &empty_circuit, &secret_keys);
 }

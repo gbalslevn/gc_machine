@@ -31,7 +31,20 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
     E: Evaluator + Send + Sync + 'static, {
 
     pub async fn new(garbler : Garbler<G>, evaluator : E) -> Arc<Self> {
-        let socket = websocket::run().await.expect("Failed to start socket");
+        Self::start_peer(garbler, evaluator, false).await
+    }
+
+    pub async fn new_in_dev(garbler : Garbler<G>, evaluator : E) -> Arc<Self> {
+        Self::start_peer(garbler, evaluator, true).await
+    }
+
+    async fn start_peer(garbler : Garbler<G>, evaluator : E, devmode: bool) -> Arc<Self> {
+        let socket;
+        if devmode {
+            socket = websocket::run_in_dev().await.expect("Failed to start socket");
+        } else {
+            socket = websocket::run().await.expect("Failed to start socket");
+        }
         
         let peer = Arc::new(Peer { garbler : garbler.into(), evaluator : evaluator.into(), socket, context : None.into() });
         // need to spawn a copy of the peer with Arc which handles ownership and enables to call self inside a new thread
@@ -41,8 +54,8 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
     }
 
     // Sets the circuit context, which input the peer wants to provide and what the circuitbuild it wants to evaluate, which is neccesary before each protocol execution. 
-    pub async fn setup_circuit_context(&self, input : BigUint, build : CircuitBuild, required_bits : u64) {
-        let context = CircuitContext { input, build, required_bits, evaluator_keys : vec![] };
+    pub async fn setup_circuit_context(&self, input : &BigUint, build : &CircuitBuild, required_bits : &u64) {
+        let context = CircuitContext { input: input.clone(), build: build.clone(), required_bits: required_bits.clone(), evaluator_keys : vec![] };
         let mut current_context = self.context.lock().await;
         *current_context = Some(context);
     } 
@@ -52,9 +65,10 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
     }
 
     // Garbler executes protocol
-    pub async fn execute_protocol(&self, peer: PeerId) -> Result<Response, Box<dyn Error>> {
+    pub async fn execute_protocol(&self) -> Result<Response, Box<dyn Error>> {
+        let eval_id = self.socket.get_connected_peer_id().await;
         // Get evuluators input
-        let response = self.socket.send_query(peer, websocket::Query::ExecuteProtocol).await.expect("Error with query");
+        let response = self.socket.send_query(eval_id, websocket::Query::ExecuteProtocol).await.expect("Error with query");
         if let Response::EvalInput(eval_input) = response {
             let circuit_preperation = self.get_circuit_context().await;
             let mut garbler = self.garbler.lock().await;
@@ -62,7 +76,7 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
             let circuit = garbler.create_circuit(&circuit_preperation.build, &garbler_input, &eval_input);
 
             // Get evaluator to evaluate circuit 
-            let response = self.socket.send_query(peer, websocket::Query::EvaluateGC(circuit)).await;
+            let response = self.socket.send_query(eval_id, websocket::Query::EvaluateGC(circuit)).await;
             response
         } else {
             Err(format!("Protocol Violation: Expected EvalInput, got {:?}", response).into())
@@ -90,6 +104,10 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
 
     pub fn get_address(&self) -> Multiaddr {
         self.socket.get_address()
+    }
+
+    pub async fn get_connected_peer_id(&self) -> PeerId {
+        self.socket.get_connected_peer_id().await
     }
 
     pub async fn start_logging(&self) -> Result<(), Box<dyn Error>> {
@@ -149,7 +167,7 @@ impl <G : GateGen, E : Evaluator> Peer<G, E> where
                 let mut evaluator = self.evaluator.lock().await;
                 let context = self.get_circuit_context().await;
 
-                let result = evaluator.evaluate_circuit(&context.build, circuit, &context.evaluator_keys);
+                let result = evaluator.evaluate_circuit(&context.build, &circuit, &context.evaluator_keys);
                 self.reset_circuit_context().await;
                 Response::GCResult(result)
             }
