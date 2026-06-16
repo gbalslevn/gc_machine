@@ -23,14 +23,6 @@ BRANCH_LABELS = {
     "":          "No branch",   # the bare naive/stacked entries (tiny base case)
 }
 
-# Cross-comparisons: (baseline_opt, baseline_outcome, contender_opt, contender_outcome, label)
-# Each entry asks "how much larger is the contender than the baseline?"
-CROSS_COMPARISONS = [
-    ("naive",    "- winning", "stacked", "- loosing", "naive winning  vs  stacked loosing"),
-    ("stacked",  "- winning", "stacked", "- loosing", "stacked winning  vs  stacked loosing"),
-    ("naive",    "- equal",   "stacked", "- equal",   "naive equal  vs  stacked equal"),
-]
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -263,67 +255,6 @@ def print_metrics(metrics_raw: dict, opts: list):
             row_label_fn=lambda b: BRANCH_LABELS.get(b, b),
         )
 
-    print_cross_comparisons(cond_table)
-
-
-# ── Cross-comparisons ─────────────────────────────────────────────────────────
-
-METRIC_FIELDS = [
-    ("protocol_bytes",         "Protocol Bytes",        format_bytes),
-    ("garble_bytes_allocated", "Garble Memory",         format_bytes),
-    ("eval_bytes_allocated",   "Eval Memory",           format_bytes),
-    ("garble_instructions",    "Garble Instructions",   format_instructions),
-    ("eval_instructions",      "Eval Instructions",     format_instructions),
-]
-
-
-def print_cross_comparisons(cond_table: dict):
-    """
-    For each entry in CROSS_COMPARISONS print an overhead table:
-    each metric row shows the baseline value, the contender value,
-    and the ratio (contender / baseline).
-    """
-    label_w  = 24   # metric label column
-    value_w  = 18   # per-value column
-    ratio_w  = 12   # ratio column
-
-    header_row = (f"{'Metric':<{label_w}}"
-                  f"{'Baseline':>{value_w}}"
-                  f"{'Contender':>{value_w}}"
-                  f"{'Overhead':>{ratio_w}}")
-    divider = "-" * len(header_row)
-
-    print("\n── Cross-comparisons ──")
-
-    for base_opt, base_out, cont_opt, cont_out, title in CROSS_COMPARISONS:
-        base_m = cond_table.get(base_out, {}).get(base_opt)
-        cont_m = cond_table.get(cont_out, {}).get(cont_opt)
-
-        base_label = f"{base_opt} {BRANCH_LABELS.get(base_out, base_out).lower()}"
-        cont_label = f"{cont_opt} {BRANCH_LABELS.get(cont_out, cont_out).lower()}"
-
-        print(f"\n  {title}")
-        print(f"  baseline  : {base_label}")
-        print(f"  contender : {cont_label}")
-        print("  " + header_row)
-        print("  " + divider)
-
-        for field, label, fmt in METRIC_FIELDS:
-            bval = base_m.get(field) if base_m else None
-            cval = cont_m.get(field) if cont_m else None
-
-            bstr = fmt(bval) if bval is not None else "—"
-            cstr = fmt(cval) if cval is not None else "—"
-
-            if bval and cval:
-                ratio   = cval / bval
-                arrow   = "↑" if ratio > 1 else ("↓" if ratio < 1 else "=")
-                rstr    = f"{ratio:.2f}x {arrow}"
-            else:
-                rstr = "—"
-
-            print(f"  {label:<{label_w}}{bstr:>{value_w}}{cstr:>{value_w}}{rstr:>{ratio_w}}")
-
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
@@ -353,7 +284,6 @@ def main():
         }
         display_btypes = [BRANCH_LABELS.get(b, b) for b in cond_btypes]
         print_timing(display_table, display_btypes, cond_opts)
-        print_cross_comparisons(cond_table)
 
     # ── Metrics (if present) ──────────────────────────────────────────────────
     metrics = load_metrics(criterion_dir)

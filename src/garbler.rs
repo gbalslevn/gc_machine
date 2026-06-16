@@ -98,6 +98,7 @@ impl<G: GateGen> Garbler<G> {
         if garblers_input_choices.len() > circuit_build.required_input_bits as usize {
             panic!("Garblers input cannot be greater than what is set in the circuitbuild")
         }
+        self.gate_gen.get_wire_gen().refresh(); // Ensure each circuit creation uses new rng
         let mut known_wires: HashMap<WireId, Wire> = HashMap::new();
         let mut output_conversion: Vec<[(BigUint, u8); 2]> = Vec::new();
         let builds = circuit_build.get_builds();
@@ -112,7 +113,6 @@ impl<G: GateGen> Garbler<G> {
             &mut evaluators_input_choices.clone(),
         );
         
-        self.gate_gen.get_wire_gen().refresh(); // Ensure each circuit creation uses new rng
         let material = garble_builds(builds, &mut known_wires, self); 
 
         

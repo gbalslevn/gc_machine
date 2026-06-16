@@ -25,7 +25,7 @@ use crate::bench_utils::{InsnCounter, get_memory, write_bench_metrics};
 // report available in /target/criterion/report
 
 // python script can construct a comparison report
-// start venv and then run `parse_criterion.py` after `cargo bench`
+// start venv and then run `parse_benchmarks.py` after `cargo bench`
 
 // To compensate for unreliable hardware, each bench is ran for x samples and then the average is taken.
 // Criterion's defaults are:
@@ -461,9 +461,8 @@ fn get_conditional_test_circuit(stacked : bool, input_length : usize, gates_in_e
     let (input_a, input_b) = circuit_builder.set_input_wires(input_length as u64);
     let dummy_wire = input_a[0].clone();
 
-    // Ensure build will have gates_in_each_subcircuit gates
+    // Puts gates_in_each_subcircuit number AND gates for both subcircuits and that the amount of input wires is the same as input_length
     if stacked {
-        // Ensure each subcircuit has gates_in_each_subcircuit AND gates
         for i in 0..gates_in_each_subcircuit {
             let and_gate;
             // ensure gates in each block uses the right amount of unique input wires, then if required, add redudent gates if input_length < gates_in_each_subcircuit
@@ -486,12 +485,12 @@ fn get_conditional_test_circuit(stacked : bool, input_length : usize, gates_in_e
         let combined_input: HashSet<WireBuild> = true_block_inputs.clone().into_iter().chain(false_block_inputs.clone().into_iter()).collect();
         assert_eq!(combined_input.len(), input_length);
     } else {
-        // naive produces two AND gates per output wire pair
-        for i in 0..gates_in_each_subcircuit {
+        // Puts gates_in_each_subcircuit for both true and false branch.  
+        for _ in 0..gates_in_each_subcircuit {
             circuit_builder.build_and(&dummy_wire, &dummy_wire); // build for true
             circuit_builder.build_and(&dummy_wire, &dummy_wire); // build for false
         }
-        let true_block = BuildBlock { builds : vec![], output : vec![dummy_wire.clone()]}; // we do not need to provide the builds as they will be evaluated anyway in the naive
+        let true_block = BuildBlock { builds : vec![], output : vec![dummy_wire.clone()]}; // No need to provide the builds as they will be evaluated anyway in the naive as they are a part of the circuit. 
         let false_block = BuildBlock { builds : vec![], output : vec![dummy_wire.clone()]};
         circuit_builder.build_if(&input_a[0], &false_block, &true_block);
     }

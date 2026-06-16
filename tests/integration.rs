@@ -1,10 +1,9 @@
 use std::cmp::max;
-use std::collections::HashSet;
 use std::ops::{Shr};
 use std::sync::Arc;
 use std::time::Duration;
 use circuit_macro::{circuit, circuit_fn};
-use gc_machine::circuit_builder::{BuildBlock, BuildType, CircuitBuilder, WireBuild, get_input_wires};
+use gc_machine::circuit_builder::{CircuitBuilder};
 use gc_machine::evaluator::evaluator::Evaluator;
 use gc_machine::evaluator::free_xor_evaluator::FreeXOREvaluator;
 use gc_machine::evaluator::grr3_evaluator::GRR3Evaluator;
@@ -101,7 +100,8 @@ fn produce_build(garbler_input: usize, evaluator_input: usize) -> usize {
     garbler_input + evaluator_input
 }
 
-// Test connecting with aws ec2
+// Test connecting with aws ec2. 
+// Requires a running instance on AWS. 
 #[tokio::test]
 #[ignore]
 async fn can_eval_circuit_remote() {
@@ -443,92 +443,6 @@ fn can_add_numbers_of_unequal_bitlength() {
     let result = evaluator.evaluate_circuit(&circuit_build, &circuit, &evaluator_decrypt_values);
 
     assert_eq!(result.to_biguint().unwrap(), two_bit_number);
-}
-
-#[test]
-fn conditional_bench_test() {
-    let gates_in_each_subcircuit = 1000;
-    let input_length = 250;
-    let stacked = true;
-
-    let mut circuit_builder = CircuitBuilder::new();
-    let mut true_gates = vec![];
-    let mut false_gates = vec![];
-    let (input_a, input_b) = circuit_builder.set_input_wires(input_length as u64);
-    let dummy_wire = input_a[0].clone();
-
-    // Ensure build will have gates_in_each_subcircuit gates
-    if stacked {
-        for i in 0..gates_in_each_subcircuit {
-            let and_gate;
-            // ensure gates in each block uses the right amount of unique input wires, then if required, add redudent gates if input_length < gates_in_each_subcircuit
-            if i < input_length / 2 {
-                and_gate = circuit_builder.build_and(&input_a[i], &input_b[i]); 
-            } else {
-                and_gate = circuit_builder.build_and(&input_a[0], &input_b[0]);
-            }
-            true_gates.push(and_gate.builds[0].clone());
-            false_gates.push(and_gate.builds[0].clone());
-        }
-        let mut true_block = BuildBlock { builds : true_gates.clone(), output : vec![dummy_wire.clone()]};
-        let mut false_block = BuildBlock { builds : false_gates.clone(), output : vec![dummy_wire.clone()]};
-        circuit_builder.build_stacked_if(&input_a[0], &mut false_block, &mut true_block);
-       
-
-        assert_eq!(true_gates.len(), gates_in_each_subcircuit);
-        assert_eq!(false_gates.len(), gates_in_each_subcircuit);
-        let true_block_inputs = get_input_wires(true_block);
-        let false_block_inputs = get_input_wires(false_block);
-        let combined_input: HashSet<WireBuild> = true_block_inputs.clone().into_iter().chain(false_block_inputs.clone().into_iter()).collect();
-        assert_eq!(combined_input.len(), input_length);
-    } else {
-        for i in 0..gates_in_each_subcircuit {
-            circuit_builder.build_and(&dummy_wire, &dummy_wire); // build for true
-            circuit_builder.build_and(&dummy_wire, &dummy_wire); // build for false
-        }
-        let true_block = BuildBlock { builds : vec![], output : vec![dummy_wire.clone()]}; // we do not need to provide the builds as they will be evaluated anyway in the naive
-        let false_block = BuildBlock { builds : vec![], output : vec![dummy_wire.clone()]};
-        circuit_builder.build_if(&input_a[0], &false_block, &true_block);
-    }
-    
-    let cb = circuit_builder.get_circuit_build();
-
-    let mut garbler = Garbler::new(HalfGatesGateGen::new());
-    let evaluator = HalfGatesEvaluator::new();
-    let garbler_input = garbler.create_circuit_input(&0.to_biguint().unwrap(), cb.required_input_bits);
-    let (eval_input, eval_keys) = evaluator.create_circuit_input(&0.to_biguint().unwrap(), cb.required_input_bits);
-    let circuit = garbler.create_circuit(&cb, &garbler_input, &eval_input);
-
-    if stacked {
-        assert_eq!(cb.builds.len(), 1);
-        assert_eq!(cb.builds[0].get_type(), BuildType::Stack);
-        // Derive the material length, how many k
-        let demux_size = 8 * input_length;
-        let m_cond_size = gates_in_each_subcircuit * 2; // all AND gates
-        let mux_size = 4 * 1; // We only have a single output 
-        // count all entries
-        let mut entries = 0;
-        for material in circuit.material {
-            for _ in material {
-                entries += 1;
-            }
-        }
-        assert_eq!(entries, demux_size + m_cond_size + mux_size);
-        println!("stacked uses {} entries", entries)
-    } else {
-        let total_gates = gates_in_each_subcircuit * 2;
-        assert_eq!(cb.builds.len(), total_gates + 4); // All gates + 4 gates for the single output wire, 2 AND and 2 XOR
-        let mut entries = 0;
-        for material in circuit.material {
-            for _ in material {
-                entries += 1;
-            }
-        }
-        let mux_material = 2 * 2;
-        assert_eq!(entries, total_gates * 2 + mux_material * 1);
-        println!("naive uses {} entries", entries)
-    }
-
 }
 
 #[test]
