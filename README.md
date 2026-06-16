@@ -12,14 +12,13 @@ The following GC optimisations are implemented:
 
 * [Stacked Garbling](https://eprint.iacr.org/2020/973). 
 
-#### Overview of the architecture: 
-<img src="arch_uml.jpg" alt="The architecture for the implementation" width="70%" />
-
-## Run
+## Quick start
 The implementation is written purely in Rust meaning it requires [Rust](https://rustup.rs/).
 
 #### Starting a Peer
 `cargo run` starts a *Peer* with an already chosen input, ready to complete the GC protocol with another *Peer* over a network socket. In which way another *Peer* is found in practice and the function to compute is agreed upon, is unhandled.
+
+A great way to see how the code works is by looking in `/tests/integration.rs`.
 
 #### Chosing the function to compute
 The function to compute is constructed using the `CircuitBuilder`. It defines the topology of the circuit. Esentially which gates has to be created and which wires to connect to them. It allows to use modular functianlity blocks of logic gates instead of having to connect logic gates manually. 
@@ -62,8 +61,11 @@ The function to compute is instructed according to a `CircuitBuild` from the `Ci
 
 We adhered to a modular architecture using trait based components which can be set accordingly to which optimisation should be used. E.g. to use the Half Gates optimisation a `Peer` can be instantiated using a `Garbler<HalfGatesGateGen>` and a `HalfGatesEvaluator`.
 
+#### Overview of the architecture: 
+<img src="arch_uml.jpg" alt="The architecture for the implementation" width="70%" />
+
 #### The GC protocol for the implementation. 
 
-`CircuitBuild` can be created locally or in some other way agreed upon and exchanged.
+`CircuitBuild` can be created locally or in some other way agreed upon and exchanged. The circuit can also be precomputed before the OT phase. 
 
 <img src="protocol.jpg" alt="TThe GC protocol" width="70%" />
